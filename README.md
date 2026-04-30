@@ -40,7 +40,7 @@ Java's Spring Framework lets you annotate a method with `@Transactional` and the
 |---|---|
 | `[Transactional]` | Attribute that marks methods for transaction interception |
 | `TransactionProxy<T>` | `DispatchProxy` subclass that intercepts every method call |
-| `TransactionScopeHelper` | Non-generic owner of commit/rollback/dispose logic and async wrappers |
+| `TransactionScopeExecutor` | Non-generic owner of commit/rollback/dispose logic and async wrappers |
 | `TransactionScope` | Native .NET construct that manages the database transaction |
 | `AddTransactionalServices()` | DI extension that auto-wires proxy registration |
 
@@ -74,7 +74,7 @@ src/
       NullTransactionObserver.cs    Null Object singleton; eliminates null checks on the hot path
     Proxy/
       TransactionProxy.cs           DispatchProxy implementation — routing and caching only
-      TransactionScopeHelper.cs     All commit/rollback/dispose logic and async wrappers
+      TransactionScopeExecutor.cs   All commit/rollback/dispose logic and async wrappers
       TransactionProxyFactory.cs    Generic and non-generic factory helpers
     Extensions/
       TransactionalExtensions.cs    AddTransactionalServices(Assembly) DI extension
@@ -82,8 +82,11 @@ src/
     Entities/Order.cs
     Data/AppDbContext.cs            EF Core + SQLite
     Services/IOrderService.cs
-    Services/OrderService.cs        Two [Transactional] methods + one plain
+    Services/OrderService.cs        [Transactional] service methods
+    Services/IOrderFulfillmentService.cs
+    Services/OrderFulfillmentService.cs  cross-service RequiresNew demo
     Controllers/OrdersController.cs
+    Controllers/OrderFulfillmentController.cs
     Program.cs
 tests/
   Transactional.Tests/
@@ -178,24 +181,26 @@ cd src/Transactional.Demo.Api
 dotnet run
 ```
 
-Swagger UI: `http://localhost:5000/swagger`
+Swagger UI: `http://localhost:51938/swagger`
 
 | Endpoint | What happens |
 |---|---|
 | `POST /orders/success` | Order is inserted and committed — returns 201 |
 | `POST /orders/fail` | Order is inserted then an exception is thrown — transaction rolls back, returns 400 |
 | `GET /orders` | Returns all persisted orders |
+| `POST /fulfillment/fulfill` | Outer Required scope calls inner RequiresNew — both commit |
+| `POST /fulfillment/fulfill-then-fail` | Inner RequiresNew commits independently before outer Required fails — inner data persists |
 
 ### Verify commit and rollback manually
 
 ```bash
 # Commit — order persisted
-curl -X POST http://localhost:5000/orders/success
-curl http://localhost:5000/orders        # → [{id:1,...}]
+curl -X POST http://localhost:51938/orders/success
+curl http://localhost:51938/orders        # → [{id:1,...}]
 
 # Rollback — nothing persisted
-curl -X POST http://localhost:5000/orders/fail
-curl http://localhost:5000/orders        # → still [{id:1,...}], not 2 items
+curl -X POST http://localhost:51938/orders/fail
+curl http://localhost:51938/orders        # → still [{id:1,...}], not 2 items
 ```
 
 ---
@@ -268,7 +273,7 @@ For `Task<T>` and `ValueTask<T>`, where the result type is unknown at compile ti
 ### Performance caches
 
 `TransactionProxy<T>` maintains two static `ConcurrentDictionary` caches shared across all proxy instances of the same interface:
-- **Attribute cache** — `MethodInfo → TransactionalAttribute?` avoids repeated reflection scans. On the first call to a method, the cache checks the concrete method first; if not found, it walks `GetInterfaceMap` to locate the attribute on the matching interface method. Subsequent calls pay no reflection cost.
+- **Attribute cache** — `(MethodInfo, Type) → TransactionalAttribute?` avoids repeated reflection scans. The key includes the concrete type to support multiple implementations of the same interface. On the first call to a method the cache checks the interface `MethodInfo` first; if no attribute is found there it resolves the concrete counterpart via `GetInterfaceMap` and checks that. This means `[Transactional]` can be placed on either the interface or the concrete class — prefer the concrete class. Subsequent calls pay no reflection cost.
 - **Delegate cache** — `MethodInfo → compiled Func<...>` replaces `MethodInfo.Invoke` with a compiled Expression tree on the hot path
 
 ### Selective rollback
