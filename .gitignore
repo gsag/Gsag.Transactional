@@ -1,0 +1,27 @@
+# Claude Code
+.claude/
+
+# Build output
+bin/
+obj/
+
+# SQLite databases created by the API and tests
+*.db
+*.db-shm
+*.db-wal
+
+# .NET
+*.user
+.vs/
+.vscode/
+*.suo
+*.DotSettings.user
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+
+# OS
+.DS_Store
+Thumbs.db
