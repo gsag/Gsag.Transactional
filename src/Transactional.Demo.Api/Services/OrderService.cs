@@ -1,3 +1,4 @@
+using System.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Transactional.Core.Attributes;
 using Transactional.Demo.Api.Data;
@@ -37,6 +38,38 @@ public class OrderService : IOrderService
         // so it doesn't enlist in an ambient TransactionScope.
         await Task.CompletedTask; // preserve async signature
         throw new InvalidOperationException("Simulated failure — transaction rolled back.");
+    }
+
+    [Transactional]
+    public async Task CreateBatchWithRollbackAsync()
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            _db.Orders.Add(new Order { CreatedAt = DateTime.UtcNow });
+        }
+
+        await Task.CompletedTask; // preserve async signature
+        throw new InvalidOperationException("batch failure before save — nothing must reach the database");
+    }
+
+    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
+    public async Task<Order> CreateRequiresNewAsync()
+    {
+        var order = new Order { CreatedAt = DateTime.UtcNow };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+        return order;
+    }
+
+    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+    public async Task CreateThenCancelAsync()
+    {
+        var order = new Order { CreatedAt = DateTime.UtcNow };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+
+        // SaveChanges already committed — NoRollbackFor keeps scope.Complete() on this path.
+        throw new OperationCanceledException("cancelled after successful save");
     }
 
     public async Task<IEnumerable<Order>> GetAllAsync()
