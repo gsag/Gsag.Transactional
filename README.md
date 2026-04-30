@@ -225,29 +225,29 @@ dotnet test
 
 ### Proxy (Structural)
 
-`TransactionProxy<T>` é o padrão inteiro. O proxy e o objeto real (`_target`) compartilham a mesma interface `T`; chamadores nunca seguram uma referência à classe concreta. Métodos sem `[Transactional]` são repassados de forma transparente via delegate compilado. Métodos decorados recebem o comportamento transacional sem que o chamador saiba.
+`TransactionProxy<T>` is the pattern in its entirety. The proxy and the real object (`_target`) share the same interface `T`; callers never hold a reference to the concrete class. Methods without `[Transactional]` are forwarded transparently via a compiled delegate. Decorated methods receive transactional behaviour without the caller being aware.
 
 ### Template Method (Behavioral)
 
-Todos os caminhos de execução seguem o mesmo skeleton:
+Every execution path follows the same skeleton:
 
 ```
-OpenScope → Invoke → Commit (sucesso) | Rollback (exceção elegível) | Commit (exceção não elegível) → Dispose
+OpenScope → Invoke → Commit (success) | Rollback (eligible exception) | Commit (ineligible exception) → Dispose
 ```
 
-`WrapVoidTaskAsync` é a implementação canônica desse skeleton para caminhos async. `WrapGenericTaskAsync<TResult>` e `WrapGenericValueTaskAsync<TResult>` delegam a ele e extraem o resultado em seguida. `HandleSync` re-implementa o mesmo skeleton de forma síncrona — a duplicação estrutural é intencional: misturar código `async` com execução síncrona corrupta o `Transaction.Current` depois que o scope é descartado (confirmado pelo teste `RequiresNew_InsideAmbientScope_SuspendsAndRestoresOuterTransaction`).
+`WrapVoidTaskAsync` is the canonical implementation of this skeleton for async paths. `WrapGenericTaskAsync<TResult>` and `WrapGenericValueTaskAsync<TResult>` follow the same structure and extract the result at the end. `HandleSync` reimplements the skeleton synchronously — the structural duplication is intentional: mixing `async` code with synchronous execution corrupts `Transaction.Current` after the scope is disposed (confirmed by the `RequiresNew_InsideAmbientScope_SuspendsAndRestoresOuterTransaction` test).
 
 ### Observer (Behavioral)
 
-`ITransactionLifecycleObserver` desacopla a notificação de eventos (`OnBegin`, `OnCommit`, `OnRollback`) da lógica transacional. `LoggingTransactionObserver` é o observer concreto padrão. Implementações customizadas podem alimentar sistemas de métricas, rastreamento distribuído ou asserções de teste sem tocar no código do serviço.
+`ITransactionLifecycleObserver` decouples event notification (`OnBegin`, `OnCommit`, `OnRollback`) from transaction logic. `LoggingTransactionObserver` is the default concrete observer. Custom implementations can feed metrics systems, distributed tracing, or test assertions without touching service code.
 
 ### Strategy (Behavioral)
 
-`ShouldRollback` encapsula as regras de decisão de rollback parametrizadas pelo `TransactionalAttribute`. Cada método pode carregar uma estratégia diferente via seu atributo. As três estratégias — `NoRollbackFor` vence, `RollbackFor` restringe, padrão faz rollback em qualquer exceção — são estáveis e não justificam extração para uma hierarquia de interfaces.
+`ShouldRollback` encapsulates the rollback decision rules parameterised by `TransactionalAttribute`. Each method can carry a different strategy via its attribute. The three strategies — `NoRollbackFor` wins, `RollbackFor` restricts, default rolls back on any exception — are stable and do not warrant extraction into an interface hierarchy.
 
 ### Null Object (Behavioral)
 
-`NullTransactionObserver` é um singleton `internal` com implementações no-op dos três métodos do observer. `TransactionProxy<T>` usa `observer ?? NullTransactionObserver.Instance` na inicialização, tornando o campo `_observer` não-nullable e eliminando null-checks no hot path — o mesmo padrão usado pelo BCL em `Stream.Null` e `TextWriter.Null`.
+`NullTransactionObserver` is an `internal` singleton with no-op implementations of all three observer methods. `TransactionProxy<T>` uses `observer ?? NullTransactionObserver.Instance` at initialisation, making the `_observer` field non-nullable and eliminating null-checks on the hot path — the same pattern used by the BCL in `Stream.Null` and `TextWriter.Null`.
 
 ---
 
