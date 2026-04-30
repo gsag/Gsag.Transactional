@@ -21,18 +21,18 @@ internal sealed record TransactionContext(
 /// Lives outside TransactionProxy&lt;T&gt; so the MethodInfo fields are computed once
 /// per application, not once per proxied interface type.
 /// </summary>
-internal static class TransactionScopeHelper
+internal static class TransactionScopeExecutor
 {
     // MethodInfo looked up once on a non-generic type — no per-T duplication.
     internal static readonly MethodInfo WrapGenericTaskMethod =
-        typeof(TransactionScopeHelper).GetMethod(nameof(WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+        typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException(
-            $"TransactionScopeHelper: required helper '{nameof(WrapGenericTaskAsync)}' not found.");
+            $"TransactionScopeExecutor: required helper '{nameof(WrapGenericTaskAsync)}' not found.");
 
     internal static readonly MethodInfo WrapGenericValueTaskMethod =
-        typeof(TransactionScopeHelper).GetMethod(nameof(WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+        typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException(
-            $"TransactionScopeHelper: required helper '{nameof(WrapGenericValueTaskAsync)}' not found.");
+            $"TransactionScopeExecutor: required helper '{nameof(WrapGenericValueTaskAsync)}' not found.");
 
     // -------------------------------------------------------------------------
     // Scope factory

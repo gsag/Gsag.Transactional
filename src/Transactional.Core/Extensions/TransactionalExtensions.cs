@@ -28,7 +28,9 @@ public static class TransactionalExtensions
                 .FirstOrDefault(i => i.Name == $"I{serviceType.Name}" && i.Assembly == assembly);
 
             if (interfaceType is null)
+            {
                 continue;
+            }
 
             // Register the concrete type so the DI container owns its lifetime and can
             // resolve any new constructor dependencies automatically.

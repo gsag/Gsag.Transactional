@@ -17,7 +17,9 @@ public class TransactionProxy<T> : DispatchProxy where T : class
     private ITransactionLifecycleObserver _observer = NullTransactionObserver.Instance;
 
     // Per-T caches — static fields on a generic type are intentionally per-T instantiation.
-    private static readonly ConcurrentDictionary<MethodInfo, TransactionalAttribute?> _attributeCache = new();
+    // Key includes the concrete type so that different implementations of the same interface
+    // each get their own attribute entries.
+    private static readonly ConcurrentDictionary<(MethodInfo method, Type concrete), TransactionalAttribute?> _attributeCache = new();
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
     public static T Wrap(T target, ITransactionLifecycleObserver? observer = null)
@@ -42,36 +44,33 @@ public class TransactionProxy<T> : DispatchProxy where T : class
         ArgumentNullException.ThrowIfNull(targetMethod);
         args ??= [];
 
-        var attr = _attributeCache.GetOrAdd(targetMethod, static m =>
+        var attr = _attributeCache.GetOrAdd((targetMethod, _target.GetType()), static key =>
         {
+            var (m, concreteType) = key;
+
+            // 1. Attribute on the interface method — checked first so interface-level
+            //    declarations take precedence (e.g. library contracts, test doubles).
             var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: true);
             if (a is not null)
             {
                 return a;
             }
 
-            // GetCustomAttribute does not cross interface boundaries.
-            // Walk the interface map to find the attribute on the interface method.
-            var declaringType = m.DeclaringType;
-            if (declaringType is null)
+            // 2. Attribute on the concrete implementation method — DispatchProxy.Invoke
+            //    always passes the interface MethodInfo, so we must resolve the concrete
+            //    counterpart via the interface map.
+            if (m.DeclaringType is null)
             {
                 return null;
             }
 
-            foreach (var iface in declaringType.GetInterfaces())
+            var map = concreteType.GetInterfaceMap(m.DeclaringType);
+            for (var i = 0; i < map.InterfaceMethods.Length; i++)
             {
-                var map = declaringType.GetInterfaceMap(iface);
-                for (var i = 0; i < map.TargetMethods.Length; i++)
+                if (map.InterfaceMethods[i] == m)
                 {
-                    if (map.TargetMethods[i] == m)
-                    {
-                        var ifaceAttr = map.InterfaceMethods[i]
-                            .GetCustomAttribute<TransactionalAttribute>(inherit: true);
-                        if (ifaceAttr is not null)
-                        {
-                            return ifaceAttr;
-                        }
-                    }
+                    return map.TargetMethods[i]
+                        .GetCustomAttribute<TransactionalAttribute>(inherit: true);
                 }
             }
             return null;
@@ -108,7 +107,7 @@ public class TransactionProxy<T> : DispatchProxy where T : class
 
     private object? HandleSync(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
-        var ctx = TransactionScopeHelper.OpenScope(method, attr, _observer);
+        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         try
         {
             object? result;
@@ -116,17 +115,17 @@ public class TransactionProxy<T> : DispatchProxy where T : class
             {
                 result = InvokeTarget(method, args);
             }
-            catch (Exception ex) when (TransactionScopeHelper.ShouldRollback(ctx.Attr, ex))
+            catch (Exception ex) when (TransactionScopeExecutor.ShouldRollback(ctx.Attr, ex))
             {
-                TransactionScopeHelper.Rollback(ctx, ex);
+                TransactionScopeExecutor.Rollback(ctx, ex);
                 throw;
             }
             catch (Exception)
             {
-                TransactionScopeHelper.Commit(ctx); // NoRollbackFor path — commit despite exception
+                TransactionScopeExecutor.Commit(ctx); // NoRollbackFor path — commit despite exception
                 throw;
             }
-            TransactionScopeHelper.Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+            TransactionScopeExecutor.Commit(ctx); // success path — outside catch scope, no risk of double Complete()
             return result;
         }
         finally
@@ -145,21 +144,21 @@ public class TransactionProxy<T> : DispatchProxy where T : class
 
     private object HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
-        var ctx = TransactionScopeHelper.OpenScope(method, attr, _observer);
+        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         try
         {
             var task = (Task)InvokeTarget(method, args)!;
             if (returnType.IsGenericType)
             {
                 var resultType = returnType.GetGenericArguments()[0];
-                return TransactionScopeHelper.WrapGenericTaskMethod.MakeGenericMethod(resultType).Invoke(null, [task, ctx])!;
+                return TransactionScopeExecutor.WrapGenericTaskMethod.MakeGenericMethod(resultType).Invoke(null, [task, ctx])!;
             }
-            return TransactionScopeHelper.WrapVoidTaskAsync(task, ctx);
+            return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
         }
         catch (Exception ex)
         {
             // Method threw synchronously before returning a Task — roll back and release scope.
-            TransactionScopeHelper.Rollback(ctx, ex);
+            TransactionScopeExecutor.Rollback(ctx, ex);
             ctx.Scope.Dispose();
             throw;
         }
@@ -167,15 +166,15 @@ public class TransactionProxy<T> : DispatchProxy where T : class
 
     private object HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
-        var ctx = TransactionScopeHelper.OpenScope(method, attr, _observer);
+        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         try
         {
             var vt = (ValueTask)InvokeTarget(method, args)!;
-            return new ValueTask(TransactionScopeHelper.WrapVoidValueTaskAsync(vt, ctx));
+            return new ValueTask(TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx));
         }
         catch (Exception ex)
         {
-            TransactionScopeHelper.Rollback(ctx, ex);
+            TransactionScopeExecutor.Rollback(ctx, ex);
             ctx.Scope.Dispose();
             throw;
         }
@@ -183,17 +182,17 @@ public class TransactionProxy<T> : DispatchProxy where T : class
 
     private object HandleValueTaskGeneric(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
-        var ctx = TransactionScopeHelper.OpenScope(method, attr, _observer);
+        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         try
         {
             var vt = InvokeTarget(method, args)!;
             var resultType = returnType.GetGenericArguments()[0];
-            return TransactionScopeHelper.WrapGenericValueTaskMethod.MakeGenericMethod(resultType).Invoke(null, [vt, ctx])!;
+            return TransactionScopeExecutor.WrapGenericValueTaskMethod.MakeGenericMethod(resultType).Invoke(null, [vt, ctx])!;
         }
         catch (Exception ex)
         {
             // Method threw synchronously before returning a ValueTask — roll back and release scope.
-            TransactionScopeHelper.Rollback(ctx, ex);
+            TransactionScopeExecutor.Rollback(ctx, ex);
             ctx.Scope.Dispose();
             throw;
         }
