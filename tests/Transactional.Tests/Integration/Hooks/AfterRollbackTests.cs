@@ -1,0 +1,116 @@
+using Transactional.Core.Attributes;
+using Transactional.Core.Hooks;
+using Transactional.Core.Proxy;
+using Xunit;
+
+namespace Transactional.Tests.Integration.Hooks;
+
+public interface IAfterRollbackService
+{
+    Task CommitAsync();
+    Task RollbackAsync();
+    Task RollbackWithFailingHookAsync();
+    ValueTask RollbackValueTaskAsync();
+}
+
+public class AfterRollbackService : IAfterRollbackService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Fired { get; } = [];
+    public AfterRollbackService(ITransactionHooks hooks) => _hooks = hooks;
+
+    [Transactional]
+    public async Task CommitAsync()
+    {
+        await Task.CompletedTask;
+        _hooks.AfterCommit(() => Fired.Add("after-commit"));
+        _hooks.AfterRollback(() => Fired.Add("after-rollback"));
+    }
+
+    [Transactional]
+    public async Task RollbackAsync()
+    {
+        _hooks.AfterCommit(() => Fired.Add("after-commit"));
+        _hooks.AfterRollback(() => Fired.Add("after-rollback"));
+        await Task.CompletedTask;
+        throw new InvalidOperationException("forced rollback");
+    }
+
+    [Transactional]
+    public async Task RollbackWithFailingHookAsync()
+    {
+        _hooks.AfterRollback((Action)(() => throw new InvalidOperationException("hook-1 failed")));
+        _hooks.AfterRollback(() => Fired.Add("hook-2"));
+        _hooks.AfterRollback(() => Fired.Add("hook-3"));
+        await Task.CompletedTask;
+        throw new InvalidOperationException("forced rollback");
+    }
+
+    [Transactional]
+    public async ValueTask RollbackValueTaskAsync()
+    {
+        _hooks.AfterRollback(() => Fired.Add("after-rollback-valuetask"));
+        await Task.CompletedTask;
+        throw new InvalidOperationException("forced rollback");
+    }
+}
+
+public class AfterRollbackTests
+{
+    private static (IAfterRollbackService proxy, AfterRollbackService svc) Build()
+    {
+        var hooks = new TransactionHooks();
+        var svc   = new AfterRollbackService(hooks);
+        var proxy = TransactionProxyFactory.Create<IAfterRollbackService>(svc, observer: null);
+        return (proxy, svc);
+    }
+
+    [Fact]
+    public async Task AfterRollback_OnCommit_DoesNotFire()
+    {
+        var (proxy, svc) = Build();
+
+        await proxy.CommitAsync();
+
+        Assert.DoesNotContain("after-rollback", svc.Fired);
+    }
+
+    [Fact]
+    public async Task AfterRollback_OnRollback_Fires()
+    {
+        var (proxy, svc) = Build();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.RollbackAsync());
+
+        Assert.Contains("after-rollback", svc.Fired);
+    }
+
+    /// <summary>
+    /// TriggerAsync must run all AfterRollback hooks even when the first one throws.
+    /// Hook failures are suppressed on the rollback path — the original rollback exception propagates.
+    /// </summary>
+    [Fact]
+    public async Task AfterRollback_WhenFirstHookFails_RemainingHooksStillFire()
+    {
+        var (proxy, svc) = Build();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.RollbackWithFailingHookAsync());
+
+        Assert.Equal("forced rollback", ex.Message);
+        Assert.Equal(["hook-2", "hook-3"], svc.Fired);
+    }
+
+    /// <summary>
+    /// AfterRollback hooks registered in a ValueTask-returning [Transactional] method must fire
+    /// when the method throws — verifying the ValueTask async wrapper uses the same hook path.
+    /// </summary>
+    [Fact]
+    public async Task AfterRollback_ValueTaskVoid_OnRollback_Fires()
+    {
+        var (proxy, svc) = Build();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.RollbackValueTaskAsync().AsTask());
+
+        Assert.Contains("after-rollback-valuetask", svc.Fired);
+    }
+}
