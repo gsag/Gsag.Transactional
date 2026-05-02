@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Transactional.Core.Attributes;
+using Transactional.Core.Hooks;
 using Transactional.Core.Observability;
 
 namespace Transactional.Core.Proxy;
@@ -108,6 +110,7 @@ public class TransactionProxy<T> : DispatchProxy where T : class
     private object? HandleSync(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
+        var outcome = TransactionOutcome.RolledBack;
         try
         {
             object? result;
@@ -123,14 +126,22 @@ public class TransactionProxy<T> : DispatchProxy where T : class
             catch (Exception)
             {
                 TransactionScopeExecutor.Commit(ctx); // NoRollbackFor path — commit despite exception
+                outcome = TransactionOutcome.CommittedWithException;
                 throw;
             }
             TransactionScopeExecutor.Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+            outcome = TransactionOutcome.Committed;
             return result;
         }
         finally
         {
-            ctx.Scope.Dispose();
+            var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
+            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+            TransactionHooks.RunSyncHooks(ctx.Hooks, effectiveOutcome);
+            if (disposeEx is not null)
+            {
+                ExceptionDispatchInfo.Capture(disposeEx).Throw();
+            }
         }
     }
 
@@ -140,6 +151,12 @@ public class TransactionProxy<T> : DispatchProxy where T : class
     // IMPORTANT: TransactionScope is created BEFORE InvokeTarget so it is ambient
     // when EF Core opens its connection and enlists. The scope is then owned by
     // the async wrapper, which calls Complete() or Dispose() after the await.
+    //
+    // ClearScope is called synchronously after InvokeTarget returns so that the caller's
+    // ExecutionContext sees the previous AsyncLocal value when it resumes after awaiting the
+    // returned task. AsyncLocal changes inside async methods propagate downward (child copies)
+    // but not upward — calling ClearScope from inside the wrapper's finally would restore the
+    // value only in the wrapper's own context, not in the outer async state machine's context.
     // -------------------------------------------------------------------------
 
     private object HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
@@ -148,18 +165,24 @@ public class TransactionProxy<T> : DispatchProxy where T : class
         try
         {
             var task = (Task)InvokeTarget(method, args)!;
+            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
             if (returnType.IsGenericType)
             {
                 var resultType = returnType.GetGenericArguments()[0];
-                return TransactionScopeExecutor.WrapGenericTaskMethod.MakeGenericMethod(resultType).Invoke(null, [task, ctx])!;
+                return TransactionScopeExecutor.WrapGenericTaskAsyncMethod.MakeGenericMethod(resultType).Invoke(null, [task, ctx])!;
             }
             return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
         }
         catch (Exception ex)
         {
-            // Method threw synchronously before returning a Task — roll back and release scope.
-            TransactionScopeExecutor.Rollback(ctx, ex);
-            ctx.Scope.Dispose();
+            try
+            {
+                TransactionScopeExecutor.Rollback(ctx, ex);
+            }
+            finally
+            {
+                TransactionScopeExecutor.DisposeScope(ctx);
+            }
             throw;
         }
     }
@@ -170,12 +193,19 @@ public class TransactionProxy<T> : DispatchProxy where T : class
         try
         {
             var vt = (ValueTask)InvokeTarget(method, args)!;
-            return new ValueTask(TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx));
+            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
+            return TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx);
         }
         catch (Exception ex)
         {
-            TransactionScopeExecutor.Rollback(ctx, ex);
-            ctx.Scope.Dispose();
+            try
+            {
+                TransactionScopeExecutor.Rollback(ctx, ex);
+            }
+            finally
+            {
+                TransactionScopeExecutor.DisposeScope(ctx);
+            }
             throw;
         }
     }
@@ -186,14 +216,20 @@ public class TransactionProxy<T> : DispatchProxy where T : class
         try
         {
             var vt = InvokeTarget(method, args)!;
+            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
             var resultType = returnType.GetGenericArguments()[0];
-            return TransactionScopeExecutor.WrapGenericValueTaskMethod.MakeGenericMethod(resultType).Invoke(null, [vt, ctx])!;
+            return TransactionScopeExecutor.WrapGenericValueTaskAsyncMethod.MakeGenericMethod(resultType).Invoke(null, [vt, ctx])!;
         }
         catch (Exception ex)
         {
-            // Method threw synchronously before returning a ValueTask — roll back and release scope.
-            TransactionScopeExecutor.Rollback(ctx, ex);
-            ctx.Scope.Dispose();
+            try
+            {
+                TransactionScopeExecutor.Rollback(ctx, ex);
+            }
+            finally
+            {
+                TransactionScopeExecutor.DisposeScope(ctx);
+            }
             throw;
         }
     }

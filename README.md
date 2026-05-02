@@ -218,6 +218,78 @@ dotnet test
 | `TwoSuccessfulCalls_BothOrdersPersisted` | Each call gets its own transaction |
 | `SuccessThenRollback_OnlyFirstOrderPersisted` | Rollback is isolated — prior commits survive |
 | `Method_WithoutAttribute_PassesThrough` | Proxy is transparent for non-decorated methods |
+| `AfterCommit_OnSuccess_AsyncHookFires` | Async hook fires after commit |
+| `AfterCommit_OnRollback_HookNotFired` | Hook is discarded on rollback |
+| `AfterCommit_SyncHook_FiresInAsyncMethod` | Sync `Action` hook works in async method |
+| `AfterCommit_WhenOneHookFails_RemainingHooksStillFire` | All hooks run even if one throws — `AggregateException` |
+
+---
+
+## Post-Commit Hooks
+
+`ITransactionHooks` lets you schedule callbacks that run **after the database confirms the commit**. Hooks are silently discarded on rollback.
+
+Inject `ITransactionHooks` into any service that needs post-commit side effects:
+
+```csharp
+public class OrderService : IOrderService
+{
+    private readonly AppDbContext _db;
+    private readonly ITransactionHooks _hooks;
+
+    public OrderService(AppDbContext db, ITransactionHooks hooks)
+    {
+        _db    = db;
+        _hooks = hooks;
+    }
+
+    [Transactional]
+    public async Task<Order> CreateAsync()
+    {
+        var order = new Order { CreatedAt = DateTime.UtcNow };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+
+        // Fires only if the transaction commits — never on rollback.
+        _hooks.AfterCommit(async () => await _bus.PublishAsync(new OrderCreated(order.Id)));
+
+        return order;
+    }
+}
+```
+
+### Execution order
+
+All synchronous (`Action`) hooks run first, then all asynchronous (`Func<Task>`) hooks — in the order each group was registered. If strict cross-type ordering is needed, combine both into a single `Func<Task>`.
+
+### Error isolation
+
+Every hook executes even if a previous one throws. Exceptions are collected and rethrown as a single `AggregateException` after all hooks have run, so no side effect is silently suppressed.
+
+### Sync `[Transactional]` methods
+
+`Action` hooks work on synchronous methods. `Func<Task>` hooks throw `NotSupportedException` because they cannot be awaited on a synchronous call path — change the method return type to `Task` or `Task<T>`.
+
+### DI registration
+
+`AddTransactionalServices()` registers `ITransactionHooks` automatically as a singleton. No manual wiring is needed.
+
+---
+
+## Database Compatibility
+
+The proxy relies on `System.Transactions.TransactionScope` to create an ambient transaction. Whether that transaction is enforced at the database level depends on the EF Core provider.
+
+| Database | EF Core provider | `System.Transactions` support | Works with the proxy? |
+|---|---|---|---|
+| SQL Server | `SqlServer` | Full enlistment | Yes |
+| PostgreSQL | `Npgsql` | Full enlistment | Yes |
+| MySQL | `Pomelo.EntityFrameworkCore.MySql` | Local transactions only | Yes (local); distributed (MSDTC) not supported by MySQL |
+| SQLite | `Sqlite` | None (`SupportsAmbientTransactions = false`) | Proxy lifecycle is correct; the database ignores the scope |
+| MongoDB | .NET Driver | None — uses `IClientSessionHandle` | No — requires a different strategy |
+| CosmosDB | `EF Cosmos` | None — ACID per-item only | No — no multi-item transaction support |
+
+**MongoDB and CosmosDB** do not enlist in `System.Transactions` at all. Wrapping their operations in a `TransactionScope` has no effect. A proper integration would require a strategy abstraction (e.g. `ITransactionStrategy`) that delegates to `IClientSessionHandle` for MongoDB or relies on optimistic concurrency primitives for CosmosDB.
 
 ---
 

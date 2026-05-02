@@ -10,7 +10,7 @@ namespace Transactional.Core.Observability;
 /// </summary>
 public interface ITransactionLifecycleObserver
 {
-    /// <summary>Called immediately before the TransactionScope is opened.</summary>
+    /// <summary>Called immediately after the TransactionScope is opened.</summary>
     void OnBegin(MethodInfo method, TransactionalAttribute attr);
 
     /// <summary>Called when scope.Complete() is invoked (transaction will commit).</summary>
