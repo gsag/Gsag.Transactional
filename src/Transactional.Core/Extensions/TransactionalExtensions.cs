@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Transactional.Core.Attributes;
+using Transactional.Core.Hooks;
 using Transactional.Core.Observability;
 using Transactional.Core.Proxy;
 
@@ -19,6 +20,9 @@ public static class TransactionalExtensions
     public static IServiceCollection AddTransactionalServices(
         this IServiceCollection services, Assembly assembly)
     {
+        // Singleton: TransactionHooks carries no per-instance state — _current is static AsyncLocal.
+        services.TryAddSingleton<ITransactionHooks, TransactionHooks>();
+
         var candidates = assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && HasTransactionalMethod(t));
 
@@ -65,8 +69,8 @@ public static class TransactionalExtensions
     // which are Private from the declaring class's perspective.
     private static bool HasTransactionalMethod(Type type) =>
         type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: false))
+            .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: true))
         || type.GetInterfaces()
             .SelectMany(i => i.GetMethods())
-            .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: false));
+            .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: true));
 }

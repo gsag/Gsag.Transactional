@@ -40,21 +40,23 @@ Java's Spring Framework lets you annotate a method with `@Transactional` and the
 |---|---|
 | `[Transactional]` | Attribute that marks methods for transaction interception |
 | `TransactionProxy<T>` | `DispatchProxy` subclass that intercepts every method call |
-| `TransactionScopeExecutor` | Non-generic owner of commit/rollback/dispose logic and async wrappers |
+| `TransactionScopeExecutor` | Owns all commit/rollback/dispose logic and async wrappers |
 | `TransactionScope` | Native .NET construct that manages the database transaction |
+| `ITransactionHooks` | Per-scope callback registry — schedule side effects after commit, rollback, or completion |
+| `ITransactionLifecycleObserver` | Observer interface for begin/commit/rollback events |
 | `AddTransactionalServices()` | DI extension that auto-wires proxy registration |
 
 ### Why `TransactionScope` must be created **before** the method is called
 
 ```csharp
 // WRONG — EF Core opens the connection before the scope is ambient
-var task = InvokeTarget(method, args);   // DB connection opens here (no transaction)
-using var scope = CreateScope(attr);     // Too late
+var task = service.MethodAsync();            // DB connection opens here (no transaction)
+using var scope = new TransactionScope();    // Too late — connection already enrolled outside scope
 
 // CORRECT — scope is ambient when EF Core opens its connection and enlists
-var scope = CreateScope(attr);           // Ambient now
-var task = (Task)InvokeTarget(method, args);  // Connection enlists in scope
-return WrapAsync(task, scope);           // Wrapper calls Complete() or Dispose()
+using var scope = new TransactionScope();    // Ambient now
+var task = service.MethodAsync();            // Connection enlists in scope
+await task;                                  // Scope committed or rolled back after method completes
 ```
 
 `TransactionScopeAsyncFlowOption.Enabled` propagates the ambient transaction through `ExecutionContext` across every `await` continuation inside the method.
@@ -68,14 +70,17 @@ src/
   Transactional.Core/               Pure library, no framework dependencies
     Attributes/
       TransactionalAttribute.cs     IsolationLevel, Propagation, RollbackFor, NoRollbackFor, TimeoutSeconds
+    Hooks/
+      ITransactionHooks.cs          Public interface — AfterCommit, AfterRollback, AfterCompletion
+      TransactionHooks.cs           AsyncLocal-backed implementation; manages per-scope HookCollection
     Observability/
       ITransactionLifecycleObserver.cs
       LoggingTransactionObserver.cs
-      NullTransactionObserver.cs    Null Object singleton; eliminates null checks on the hot path
+      NullTransactionObserver.cs    Null Object singleton
     Proxy/
-      TransactionProxy.cs           DispatchProxy implementation — routing and caching only
+      TransactionProxy.cs           DispatchProxy subclass — routing and return-type dispatch
       TransactionScopeExecutor.cs   All commit/rollback/dispose logic and async wrappers
-      TransactionProxyFactory.cs    Generic and non-generic factory helpers
+      TransactionProxyFactory.cs
     Extensions/
       TransactionalExtensions.cs    AddTransactionalServices(Assembly) DI extension
   Transactional.Demo.Api/           ASP.NET Core Web API
@@ -90,8 +95,20 @@ src/
     Program.cs
 tests/
   Transactional.Tests/
-    Unit/TransactionProxyTests.cs        Proxy mechanics, no DB
-    Integration/OrderServiceIntegrationTests.cs  Real SQLite commit/rollback
+    Unit/
+      ProxyMechanicsTests.cs     Proxy routing, attribute lookup, return-type dispatch
+      PropagationTests.cs        Required / RequiresNew / Suppress scope behaviour
+      RollbackRulesTests.cs      ShouldRollback precedence — NoRollbackFor, RollbackFor, default
+      ObserverTests.cs           ITransactionLifecycleObserver event sequencing
+    Integration/
+      OrderServiceIntegrationTests.cs    Real SQLite commit/rollback
+      Hooks/
+        AfterCommitTests.cs              AfterCommit sync/async hooks, AggregateException guarantee
+        AfterRollbackTests.cs            AfterRollback hooks, ValueTask path, error isolation
+        AfterCompletionTests.cs          AfterCompletion fires on both commit and rollback paths
+        HookScopeTests.cs                Nested scope isolation (RequiresNew, Suppress, Required joining)
+        HookErrorTests.cs                Error-path coverage — NoRollbackFor, observer throws, Dispose throws
+        SyncPathHookTests.cs             Sync [Transactional] methods — Action hooks, async-hook guard
 ```
 
 ---
@@ -211,13 +228,125 @@ curl http://localhost:51938/orders        # → still [{id:1,...}], not 2 items
 dotnet test
 ```
 
-| Test | What it proves |
+| File | What it covers |
 |---|---|
-| `CreateSuccess_CommitsOrder_*` | `[Transactional]` method commits on success |
-| `CreateWithRollback_RollsBack_*` | Exception causes rollback — nothing in DB |
-| `TwoSuccessfulCalls_BothOrdersPersisted` | Each call gets its own transaction |
-| `SuccessThenRollback_OnlyFirstOrderPersisted` | Rollback is isolated — prior commits survive |
-| `Method_WithoutAttribute_PassesThrough` | Proxy is transparent for non-decorated methods |
+| `ProxyMechanicsTests.cs` | Proxy routing, attribute lookup on interface and concrete class, all return types (`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, sync), factory validation |
+| `PropagationTests.cs` | `Required`, `RequiresNew`, and `Suppress` scope behaviour; ambient transaction isolation |
+| `RollbackRulesTests.cs` | `RollbackFor`, `NoRollbackFor`, default-all precedence rules |
+| `ObserverTests.cs` | `ITransactionLifecycleObserver` event sequencing — begin, commit, rollback |
+| `OrderServiceIntegrationTests.cs` | End-to-end commit and rollback against a real SQLite database; `RequiresNew` cross-service isolation; `NoRollbackFor` with real persistence |
+| `AfterCommitTests.cs` | `AfterCommit` fires after commit and not on rollback; sync and async hooks; `AggregateException` when a hook throws; no-op outside a scope |
+| `AfterRollbackTests.cs` | `AfterRollback` fires after rollback and not on commit; `ValueTask` path; all hooks run even if one throws |
+| `AfterCompletionTests.cs` | `AfterCompletion` fires on both commit and rollback; hook ordering relative to `AfterCommit`; `AggregateException` on failure |
+| `HookScopeTests.cs` | Hook isolation across `RequiresNew`, `Suppress`, and joining `Required` scopes; nested scope stack correctness |
+| `HookErrorTests.cs` | `NoRollbackFor` path does not fire `AfterRollback`; hook failure does not mask original exception; hooks still fire when `Scope.Dispose()` throws |
+| `SyncPathHookTests.cs` | Sync `[Transactional]` methods: `Action` hooks work, `Func<Task>` hooks throw `NotSupportedException` before any hook executes |
+
+---
+
+## Transaction Lifecycle Hooks
+
+`ITransactionHooks` lets you register callbacks that fire at the end of a transaction scope. Three events are available:
+
+| Method | Fires when |
+|---|---|
+| `AfterCommit` | Transaction committed successfully |
+| `AfterRollback` | Transaction rolled back (exception or explicit `Rollback()`) |
+| `AfterCompletion` | Transaction completed in any way — commit **or** rollback |
+
+Each method accepts either a synchronous `Action` or an asynchronous `Func<Task>`:
+
+```csharp
+_hooks.AfterCommit(() => cache.Invalidate(orderId));          // sync
+_hooks.AfterCommit(async () => await bus.PublishAsync(...));  // async
+
+_hooks.AfterRollback(() => logger.Warn("order rolled back"));
+
+_hooks.AfterCompletion(() => metrics.RecordTransactionEnd());
+```
+
+Inject `ITransactionHooks` into any service that needs lifecycle side effects:
+
+```csharp
+public class OrderService : IOrderService
+{
+    private readonly AppDbContext _db;
+    private readonly ITransactionHooks _hooks;
+
+    public OrderService(AppDbContext db, ITransactionHooks hooks)
+    {
+        _db    = db;
+        _hooks = hooks;
+    }
+
+    [Transactional]
+    public async Task<Order> CreateAsync()
+    {
+        var order = new Order { CreatedAt = DateTime.UtcNow };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+
+        // Fires only after the transaction commits — never on rollback.
+        _hooks.AfterCommit(async () => await _bus.PublishAsync(new OrderCreated(order.Id)));
+
+        // Fires regardless of outcome — useful for releasing resources.
+        _hooks.AfterCompletion(() => _span.Finish());
+
+        return order;
+    }
+}
+```
+
+### Hook semantics by outcome
+
+| Outcome | `AfterCommit` | `AfterRollback` | `AfterCompletion` |
+|---|---|---|---|
+| Committed | fires | — | fires |
+| Rolled back | — | fires | fires |
+| Committed (NoRollbackFor path) | fires | — | fires |
+
+### Execution order
+
+All synchronous (`Action`) hooks run first, then all asynchronous (`Func<Task>`) hooks — in the order each group was registered. If strict cross-type ordering is needed, combine both into a single `Func<Task>`.
+
+### Error isolation
+
+Every hook executes even if a previous one throws. Exceptions are collected and rethrown as a single `AggregateException` after all hooks have run, so no side effect is silently suppressed.
+
+On rollback and `NoRollbackFor` paths — where an exception is already propagating — hook failures are suppressed so they do not mask the original exception.
+
+### Nested scopes
+
+Hook registration follows the scope's `Propagation` setting:
+
+- **Required (joining)** — hooks flow into the ambient (outer) collection and fire when the outer scope commits or rolls back.
+- **RequiresNew** — hooks are scoped to the new independent transaction and fire when it completes.
+- **Suppress** — hook registrations inside the suppressed region are no-ops. The outer scope's hooks are restored automatically when the suppressed scope exits.
+
+### Sync `[Transactional]` methods
+
+`Action` hooks work on synchronous methods. `Func<Task>` hooks throw `NotSupportedException` because they cannot be awaited on a synchronous call path — the guard fires before any hook executes, so no partial side effects occur. Change the method return type to `Task` or `Task<T>` to use async hooks.
+
+### DI registration
+
+`AddTransactionalServices()` registers `ITransactionHooks` automatically as a singleton. No manual wiring is needed.
+
+---
+
+## Database Compatibility
+
+The proxy relies on `System.Transactions.TransactionScope` to create an ambient transaction. Whether that transaction is enforced at the database level depends on the EF Core provider.
+
+| Database | EF Core provider | `System.Transactions` support | Works with the proxy? |
+|---|---|---|---|
+| SQL Server | `SqlServer` | Full enlistment | Yes |
+| PostgreSQL | `Npgsql` | Full enlistment | Yes |
+| MySQL | `Pomelo.EntityFrameworkCore.MySql` | Local transactions only | Yes (local); distributed (MSDTC) not supported by MySQL |
+| SQLite | `Sqlite` | None (`SupportsAmbientTransactions = false`) | Proxy lifecycle is correct; the database ignores the scope |
+| MongoDB | .NET Driver | None — uses `IClientSessionHandle` | No — requires a different strategy |
+| CosmosDB | `EF Cosmos` | None — ACID per-item only | No — no multi-item transaction support |
+
+**MongoDB and CosmosDB** do not enlist in `System.Transactions` at all. Wrapping their operations in a `TransactionScope` has no effect. A proper integration would require a strategy abstraction (e.g. `ITransactionStrategy`) that delegates to `IClientSessionHandle` for MongoDB or relies on optimistic concurrency primitives for CosmosDB.
 
 ---
 
@@ -225,7 +354,7 @@ dotnet test
 
 ### Proxy (Structural)
 
-`TransactionProxy<T>` is the pattern in its entirety. The proxy and the real object (`_target`) share the same interface `T`; callers never hold a reference to the concrete class. Methods without `[Transactional]` are forwarded transparently via a compiled delegate. Decorated methods receive transactional behaviour without the caller being aware.
+`TransactionProxy<T>` is the pattern in its entirety. The proxy and the real object share the same interface `T`; callers never hold a reference to the concrete class. Methods without `[Transactional]` are forwarded transparently. Decorated methods receive transactional behaviour without the caller being aware.
 
 ### Template Method (Behavioral)
 
@@ -235,7 +364,7 @@ Every execution path follows the same skeleton:
 OpenScope → Invoke → Commit (success) | Rollback (eligible exception) | Commit (ineligible exception) → Dispose
 ```
 
-`WrapVoidTaskAsync` is the canonical implementation of this skeleton for async paths. `WrapGenericTaskAsync<TResult>` and `WrapGenericValueTaskAsync<TResult>` follow the same structure and extract the result at the end. `HandleSync` reimplements the skeleton synchronously — the structural duplication is intentional: mixing `async` code with synchronous execution corrupts `Transaction.Current` after the scope is disposed (confirmed by the `RequiresNew_InsideAmbientScope_SuspendsAndRestoresOuterTransaction` test).
+`WrapVoidTaskAsync` is the canonical async implementation; `WrapGenericTaskAsync<TResult>`, `WrapVoidValueTaskAsync`, and `WrapGenericValueTaskAsync<TResult>` follow the same structure. `HandleSync` reimplements it synchronously — mixing `async` code with synchronous `TransactionScope` management corrupts `Transaction.Current` after `Dispose()`.
 
 ### Observer (Behavioral)
 
@@ -243,11 +372,11 @@ OpenScope → Invoke → Commit (success) | Rollback (eligible exception) | Comm
 
 ### Strategy (Behavioral)
 
-`ShouldRollback` encapsulates the rollback decision rules parameterised by `TransactionalAttribute`. Each method can carry a different strategy via its attribute. The three strategies — `NoRollbackFor` wins, `RollbackFor` restricts, default rolls back on any exception — are stable and do not warrant extraction into an interface hierarchy.
+The rollback decision is parameterised entirely by `[Transactional]`'s `NoRollbackFor`, `RollbackFor`, and default-all properties. Each method carries its own strategy via its attribute — three fixed rules evaluated in precedence order: `NoRollbackFor` wins, `RollbackFor` restricts, default rolls back on any exception.
 
 ### Null Object (Behavioral)
 
-`NullTransactionObserver` is an `internal` singleton with no-op implementations of all three observer methods. `TransactionProxy<T>` uses `observer ?? NullTransactionObserver.Instance` at initialisation, making the `_observer` field non-nullable and eliminating null-checks on the hot path — the same pattern used by the BCL in `Stream.Null` and `TextWriter.Null`.
+`NullTransactionObserver` is a singleton with no-op implementations of all observer methods. Passing `null` to `TransactionProxyFactory.Create` is valid — the proxy substitutes it automatically, making the observer field non-nullable and eliminating null-checks on the hot path. Same pattern as `Stream.Null` and `TextWriter.Null` in the BCL.
 
 ---
 
@@ -263,65 +392,56 @@ A built-in .NET class that generates a runtime proxy implementing any interface.
 
 ### `async` support
 
-The `Invoke()` method is synchronous, but the intercepted methods are `async`. The trick:
-1. Create the `TransactionScope` synchronously (so it is ambient)
-2. Invoke the method (it starts and returns a `Task` or `ValueTask`)
+`DispatchProxy.Invoke()` is synchronous, but the intercepted methods are `async`. The trick:
+1. Create the `TransactionScope` synchronously (so it is ambient before the method starts)
+2. Invoke the method — it begins executing and returns a `Task` or `ValueTask`
 3. Return a **new** task that `await`s the original one and then calls `Complete()` or `Dispose()`
 
-For `Task<T>` and `ValueTask<T>`, where the result type is unknown at compile time, a private generic helper (`WrapGenericTaskAsync<TResult>` / `WrapGenericValueTaskAsync<TResult>`) is invoked via `MethodInfo.MakeGenericMethod` at runtime to capture and forward the return value. Both wrappers `await` the original task or `ValueTask` directly — no `.AsTask()` allocation is needed.
+For `Task<T>` and `ValueTask<T>`, where the result type is unknown at compile time, a generic wrapper is invoked via `MakeGenericMethod` to capture and forward the return value.
 
 ### Performance caches
 
-`TransactionProxy<T>` maintains two static `ConcurrentDictionary` caches shared across all proxy instances of the same interface:
-- **Attribute cache** — `(MethodInfo, Type) → TransactionalAttribute?` avoids repeated reflection scans. The key includes the concrete type to support multiple implementations of the same interface. On the first call to a method the cache checks the interface `MethodInfo` first; if no attribute is found there it resolves the concrete counterpart via `GetInterfaceMap` and checks that. This means `[Transactional]` can be placed on either the interface or the concrete class — prefer the concrete class. Subsequent calls pay no reflection cost.
-- **Delegate cache** — `MethodInfo → compiled Func<...>` replaces `MethodInfo.Invoke` with a compiled Expression tree on the hot path
+`TransactionProxy<T>` maintains two static caches per interface:
+- **Attribute cache** — avoids repeated reflection scans; checks the interface method first, then the concrete counterpart via `GetInterfaceMap`. `[Transactional]` can be placed on either the interface or the concrete class.
+- **Delegate cache** — replaces `MethodInfo.Invoke` with a compiled Expression tree on the hot path.
 
 ### Selective rollback
 
-C#'s exception filter (`when`) makes selective rollback possible without catching and re-throwing. All async wrappers use a nested try structure to guarantee that `Commit` on the success path is never inside any catch block:
+C#'s exception filter (`when`) makes selective rollback possible without catching and re-throwing. Wrappers use a nested try structure so that `scope.Complete()` on the success path is never inside any catch block:
 
 ```csharp
 try
 {
     try
     {
-        result = await task.ConfigureAwait(false);
+        result = await task;
     }
-    catch (Exception ex) when (ShouldRollback(ctx.Attr, ex))
+    catch (Exception ex) when (ShouldRollback(attr, ex))
     {
-        Rollback(ctx, ex);   // rolls back and propagates
+        Rollback();  // rolls back, then propagates
         throw;
     }
     catch (Exception)
     {
-        Commit(ctx);         // NoRollbackFor path — commit despite exception, then propagate
+        scope.Complete(); // NoRollbackFor path — commit despite exception, then propagate
         throw;
     }
-    Commit(ctx);             // success path — outside all catch scopes, no risk of double Complete()
+    scope.Complete();     // success path — outside all catch blocks, no risk of double-Complete
 }
 finally
 {
-    ctx.Scope.Dispose();
+    scope.Dispose();
 }
 ```
 
-The filter runs *before* the stack unwinds. If `ShouldRollback` returns `true`, the first handler fires and rolls back. If `ShouldRollback` returns `false` (e.g. the exception matches `NoRollbackFor`), the filter evaluates to `false`, the first handler is skipped, and the second handler commits. Placing `Commit` on the success path *outside* the inner `catch` blocks prevents double `scope.Complete()` if the observer itself throws.
+The filter runs before the stack unwinds. If `ShouldRollback` returns `false` (e.g. `NoRollbackFor` matches), the first handler is skipped and the second commits. `Complete()` on the success path is intentionally outside all catch blocks — this prevents a double-complete if the observer throws during the commit notification.
 
 ### Observability
 
-`ITransactionLifecycleObserver` provides a hook into every transaction event:
+`ITransactionLifecycleObserver` receives a notification for every transaction event — begin, commit, and rollback — including elapsed time and, on rollback, the exception that caused it. Implement it to feed metrics, distributed tracing, or structured logging without touching service code.
 
-```csharp
-public interface ITransactionLifecycleObserver
-{
-    void OnBegin(MethodInfo method, TransactionalAttribute attr);
-    void OnCommit(MethodInfo method, TimeSpan elapsed);
-    void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed);
-}
-```
-
-The built-in `LoggingTransactionObserver` writes structured log entries at `DEBUG` (BEGIN/COMMIT) and `WARNING` (ROLLBACK) level. Register it by calling `services.AddTransactionalLogging()` in `Program.cs`. The `OnRollback` entry includes `{ExceptionType}` and `{ExceptionMessage}` as first-class structured properties, independently filterable in Serilog, OpenTelemetry, and similar stores. Custom implementations can feed metrics systems, distributed tracing, or test assertions without touching service code.
+The built-in `LoggingTransactionObserver` writes structured log entries at `DEBUG` (BEGIN/COMMIT) and `WARNING` (ROLLBACK) level. Register it by calling `services.AddTransactionalLogging()` in `Program.cs`. The rollback entry includes `{ExceptionType}` and `{ExceptionMessage}` as first-class structured properties, independently filterable in Serilog, OpenTelemetry, and similar stores.
 
 ### DI auto-discovery convention
 
-`AddTransactionalServices(Assembly)` scans for concrete classes that have at least one `[Transactional]` method (on the class or on its implemented interfaces) and a matching interface named `I{ClassName}` in the same assembly. Both the concrete type and the interface are registered as `Scoped`. The interface resolves as a `TransactionProxy` wrapping the concrete instance; the concrete type is also resolvable directly from the container, so any new constructor dependency it gains is handled automatically by DI without changing the registration.
+`AddTransactionalServices(Assembly)` discovers all concrete classes that have at least one `[Transactional]` method and a matching interface named `I{ClassName}` in the same assembly. Both the concrete type and the interface are registered as `Scoped`. Resolve the interface to get the proxy; the concrete type is also resolvable directly, so constructor dependencies are handled by DI without manual registration changes.
