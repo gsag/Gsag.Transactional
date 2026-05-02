@@ -28,6 +28,10 @@ dotnet run --project src/Transactional.Demo.Api
 src/
   Transactional.Core/               No framework dependencies
     Attributes/TransactionalAttribute.cs
+    Hooks/
+      ITransactionHooks.cs          Public interface — AfterCommit, AfterRollback, AfterCompletion
+      HookEvent.cs                  Enum used as dictionary key inside HookCollection
+      TransactionHooks.cs           AsyncLocal-backed impl; HookCollection; BeginScope/ClearScope
     Observability/NullTransactionObserver.cs   Null Object singleton
     Proxy/TransactionProxy.cs       ← routing, caching, return-type dispatch
     Proxy/TransactionScopeExecutor.cs ← all commit/rollback/dispose logic and async wrappers
@@ -44,7 +48,15 @@ src/
 tests/
   Transactional.Tests/
     Unit/TransactionProxyTests.cs
-    Integration/OrderServiceIntegrationTests.cs
+    Integration/
+      OrderServiceIntegrationTests.cs
+      Hooks/
+        AfterCommitTests.cs
+        AfterRollbackTests.cs
+        AfterCompletionTests.cs
+        HookScopeTests.cs
+        HookErrorTests.cs
+        SyncPathHookTests.cs
 ```
 
 ## Code Style
@@ -86,14 +98,33 @@ if (interfaceType is null)
 
 ### TransactionScopeExecutor
 
-Non-generic static class that owns all commit/rollback/dispose logic. Keeping it non-generic ensures `WrapGenericTaskMethod` and `WrapGenericValueTaskMethod` (MethodInfo fields used for `MakeGenericMethod` calls) are computed **once per application**, not once per proxied interface type.
+Non-generic static class that owns all commit/rollback/dispose logic. Keeping it non-generic ensures `WrapGenericTaskAsyncMethod` and `WrapGenericValueTaskAsyncMethod` (MethodInfo fields used for `MakeGenericMethod` calls) are computed **once per application**, not once per proxied interface type.
 
 All async wrappers use a **nested try pattern**:
 - Inner try/catch handles business exceptions only
 - Success-path `Commit` is outside all catch blocks — prevents double `scope.Complete()` if the observer throws during `OnCommit`
-- Outer `finally` always disposes the scope
+- Outer `finally` calls `TryDispose` (captures Dispose exceptions for deferred rethrow) then `RunAsyncHooksAsync`, then rethrows any captured Dispose exception via `ExceptionDispatchInfo`
 
 `ShouldRollback` implements the three-rule precedence: `NoRollbackFor` wins → `RollbackFor` restricts → default rolls back on any exception.
+
+`TryDispose` vs `DisposeScope`: `TryDispose` captures the Dispose exception so hooks can still run; `DisposeScope` rethrows immediately. Use `TryDispose` in `finally` blocks, `DisposeScope` in `catch` blocks (where hooks are not expected).
+
+`TransactionOutcome` enum drives hook dispatch: `Committed`, `CommittedWithException` (NoRollbackFor path), `RolledBack`. On rollback or `CommittedWithException` paths `suppressExceptions = true` so hook failures do not mask the original exception.
+
+### ITransactionHooks / TransactionHooks
+
+`ITransactionHooks` is the public interface. `TransactionHooks` (internal) is the `AsyncLocal<HookCollection?>`-backed implementation registered as a singleton.
+
+**`HookCollection`** is the per-scope container. It holds two `Dictionary<HookEvent, List<…>>` (one for sync `Action`, one for async `Func<Task>`) allocated lazily. The `Previous` pointer forms an implicit linked-list stack so `ClearScope` can restore the slot regardless of nesting depth.
+
+**`HookCollectionRole`** enum (`Owning`, `Joining`, `SuppressThrowaway`) drives the three paths in `ClearScope`:
+- `Owning` — `ReferenceEquals` confirms ownership; restores `Previous`.
+- `Joining` — no-op; outer scope owns the slot. Hooks registered inside flow into the outer collection via `_current.Value`.
+- `SuppressThrowaway` — slot was set to `null` (not to this throwaway); null-check path restores `Previous`.
+
+**`BeginScope`** is called by `OpenScope` before the `TransactionScope` is created. It reads `Transaction.Current` to detect joining and sets the `AsyncLocal` accordingly. **`ClearScope`** is called synchronously from `HandleAsync`/`HandleValueTask*` (to restore the caller's `ExecutionContext` before the returned task is awaited) and again inside `TryDispose` (the second call is harmless — guards prevent clobbering).
+
+**Hook execution** — `RunAsyncHooksAsync` / `RunSyncHooks` dispatch by `TransactionOutcome`. On sync paths, `EnsureNoAsyncHooks` is called for all three events before any hook executes, so a `NotSupportedException` fires before any side effect.
 
 ### AddTransactionalServices(Assembly)
 
@@ -115,3 +146,5 @@ Each test creates a GUID-named SQLite file in `Path.GetTempPath()`. WAL journal 
 `BuildContext` suppresses `RelationalEventId.AmbientTransactionWarning` — EF Core SQLite does not enlist in `System.Transactions`, so this warning is expected and intentional in all tests that open `TransactionScope`s.
 
 **SQLite limitation**: EF Core 9 SQLite provider sets `SupportsAmbientTransactions = false`. Rollback scenarios are tested by throwing **before** `SaveChangesAsync` — the scope is disposed without `Complete()`, which is the correct proxy behaviour regardless of DB enlistment. Tests involving `RequiresNew` and `NoRollbackFor` rely on this same pattern: SaveChanges commits immediately to SQLite, but the scope lifecycle (and observer events) are exercised correctly.
+
+**Hook tests** (`tests/…/Integration/Hooks/`) use no database — doubles are plain C# classes with `List<string> Fired` collectors. Each test file is self-contained: service interfaces, concrete classes, and test class live in the same file. `TransactionHooks` is instantiated directly (it is `internal`); proxies are created via `TransactionProxyFactory.Create`. The `Hooks/` files do not inherit from any base class or use `IAsyncLifetime`.
