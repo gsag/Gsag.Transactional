@@ -40,15 +40,15 @@ public class MyService : IMyService
 {
     private readonly DbContext _db;
 
-    public OrderService(DbContext db) => _db = db;
+    public MyService(DbContext db) => _db = db;
 
     [Transactional]
-    public async Task<Order> CreateAsync(string name)
+    public async Task<Entity> CreateAsync(string name)
     {
-        var order = new Order { Name = name };
-        _db.Orders.Add(order);
+        var entity = new Entity { Name = name };
+        _db.Entities.Add(entity);
         await _db.SaveChangesAsync();
-        return order;
+        return entity;
     }
 }
 ```
@@ -57,7 +57,7 @@ public class MyService : IMyService
 
 ```csharp
 // Program.cs
-builder.Services.AddTransactionalServices(typeof(OrderService).Assembly);
+builder.Services.AddTransactionalServices(typeof(MyService).Assembly);
 ```
 
 **4. Inject and use the interface — the proxy is transparent:**
