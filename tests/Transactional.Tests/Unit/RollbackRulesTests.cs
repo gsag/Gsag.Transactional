@@ -23,6 +23,16 @@ public interface IRollbackService
 
     [Transactional(RollbackFor = [typeof(IOException)])]
     Task RollbackForBaseClassAsync();
+
+    // Return-type variants for NoRollbackFor — each exercises a separate async wrapper branch.
+    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+    Task<string> NoRollbackForTaskGenericAsync();
+
+    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+    ValueTask NoRollbackForValueTaskAsync();
+
+    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+    ValueTask<string> NoRollbackForValueTaskGenericAsync();
 }
 
 public class RollbackService : IRollbackService
@@ -43,6 +53,15 @@ public class RollbackService : IRollbackService
 
     public Task RollbackForBaseClassAsync() =>
         Task.FromException(new FileNotFoundException("file gone"));
+
+    public Task<string> NoRollbackForTaskGenericAsync() =>
+        Task.FromException<string>(new OperationCanceledException());
+
+    public ValueTask NoRollbackForValueTaskAsync() =>
+        ValueTask.FromException(new OperationCanceledException());
+
+    public ValueTask<string> NoRollbackForValueTaskGenericAsync() =>
+        ValueTask.FromException<string>(new OperationCanceledException());
 }
 
 public class RollbackRulesTests
@@ -103,5 +122,32 @@ public class RollbackRulesTests
             () => _proxy.RollbackForBaseClassAsync());
         Assert.Contains("ROLLBACK:RollbackForBaseClassAsync", _observer.Calls);
         Assert.DoesNotContain("COMMIT:RollbackForBaseClassAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_TaskGeneric_CommitsAndPropagates()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _proxy.NoRollbackForTaskGenericAsync());
+        Assert.Contains("COMMIT:NoRollbackForTaskGenericAsync", _observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:NoRollbackForTaskGenericAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_ValueTask_CommitsAndPropagates()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _proxy.NoRollbackForValueTaskAsync().AsTask());
+        Assert.Contains("COMMIT:NoRollbackForValueTaskAsync", _observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:NoRollbackForValueTaskAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_ValueTaskGeneric_CommitsAndPropagates()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _proxy.NoRollbackForValueTaskGenericAsync().AsTask());
+        Assert.Contains("COMMIT:NoRollbackForValueTaskGenericAsync", _observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:NoRollbackForValueTaskGenericAsync", _observer.Calls);
     }
 }
