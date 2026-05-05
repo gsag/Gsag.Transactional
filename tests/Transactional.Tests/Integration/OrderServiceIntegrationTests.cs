@@ -1,236 +1,248 @@
+using System.Reflection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Transactional.Core.Attributes;
+using Transactional.Core.Hooks;
+using Transactional.Core.Observability;
 using Transactional.Core.Proxy;
 using Transactional.Demo.Api.Data;
 using Transactional.Demo.Api.Entities;
+using Transactional.Demo.Api.Exceptions;
+using Transactional.Demo.Api.Infrastructure;
 using Transactional.Demo.Api.Services;
-using Transactional.Tests.Unit;
 using Xunit;
 
 namespace Transactional.Tests.Integration;
 
 // ---------------------------------------------------------------------------
-// Test doubles for scenario 2 (RequiresNew cross-service)
+// Local observer — records COMMIT/ROLLBACK events for assertion
 // ---------------------------------------------------------------------------
 
-/// <summary>
-/// Outer service whose single method opens a Required scope, delegates to an
-/// injected inner service (RequiresNew), then throws before doing any work of
-/// its own. The inner proxy must commit independently before the outer fails.
-/// </summary>
-public interface IOuterTransactionalService
+internal sealed class RecordingObserver : ITransactionLifecycleObserver
 {
-    Task CallInnerThenFailAsync();
-}
-
-public class OuterTransactionalService : IOuterTransactionalService
-{
-    private readonly IOrderService _inner;
-
-    public OuterTransactionalService(IOrderService inner) => _inner = inner;
-
-    [Transactional]
-    public async Task CallInnerThenFailAsync()
-    {
-        await _inner.CreateRequiresNewAsync();
-        throw new InvalidOperationException("outer fails — inner must have already committed");
-    }
+    public List<string> Calls { get; } = [];
+    public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
+    public void OnCommit(MethodInfo method, TimeSpan elapsed) => Calls.Add($"COMMIT:{method.Name}");
+    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) => Calls.Add($"ROLLBACK:{method.Name}");
 }
 
 // ---------------------------------------------------------------------------
+// Integration tests — exercises [Transactional] against a real SQLite file
+// ---------------------------------------------------------------------------
 
 /// <summary>
-/// Proves that [Transactional] actually commits or rolls back against a real SQLite file.
-/// Each test class instance gets its own temp DB — deleted in DisposeAsync.
+/// Proves that the transactional proxy commits and rolls back correctly using the
+/// checkout demo services. Each test gets its own temp SQLite file, deleted in DisposeAsync.
 /// </summary>
-public class OrderServiceIntegrationTests : IAsyncLifetime
+public class CheckoutIntegrationTests : IAsyncLifetime
 {
-    private AppDbContext _db = null!;
-    private IOrderService _service = null!;
+    private CheckoutDbContext _db = null!;
     private string _dbPath = null!;
+
+    // Full service graph — mirrors what DI builds in the API
+    private ICheckoutService _checkout = null!;
+    private IOrderService _orderService = null!;
+    private IInventoryService _inventoryService = null!;
+    private IPaymentService _paymentService = null!;
+    private IAuditService _auditService = null!;
 
     public async Task InitializeAsync()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"tx_test_{Guid.NewGuid():N}.db");
-
+        _dbPath = Path.Combine(Path.GetTempPath(), $"tx_checkout_{Guid.NewGuid():N}.db");
         _db = BuildContext(_dbPath);
         await _db.Database.EnsureCreatedAsync();
-
-        // WAL mode persists on the file: all subsequent connections inherit it,
-        // enabling concurrent writers to serialize rather than fail with SQLITE_BUSY.
         await _db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
 
-        // Wrap the real service with the transaction proxy — same as DI would do.
-        _service = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db));
+        var hooks = new TransactionHooks();
+        var collector = new HookOutputCollector();
+        var eventBus = new InMemoryEventBus();
+
+        _orderService = TransactionProxyFactory.Create<IOrderService>(
+            new OrderService(_db, hooks, collector));
+        _inventoryService = TransactionProxyFactory.Create<IInventoryService>(
+            new InventoryService(_db, hooks, collector));
+        _paymentService = TransactionProxyFactory.Create<IPaymentService>(
+            new PaymentService(_db, hooks, collector, eventBus));
+        _auditService = TransactionProxyFactory.Create<IAuditService>(
+            new AuditService(_db, collector));
+        var reportService = TransactionProxyFactory.Create<IInventoryReportService>(
+            new InventoryReportService(_db, collector));
+
+        _checkout = TransactionProxyFactory.Create<ICheckoutService>(
+            new CheckoutService(_orderService, _inventoryService, _paymentService,
+                _auditService, reportService, hooks, collector));
     }
 
     public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
-        // Force SQLite connection pool to release file handles before deletion.
         SqliteConnection.ClearAllPools();
         if (File.Exists(_dbPath))
+        {
             File.Delete(_dbPath);
+        }
     }
 
     // -------------------------------------------------------------------------
-    // Existing scenarios
+    // Scenario 1 — Full success: all entities committed
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task CreateSuccess_CommitsOrder_OrderExistsInDatabase()
+    public async Task ProcessSuccess_AllEntitiesPersistedInDatabase()
     {
-        var order = await _service.CreateSuccessAsync();
+        var result = await _checkout.ProcessSuccessAsync();
 
-        var orders = await QueryDbDirectAsync();
+        var orders = await QueryOrdersAsync();
+        var reservations = await QueryReservationsAsync();
+        var payments = await QueryPaymentsAsync();
+        var audits = await QueryAuditAsync();
+
         Assert.Single(orders);
-        Assert.Equal(order.Id, orders[0].Id);
+        Assert.Equal(result.Order!.Id, orders[0].Id);
+        Assert.Single(reservations);
+        Assert.Single(payments);
+        Assert.Single(audits);
     }
 
     [Fact]
-    public async Task CreateWithRollback_RollsBack_NothingPersistedInDatabase()
+    public async Task ProcessSuccess_TwoCalls_BothOrdersPersisted()
     {
+        await _checkout.ProcessSuccessAsync();
+        await _checkout.ProcessSuccessAsync();
+
+        Assert.Equal(2, (await QueryOrdersAsync()).Count);
+        Assert.Equal(2, (await QueryPaymentsAsync()).Count);
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 2 — Payment failure: nothing committed
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessWithPaymentFailure_RollsBack_NothingPersistedInDatabase()
+    {
+        await Assert.ThrowsAsync<PaymentDeclinedException>(
+            () => _checkout.ProcessWithPaymentFailureAsync());
+
+        Assert.Empty(await QueryOrdersAsync());
+        Assert.Empty(await QueryPaymentsAsync());
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 3 — Inventory failure: nothing committed
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessWithInventoryFailure_RollsBack_NothingPersistedInDatabase()
+    {
+        await Assert.ThrowsAsync<InventoryException>(
+            () => _checkout.ProcessWithInventoryFailureAsync());
+
+        Assert.Empty(await QueryOrdersAsync());
+        Assert.Empty(await QueryReservationsAsync());
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 4 — RequiresNew: audit persists even when outer scope fails
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AuditRequiresNew_WhenOuterFails_AuditEntryPersistsNoOrderInDatabase()
+    {
+        // AuditService.WriteAsync uses [Transactional(RequiresNew)] — commits independently.
+        // CheckoutService then throws, rolling back its own scope.
+        // Result: audit entry exists, no orders were created.
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.CreateWithRollbackAsync());
+            () => _checkout.ProcessWithAuditRequiresNewAsync());
 
-        var orders = await QueryDbDirectAsync();
-        Assert.Empty(orders);
+        var audits = await QueryAuditAsync();
+        Assert.Single(audits);
+        Assert.Equal("CHECKOUT_FAILED", audits[0].Action);
+
+        Assert.Empty(await QueryOrdersAsync());
     }
 
+    // -------------------------------------------------------------------------
+    // Scenario 5 — NoRollbackFor: data committed despite exception
+    // -------------------------------------------------------------------------
+
     [Fact]
-    public async Task TwoSuccessfulCalls_BothOrdersPersisted()
+    public async Task NoRollbackFor_WhenNotificationExceptionThrown_OrderAndPaymentPersist()
     {
-        await _service.CreateSuccessAsync();
-        await _service.CreateSuccessAsync();
+        // NotificationException matches NoRollbackFor — proxy calls scope.Complete().
+        // Order and payment were saved before the throw.
+        await Assert.ThrowsAsync<NotificationException>(
+            () => _checkout.ProcessWithNoRollbackForAsync());
 
-        var orders = await QueryDbDirectAsync();
-        Assert.Equal(2, orders.Count);
-    }
-
-    [Fact]
-    public async Task SuccessThenRollback_OnlyFirstOrderPersisted()
-    {
-        await _service.CreateSuccessAsync();
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.CreateWithRollbackAsync());
-
-        var orders = await QueryDbDirectAsync();
-        Assert.Single(orders);
+        Assert.Single(await QueryOrdersAsync());
+        Assert.Single(await QueryPaymentsAsync());
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 1 — Batch atomicity
+    // Scenario 6 — Observer: events correlate with real database state
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task BatchInsert_WhenFailsBeforeSave_AllPendingInsertsDiscarded()
-    {
-        // Three entities are tracked by EF Core but SaveChanges is never called.
-        // The proxy catches the exception, disposes the TransactionScope without
-        // Complete(), and no rows reach the database.
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.CreateBatchWithRollbackAsync());
-
-        Assert.Empty(await QueryDbDirectAsync());
-    }
-
-    // -------------------------------------------------------------------------
-    // Scenario 2 — RequiresNew: inner scope commits independently of outer
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task RequiresNew_WhenCalledFromFailingOuterTransaction_InnerDataPersists()
-    {
-        // Outer: [Transactional] Required — wraps OuterTransactionalService.
-        // Inner: [Transactional(RequiresNew)] — _service.CreateRequiresNewAsync().
-        //
-        // The outer proxy opens a Required scope, calls the inner proxy (which opens
-        // its own independent RequiresNew scope and commits), then throws.  The outer
-        // scope is abandoned without Complete().
-        //
-        // On SQL Server / PostgreSQL, the inner write would survive the outer rollback
-        // because RequiresNew creates a truly independent database transaction.
-        // With SQLite (no System.Transactions enlistment) SaveChangesAsync commits
-        // immediately in both scopes — but the transactional wiring between two
-        // [Transactional]-decorated services is exercised correctly either way.
-        var outerProxy = TransactionProxyFactory.Create<IOuterTransactionalService>(
-            new OuterTransactionalService(_service));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => outerProxy.CallInnerThenFailAsync());
-
-        var orders = await QueryDbDirectAsync();
-        Assert.Single(orders);
-    }
-
-    // -------------------------------------------------------------------------
-    // Scenario 3 — NoRollbackFor: scope completes despite exception
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task NoRollbackFor_WhenMatchingExceptionThrownAfterSave_DataPersistedAndObserverReceivesCommit()
+    public async Task Observer_AfterCommit_DataVisibleAndObserverReceivesCommit()
     {
         var observer = new RecordingObserver();
-        var service = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db), observer);
+        var hooks = new TransactionHooks();
+        var collector = new HookOutputCollector();
+        var svc = TransactionProxyFactory.Create<IOrderService>(
+            new OrderService(_db, hooks, collector), observer);
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => service.CreateThenCancelAsync());
+        await svc.CreateAsync("observer-commit", 10m);
 
-        // SaveChangesAsync ran before the throw, so the row exists.
-        Assert.Single(await QueryDbDirectAsync());
-
-        // The scope was completed (NoRollbackFor path), so the observer must
-        // report COMMIT, not ROLLBACK.
-        Assert.Contains("COMMIT:CreateThenCancelAsync", observer.Calls);
-        Assert.DoesNotContain("ROLLBACK:CreateThenCancelAsync", observer.Calls);
+        Assert.Contains("COMMIT:CreateAsync", observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:CreateAsync", observer.Calls);
+        Assert.Single(await QueryOrdersAsync());
     }
 
-    // -------------------------------------------------------------------------
-    // Scenario 4 — Observer lifecycle correlates with real database state
-    // -------------------------------------------------------------------------
-
     [Fact]
-    public async Task Observer_AfterCommitEvent_DataIsVisibleInDatabase()
+    public async Task Observer_AfterRollback_NothingPersistedAndObserverReceivesRollback()
     {
         var observer = new RecordingObserver();
-        var service = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db), observer);
+        var hooks = new TransactionHooks();
+        var collector = new HookOutputCollector();
+        var svc = TransactionProxyFactory.Create<IInventoryService>(
+            new InventoryService(_db, hooks, collector), observer);
 
-        await service.CreateSuccessAsync();
+        await Assert.ThrowsAsync<InventoryException>(
+            () => svc.FailOutOfStockAsync("PROD-001"));
 
-        Assert.Contains("COMMIT:CreateSuccessAsync", observer.Calls);
-        Assert.DoesNotContain("ROLLBACK:CreateSuccessAsync", observer.Calls);
-        Assert.Single(await QueryDbDirectAsync());
+        Assert.Contains("ROLLBACK:FailOutOfStockAsync", observer.Calls);
+        Assert.DoesNotContain("COMMIT:FailOutOfStockAsync", observer.Calls);
+        Assert.Empty(await QueryOrdersAsync());
     }
 
     [Fact]
-    public async Task Observer_AfterRollbackEvent_NothingPersistedInDatabase()
+    public async Task NoRollbackFor_ObserverReceivesCommitNotRollback()
     {
         var observer = new RecordingObserver();
-        var service = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db), observer);
+        var hooks = new TransactionHooks();
+        var collector = new HookOutputCollector();
+        var eventBus = new InMemoryEventBus();
+        var svc = TransactionProxyFactory.Create<IPaymentService>(
+            new PaymentService(_db, hooks, collector, eventBus), observer);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateWithRollbackAsync());
+        // ProcessAsync succeeds (saves record). Outer scope commits.
+        var payment = await svc.ProcessAsync(1, 99m);
+        Assert.NotNull(payment);
 
-        Assert.Contains("ROLLBACK:CreateWithRollbackAsync", observer.Calls);
-        Assert.DoesNotContain("COMMIT:CreateWithRollbackAsync", observer.Calls);
-        Assert.Empty(await QueryDbDirectAsync());
+        Assert.Contains("COMMIT:ProcessAsync", observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:ProcessAsync", observer.Calls);
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 5 — Concurrent transactions: proxy cache must not corrupt state
+    // Scenario 7 — Concurrent transactions: proxy cache must not corrupt state
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Concurrent_FiveParallelTransactions_AllOrdersPersisted()
+    public async Task Concurrent_FiveParallelOrders_AllOrdersPersisted()
     {
         const int count = 5;
 
-        // Each task requires its own DbContext — EF Core is not thread-safe.
-        // WAL mode (set in InitializeAsync) allows SQLite to serialize concurrent
-        // writers without returning SQLITE_BUSY immediately.
         var contexts = Enumerable.Range(0, count)
             .Select(_ => BuildContextWithBusyTimeoutAsync(_dbPath))
             .ToList();
@@ -238,9 +250,11 @@ public class OrderServiceIntegrationTests : IAsyncLifetime
         var resolvedContexts = await Task.WhenAll(contexts);
         try
         {
+            var hooks = new TransactionHooks();
+            var collector = new HookOutputCollector();
             var tasks = resolvedContexts.Select(db =>
-                TransactionProxyFactory.Create<IOrderService>(new OrderService(db))
-                    .CreateSuccessAsync());
+                TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, collector))
+                    .CreateAsync("concurrent", 10m));
 
             await Task.WhenAll(tasks);
         }
@@ -252,36 +266,44 @@ public class OrderServiceIntegrationTests : IAsyncLifetime
             }
         }
 
-        Assert.Equal(count, (await QueryDbDirectAsync()).Count);
+        Assert.Equal(count, (await QueryOrdersAsync()).Count);
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    /// Queries the database with a fresh DbContext to avoid EF Core's change-tracker
-    /// returning stale in-memory entities that were rolled back at the database level.
-    /// </summary>
-    private async Task<List<Order>> QueryDbDirectAsync()
+    private async Task<List<CheckoutOrder>> QueryOrdersAsync()
     {
         await using var fresh = BuildContext(_dbPath);
         return await fresh.Orders.AsNoTracking().ToListAsync();
     }
 
-    private static AppDbContext BuildContext(string path) =>
-        new(new DbContextOptionsBuilder<AppDbContext>()
+    private async Task<List<InventoryReservation>> QueryReservationsAsync()
+    {
+        await using var fresh = BuildContext(_dbPath);
+        return await fresh.Reservations.AsNoTracking().ToListAsync();
+    }
+
+    private async Task<List<PaymentRecord>> QueryPaymentsAsync()
+    {
+        await using var fresh = BuildContext(_dbPath);
+        return await fresh.Payments.AsNoTracking().ToListAsync();
+    }
+
+    private async Task<List<AuditEntry>> QueryAuditAsync()
+    {
+        await using var fresh = BuildContext(_dbPath);
+        return await fresh.AuditEntries.AsNoTracking().ToListAsync();
+    }
+
+    private static CheckoutDbContext BuildContext(string path) =>
+        new(new DbContextOptionsBuilder<CheckoutDbContext>()
             .UseSqlite($"Data Source={path}")
-            // SQLite doesn't support System.Transactions enlistment — suppress the warning
-            // so tests that deliberately open TransactionScopes don't fail on detection.
             .ConfigureWarnings(w => w.Ignore(RelationalEventId.AmbientTransactionWarning))
             .Options);
 
-    /// <summary>
-    /// Creates a context and configures a 5-second busy timeout so concurrent
-    /// writers queue rather than immediately fail with SQLITE_BUSY.
-    /// </summary>
-    private static async Task<AppDbContext> BuildContextWithBusyTimeoutAsync(string path)
+    private static async Task<CheckoutDbContext> BuildContextWithBusyTimeoutAsync(string path)
     {
         var ctx = BuildContext(path);
         await ctx.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");

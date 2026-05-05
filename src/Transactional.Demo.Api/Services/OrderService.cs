@@ -1,77 +1,45 @@
-using System.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Transactional.Core.Attributes;
+using Transactional.Core.Hooks;
 using Transactional.Demo.Api.Data;
 using Transactional.Demo.Api.Entities;
+using Transactional.Demo.Api.Infrastructure;
 
 namespace Transactional.Demo.Api.Services;
 
 public class OrderService : IOrderService
 {
-    private readonly AppDbContext _db;
+    private readonly CheckoutDbContext _db;
+    private readonly ITransactionHooks _hooks;
+    private readonly HookOutputCollector _collector;
 
-    public OrderService(AppDbContext db) => _db = db;
-
-    [Transactional]
-    public async Task<Order> CreateSuccessAsync()
+    public OrderService(CheckoutDbContext db, ITransactionHooks hooks, HookOutputCollector collector)
     {
-        var order = new Order { CreatedAt = DateTime.UtcNow };
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
-        return order;
+        _db = db;
+        _hooks = hooks;
+        _collector = collector;
     }
 
     [Transactional]
-    public async Task CreateWithRollbackAsync()
+    public async Task<CheckoutOrder> CreateAsync(string scenario, decimal amount)
     {
-        var order = new Order { CreatedAt = DateTime.UtcNow };
-        _db.Orders.Add(order);
-
-        // Simulate a business-rule failure before the write reaches the database.
-        // The proxy catches this, disposes the TransactionScope without Complete(),
-        // and the observer receives OnRollback — no data is persisted.
-        //
-        // Note: with SQL Server or PostgreSQL (which support System.Transactions
-        // enlistment), this throw could be placed AFTER SaveChangesAsync and the
-        // INSERT would still be rolled back by TransactionScope.Dispose().
-        // EF Core's SQLite provider returns SupportsAmbientTransactions = false,
-        // so it doesn't enlist in an ambient TransactionScope.
-        await Task.CompletedTask; // preserve async signature
-        throw new InvalidOperationException("Simulated failure — transaction rolled back.");
-    }
-
-    [Transactional]
-    public async Task CreateBatchWithRollbackAsync()
-    {
-        for (var i = 0; i < 3; i++)
+        var order = new CheckoutOrder
         {
-            _db.Orders.Add(new Order { CreatedAt = DateTime.UtcNow });
-        }
-
-        await Task.CompletedTask; // preserve async signature
-        throw new InvalidOperationException("batch failure before save — nothing must reach the database");
-    }
-
-    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
-    public async Task<Order> CreateRequiresNewAsync()
-    {
-        var order = new Order { CreatedAt = DateTime.UtcNow };
+            Scenario = scenario,
+            Status = "created",
+            Amount = amount,
+            CreatedAt = DateTime.UtcNow
+        };
         _db.Orders.Add(order);
         await _db.SaveChangesAsync();
+
+        _hooks.AfterCommit(() => _collector.Record("OrderService.AfterCommit: order record confirmed"));
+        _hooks.AfterRollback(() => _collector.Record("OrderService.AfterRollback: order rolled back — record discarded"));
+        _hooks.AfterCompletion(() => _collector.Record("OrderService.AfterCompletion: telemetry span closed"));
+
         return order;
     }
 
-    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
-    public async Task CreateThenCancelAsync()
-    {
-        var order = new Order { CreatedAt = DateTime.UtcNow };
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
-
-        // SaveChanges already committed — NoRollbackFor keeps scope.Complete() on this path.
-        throw new OperationCanceledException("cancelled after successful save");
-    }
-
-    public async Task<IEnumerable<Order>> GetAllAsync()
-        => await _db.Orders.AsNoTracking().ToListAsync();
+    public async Task<IEnumerable<CheckoutOrder>> GetAllAsync()
+        => await _db.Orders.AsNoTracking().OrderByDescending(o => o.CreatedAt).ToListAsync();
 }
