@@ -11,7 +11,7 @@
     <!-- Package identity -->
     <IsPackable>true</IsPackable>
     <PackageId>Transactional.Core</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.2.1-alpha</Version>
     <Authors>Guilherme Gonçalves</Authors>
     <Description>Spring-like [Transactional] declarative transaction management for .NET. Wraps service methods in System.Transactions.TransactionScope via DispatchProxy — no external AOP libraries required. Supports Required, RequiresNew, Suppress propagation modes, configurable rollback rules, and AfterCommit / AfterRollback / AfterCompletion hooks.</Description>
     <PackageTags>transactions;transactional;dispatchproxy;system.transactions;aop;declarative</PackageTags>
