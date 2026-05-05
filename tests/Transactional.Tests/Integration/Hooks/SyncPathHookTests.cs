@@ -13,6 +13,7 @@ public interface ISyncHookService
     string RunWithFailingFirstSyncHook();
     string RunWithSyncCommitAndAsyncCompletionHook();
     string RunWithNoRollbackAndAsyncRollbackHook();
+    string RunWithFailingAfterRollbackHook();
 }
 
 public class SyncHookService : ISyncHookService
@@ -59,6 +60,13 @@ public class SyncHookService : ISyncHookService
     {
         _hooks.AfterRollback(async () => await Task.CompletedTask);
         throw new InvalidOperationException("no-rollback");
+    }
+
+    [Transactional]
+    public string RunWithFailingAfterRollbackHook()
+    {
+        _hooks.AfterRollback((Action)(() => throw new InvalidOperationException("hook-failed")));
+        throw new InvalidOperationException("business");
     }
 }
 
@@ -192,5 +200,20 @@ public class SyncPathHookTests
         var (proxy, _) = Build();
 
         Assert.Throws<NotSupportedException>(() => proxy.RunWithNoRollbackAndAsyncRollbackHook());
+    }
+
+    /// <summary>
+    /// When a sync rollback hook itself throws, the failure must be suppressed so the original
+    /// business exception propagates unmasked. Exercises TriggerSync with suppressExceptions=true.
+    /// </summary>
+    [Fact]
+    public void SyncMethod_OnRollbackPath_WhenAfterRollbackHookThrows_OriginalExceptionPropagates()
+    {
+        var (proxy, _) = Build();
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => proxy.RunWithFailingAfterRollbackHook());
+
+        Assert.Equal("business", ex.Message);
     }
 }

@@ -8,6 +8,44 @@ using Xunit;
 
 namespace Transactional.Tests.Unit;
 
+// Async services that vote to abort the ambient transaction then return normally.
+// scope.Complete() does not throw on the aborted transaction — scope.Dispose() does.
+// Each return type exercises a different async wrapper's disposeEx branch.
+public interface IForcedAbortAsyncService
+{
+    [Transactional]
+    Task<int> ForceAbortGenericTaskAsync();
+
+    [Transactional]
+    ValueTask ForceAbortValueTaskAsync();
+
+    [Transactional]
+    ValueTask<int> ForceAbortGenericValueTaskAsync();
+}
+
+public class ForcedAbortAsyncService : IForcedAbortAsyncService
+{
+    public async Task<int> ForceAbortGenericTaskAsync()
+    {
+        await Task.CompletedTask;
+        Transaction.Current!.Rollback();
+        return 0;
+    }
+
+    public async ValueTask ForceAbortValueTaskAsync()
+    {
+        await Task.CompletedTask;
+        Transaction.Current!.Rollback();
+    }
+
+    public async ValueTask<int> ForceAbortGenericValueTaskAsync()
+    {
+        await Task.CompletedTask;
+        Transaction.Current!.Rollback();
+        return 0;
+    }
+}
+
 // Observer that throws in OnBegin — exercises the OpenScope catch block that
 // disposes the already-created TransactionScope and clears the hook AsyncLocal.
 public class ThrowingOnBeginObserver : ITransactionLifecycleObserver
@@ -67,5 +105,40 @@ public class ExecutorEdgeCaseTests
         var attr = new TransactionalAttribute { Propagation = (TransactionScopeOption)999 };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => TransactionHooks.BeginScope(attr));
+    }
+
+    // The three tests below are async analogues of Dispose_WhenTransactionAbortedAfterComplete.
+    // Each covers the disposeEx is not null branches in a different async wrapper:
+    // WrapGenericTaskAsync, WrapVoidValueTaskAsync, WrapGenericValueTaskAsync.
+    // WrapVoidTaskAsync is already covered by HookErrorTests.
+
+    [Fact]
+    public async Task WrapGenericTask_WhenTransactionAbortedAfterComplete_PropagatesAbortedException()
+    {
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService());
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortGenericTaskAsync());
+    }
+
+    [Fact]
+    public async Task WrapVoidValueTask_WhenTransactionAbortedAfterComplete_PropagatesAbortedException()
+    {
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService());
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortValueTaskAsync().AsTask());
+    }
+
+    [Fact]
+    public async Task WrapGenericValueTask_WhenTransactionAbortedAfterComplete_PropagatesAbortedException()
+    {
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService());
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortGenericValueTaskAsync().AsTask());
     }
 }
