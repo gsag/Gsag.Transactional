@@ -195,7 +195,8 @@ dotnet test
 # Run a specific test class
 dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
-# Run the demo API (Swagger at http://localhost:5000/swagger)
+# Run the demo API — opens Swagger automatically in the browser
+# http://localhost:51938/swagger  (HTTPS: https://localhost:51937/swagger)
 dotnet run --project src/Transactional.Demo.Api
 ```
 

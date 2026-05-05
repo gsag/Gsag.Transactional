@@ -18,7 +18,7 @@ dotnet test
 # Run a single test class
 dotnet test --filter "FullyQualifiedName~OrderServiceIntegrationTests"
 
-# Run the API (Swagger at http://localhost:5000/swagger)
+# Run the API — opens Swagger automatically (http://localhost:51938/swagger)
 dotnet run --project src/Transactional.Demo.Api
 ```
 
