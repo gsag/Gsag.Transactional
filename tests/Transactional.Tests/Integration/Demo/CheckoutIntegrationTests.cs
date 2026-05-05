@@ -13,7 +13,7 @@ using Transactional.Demo.Api.Infrastructure;
 using Transactional.Demo.Api.Services;
 using Xunit;
 
-namespace Transactional.Tests.Integration;
+namespace Transactional.Tests.Integration.Demo;
 
 // ---------------------------------------------------------------------------
 // Local observer — records COMMIT/ROLLBACK events for assertion
