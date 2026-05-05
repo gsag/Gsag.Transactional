@@ -10,5 +10,5 @@ public class InMemoryEventBus : IEventBus
     public IReadOnlyList<string> Events => [.. _events];
 
     public void Publish(string eventType, string payload) =>
-        _events.Enqueue($"[{DateTimeOffset.UtcNow:HH:mm:ss.fff}] {eventType}: {payload}");
+        _events.Enqueue($"[{DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {eventType}: {payload}");
 }
