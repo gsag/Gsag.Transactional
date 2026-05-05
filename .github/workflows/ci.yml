@@ -22,6 +22,18 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+          cache: true  # caches ~/.nuget/packages keyed on *.csproj hashes
+
+      - name: Cache dotnet tools
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.dotnet/tools
+          key: dotnet-tools-${{ runner.os }}-reportgenerator
+
+      - name: Install ReportGenerator
+        if: steps.cache-tools.outputs.cache-hit != 'true'
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore
         run: dotnet restore
@@ -31,9 +43,6 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build -c Release --filter "FullyQualifiedName!~Transactional.Tests.Integration.Demo" --collect:"XPlat Code Coverage" --results-directory ./coverage -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Transactional.Core]*"
-
-      - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Generate coverage report
         run: reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:"MarkdownSummaryGithub"
