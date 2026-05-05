@@ -67,7 +67,7 @@ public class MyController : ControllerBase
 {
     private readonly IMyService _service_;
 
-    public OrdersController(IMyService service) => _service = service;
+    public MyController(IMyService service) => _service = service;
 
     [HttpPost]
     public async Task<IActionResult> Create(string name)
@@ -89,13 +89,33 @@ public class MyController : ControllerBase
 | `NoRollbackFor` | `Type[]` | — | Commit even when these types are thrown (takes precedence over `RollbackFor`) |
 | `TimeoutSeconds` | `int?` | `null` | Abort and roll back after N seconds |
 
+### IsolationLevel
+
+Controls how the database isolates concurrent transactions from each other. Higher isolation levels prevent more anomalies but increase contention.
+
+| Value | Dirty reads | Non-repeatable reads | Phantom reads | Notes |
+|---|---|---|---|---|
+| `ReadUncommitted` | possible | possible | possible | Lowest isolation; reads uncommitted data from other transactions |
+| `ReadCommitted` *(default)* | prevented | possible | possible | Only reads data committed by other transactions |
+| `RepeatableRead` | prevented | prevented | possible | Rows read cannot be modified by others during the transaction |
+| `Serializable` | prevented | prevented | prevented | Full isolation; transactions execute as if sequential |
+| `Snapshot` | prevented | prevented | prevented | Reads a consistent snapshot from transaction start; requires DB support |
+| `Chaos` | — | — | — | Pending changes from higher-isolation transactions cannot be overwritten |
+| `Unspecified` | — | — | — | Uses the isolation level of the underlying provider |
+
+> See [IsolationLevel Enum](https://learn.microsoft.com/en-us/dotnet/api/system.transactions.isolationlevel) on Microsoft Learn for the full specification.
+
 ### Propagation modes
 
-| Value | Behaviour |
-|---|---|
-| `Required` *(default)* | Join the ambient transaction if one exists; otherwise create a new one |
-| `RequiresNew` | Always start a fresh independent transaction, suspending any ambient one |
-| `Suppress` | Run outside any transaction, suspending the ambient one |
+Controls how a `[Transactional]` method behaves when a `TransactionScope` is already ambient — for example, when one transactional method calls another.
+
+| Value | Ambient transaction exists | No ambient transaction | Use when |
+|---|---|---|---|
+| `Required` *(default)* | Join the existing scope | Create a new scope | Most business operations — share the caller's unit of work |
+| `RequiresNew` | Suspend the outer scope; open a new independent one | Create a new scope | Audit logs, outbox records — must commit even if the caller rolls back |
+| `Suppress` | Suspend the outer scope; run without any transaction | Run without any transaction | Read-only queries, external calls that must not enlist in a transaction |
+
+> See [TransactionScopeOption Enum](https://learn.microsoft.com/en-us/dotnet/api/system.transactions.transactionscopeoption) on Microsoft Learn for the full specification.
 
 ### Examples
 
@@ -129,7 +149,7 @@ public class MyService : IMyService
     private readonly DbContext _db;
     private readonly ITransactionHooks _hooks;
 
-    public OrderService(DbContext db, ITransactionHooks hooks)
+    public MyService(DbContext db, ITransactionHooks hooks)
     {
         _db    = db;
         _hooks = hooks;
@@ -148,7 +168,7 @@ public class MyService : IMyService
         // Fires regardless of outcome — useful for releasing resources.
         _hooks.AfterCompletion(() => _span.Finish());
 
-        return order;
+        return entity;
     }
 }
 ```
