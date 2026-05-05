@@ -13,7 +13,7 @@ namespace Transactional.Core.Proxy;
 /// [Transactional] inside a TransactionScope. Supports sync, Task, Task&lt;T&gt;,
 /// ValueTask, and ValueTask&lt;T&gt; return types.
 /// </summary>
-public class TransactionProxy<T> : DispatchProxy where T : class
+internal class TransactionProxy<T> : DispatchProxy where T : class
 {
     private T _target = null!;
     private ITransactionLifecycleObserver _observer = NullTransactionObserver.Instance;

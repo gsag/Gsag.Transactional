@@ -8,6 +8,9 @@ using Transactional.Core.Proxy;
 
 namespace Transactional.Core.Extensions;
 
+/// <summary>
+/// Extension methods for registering Transactional.Core services with the .NET DI container.
+/// </summary>
 public static class TransactionalExtensions
 {
     /// <summary>

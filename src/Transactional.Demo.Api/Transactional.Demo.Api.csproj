@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Suppress CS1591: Missing XML comment for publicly visible type or member -->
-    <NoWarn>$(NoWarn);1591</NoWarn>
+    <!-- CS1591: Missing XML comment; CS1587: XML comment on positional record parameter (not a valid language element) -->
+    <NoWarn>$(NoWarn);1591;1587</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
