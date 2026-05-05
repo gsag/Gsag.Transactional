@@ -22,7 +22,8 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-          cache: true  # caches ~/.nuget/packages keyed on *.csproj hashes
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
       - name: Cache dotnet tools
         id: cache-tools
