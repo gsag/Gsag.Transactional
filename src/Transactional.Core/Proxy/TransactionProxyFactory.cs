@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Reflection;
 using Transactional.Core.Observability;
 
@@ -22,6 +24,10 @@ public static class TransactionProxyFactory
         ?? throw new InvalidOperationException(
             $"{nameof(TransactionProxyFactory)}.{nameof(Create)}<TInterface> (2 params) not found via reflection.");
 
+    // Compiled delegate cache — one entry per interface type seen at runtime.
+    // Eliminates per-call MakeGenericMethod + object[] boxing on the DI hot path.
+    private static readonly ConcurrentDictionary<Type, Func<object, ITransactionLifecycleObserver?, object>> _createDelegates = new();
+
     /// <summary>Wraps <paramref name="target"/> with a transaction-intercepting proxy.</summary>
     public static TInterface Create<TInterface>(
         TInterface target,
@@ -30,11 +36,22 @@ public static class TransactionProxyFactory
 
     /// <summary>
     /// Non-generic overload for runtime use (e.g., DI registration loops).
-    /// Resolves into <see cref="Create{TInterface}"/> via a cached MakeGenericMethod call.
+    /// Resolves into <see cref="Create{TInterface}"/> via a compiled delegate cached per interface type.
     /// </summary>
     public static object Create(
         Type interfaceType,
         object target,
         ITransactionLifecycleObserver? observer = null)
-        => _createMethod.MakeGenericMethod(interfaceType).Invoke(null, [target, observer])!;
+    {
+        var del = _createDelegates.GetOrAdd(interfaceType, static t =>
+        {
+            var method = _createMethod.MakeGenericMethod(t);
+            var pTarget   = Expression.Parameter(typeof(object), "target");
+            var pObserver = Expression.Parameter(typeof(ITransactionLifecycleObserver), "observer");
+            var call = Expression.Call(method, Expression.Convert(pTarget, t), pObserver);
+            return Expression.Lambda<Func<object, ITransactionLifecycleObserver?, object>>(
+                Expression.Convert(call, typeof(object)), pTarget, pObserver).Compile();
+        });
+        return del(target, observer);
+    }
 }

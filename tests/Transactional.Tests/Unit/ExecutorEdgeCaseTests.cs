@@ -56,6 +56,16 @@ public class ThrowingOnBeginObserver : ITransactionLifecycleObserver
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
 }
 
+// Observer that throws in OnRollback — exercises the double-fault path where
+// scope.Dispose() throws TransactionAbortedException AND the observer also throws.
+public class ThrowingOnRollbackObserver : ITransactionLifecycleObserver
+{
+    public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
+    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
+    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+        throw new InvalidOperationException("observer-rollback-fail");
+}
+
 // Service that votes to abort the ambient transaction then returns normally.
 // When the proxy subsequently calls scope.Complete(), TransactionAbortedException is
 // thrown — this exercises the Commit() catch block that calls OnRollback before rethrowing.
@@ -96,7 +106,8 @@ public class ExecutorEdgeCaseTests
         Assert.Throws<TransactionAbortedException>(() => proxy.ForceAbort());
 
         Assert.Contains("BEGIN:ForceAbort", observer.Calls);
-        Assert.Contains("COMMIT:ForceAbort", observer.Calls);
+        Assert.Contains("ROLLBACK:ForceAbort", observer.Calls);
+        Assert.DoesNotContain("COMMIT:ForceAbort", observer.Calls);
     }
 
     [Fact]
@@ -140,5 +151,21 @@ public class ExecutorEdgeCaseTests
 
         await Assert.ThrowsAsync<TransactionAbortedException>(
             () => proxy.ForceAbortGenericValueTaskAsync().AsTask());
+    }
+
+    /// <summary>
+    /// Double-fault: scope.Dispose() throws TransactionAbortedException AND the observer
+    /// also throws in OnRollback. The observer exception propagates and masks the disposeEx,
+    /// because NotifyCommitOutcome runs before the ExceptionDispatchInfo.Capture rethrow.
+    /// </summary>
+    [Fact]
+    public void Dispose_WhenAbortedAndObserverOnRollbackThrows_ObserverExceptionPropagates()
+    {
+        var proxy = TransactionProxyFactory.Create<IForcedAbortService>(
+            new ForcedAbortService(), new ThrowingOnRollbackObserver());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => proxy.ForceAbort());
+
+        Assert.Equal("observer-rollback-fail", ex.Message);
     }
 }

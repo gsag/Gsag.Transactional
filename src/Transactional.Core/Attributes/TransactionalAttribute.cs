@@ -6,7 +6,10 @@ namespace Transactional.Core.Attributes;
 /// Marks a method as transactional. The dynamic proxy wraps the call in a
 /// TransactionScope — committing on success and rolling back on exception.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method, Inherited = true)]
+// Inherited = false: the two-step lookup in TransactionProxy<T> (interface method → concrete method
+// via GetInterfaceMap) provides effective "inheritance" without relying on runtime attribute inheritance,
+// which does not cross interface boundaries anyway.
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class TransactionalAttribute : Attribute
 {
     /// <summary>Isolation level for the transaction. Default: ReadCommitted.</summary>

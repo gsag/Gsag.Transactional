@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Transactions;
@@ -9,10 +11,13 @@ using Transactional.Core.Observability;
 namespace Transactional.Core.Proxy;
 
 /// <summary>
-/// Per-call state passed from TransactionProxy&lt;T&gt; to the static async wrappers below.
+/// Per-call state passed from TransactionProxy&lt;T&gt; to the static async wrappers.
 /// Hooks is always non-null; wrappers check HasHooksFor before iterating.
 /// An empty collection means this invocation is joining an existing scope or is Suppress —
 /// hooks registered during the call flow into the ambient (parent) collection instead.
+///
+/// Stopwatch ownership: started in OpenScope, stopped in Commit or Rollback.
+/// After either of those returns, Elapsed is stable — callers must not restart or stop it.
 /// </summary>
 internal sealed class TransactionContext(
     MethodInfo method,
@@ -22,317 +27,393 @@ internal sealed class TransactionContext(
     ITransactionLifecycleObserver observer,
     HookCollection hooks)
 {
-    internal MethodInfo                    Method    { get; } = method;
-    internal TransactionScope              Scope     { get; } = scope;
-    internal TransactionalAttribute        Attr      { get; } = attr;
-    internal Stopwatch                     Stopwatch { get; } = stopwatch;
-    internal ITransactionLifecycleObserver Observer  { get; } = observer;
-    internal HookCollection                Hooks     { get; } = hooks;
-}
+    // Private: only the nested TransactionScopeExecutor class accesses these fields directly.
+    private readonly MethodInfo                    _method    = method;
+    private readonly TransactionScope              _scope     = scope;
+    private readonly TransactionalAttribute        _attr      = attr;
+    private readonly Stopwatch                     _stopwatch = stopwatch;
+    private readonly ITransactionLifecycleObserver _observer  = observer;
 
-/// <summary>
-/// Non-generic owner of the commit/rollback/dispose skeleton and async wrappers.
-/// Lives outside TransactionProxy&lt;T&gt; so the MethodInfo fields are computed once
-/// per application, not once per proxied interface type.
-/// </summary>
-internal static class TransactionScopeExecutor
-{
-    // MethodInfo looked up once on a non-generic type — no per-T duplication.
-    internal static readonly MethodInfo WrapGenericTaskAsyncMethod =
-        typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException(
-            $"TransactionScopeExecutor: required helper '{nameof(WrapGenericTaskAsync)}' not found.");
-
-    internal static readonly MethodInfo WrapGenericValueTaskAsyncMethod =
-        typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException(
-            $"TransactionScopeExecutor: required helper '{nameof(WrapGenericValueTaskAsync)}' not found.");
-
-    // -------------------------------------------------------------------------
-    // Scope factory
-    // -------------------------------------------------------------------------
-
-    internal static TransactionContext OpenScope(MethodInfo method, TransactionalAttribute attr, ITransactionLifecycleObserver observer)
-    {
-        var sw = Stopwatch.StartNew();
-        var hooks = TransactionHooks.BeginScope(attr);
-        TransactionScope? scope = null;
-        try
-        {
-            scope = CreateScope(attr);          // scope exists before observer fires
-            observer.OnBegin(method, attr);
-            return new TransactionContext(method, scope, attr, sw, observer, hooks);
-        }
-        catch
-        {
-            scope?.Dispose();
-            TransactionHooks.ClearScope(hooks); // restore AsyncLocal on any failure
-            throw;
-        }
-    }
-
-    private static TransactionScope CreateScope(TransactionalAttribute attr) =>
-        new(
-            attr.Propagation,
-            new TransactionOptions
-            {
-                IsolationLevel = attr.IsolationLevel,
-                Timeout = attr.TimeoutSeconds.HasValue
-                    ? TimeSpan.FromSeconds(attr.TimeoutSeconds.Value)
-                    : TransactionManager.DefaultTimeout
-            },
-            TransactionScopeAsyncFlowOption.Enabled);
-
-    // -------------------------------------------------------------------------
-    // Lifecycle helpers
-    // -------------------------------------------------------------------------
-
-    internal static void Commit(TransactionContext ctx)
-    {
-        try
-        {
-            ctx.Scope.Complete();
-        }
-        catch (Exception ex)
-        {
-            // Complete() can throw TransactionAbortedException (e.g. timeout).
-            // Treat as rollback so the observer is notified and Stopwatch is stopped.
-            ctx.Stopwatch.Stop();
-            ctx.Observer.OnRollback(ctx.Method, ex, ctx.Stopwatch.Elapsed);
-            throw;
-        }
-        ctx.Stopwatch.Stop();
-        ctx.Observer.OnCommit(ctx.Method, ctx.Stopwatch.Elapsed);
-    }
-
-    internal static void Rollback(TransactionContext ctx, Exception ex)
-    {
-        ctx.Stopwatch.Stop();
-        ctx.Observer.OnRollback(ctx.Method, ex, ctx.Stopwatch.Elapsed);
-    }
+    // Internal: TransactionProxy<T> accesses Hooks for RunSyncHooks and ClearScope calls.
+    internal HookCollection Hooks { get; } = hooks;
 
     /// <summary>
-    /// Disposes the scope and always restores the AsyncLocal hook slot — even if Dispose throws.
-    /// Returns any exception thrown by Dispose so callers can rethrow it after hooks have run,
-    /// rather than letting it short-circuit hook execution.
-    ///
-    /// On the async path, <c>ClearScope</c> is called twice: once synchronously in
-    /// <c>HandleAsync</c> / <c>HandleValueTask*</c> (to restore the caller's ExecutionContext),
-    /// and again here inside the async wrapper's <c>finally</c>. The second call is harmless —
-    /// <c>ReferenceEquals</c> / null-checks guard against restoring the wrong value.
+    /// Non-generic owner of the commit/rollback/dispose skeleton and async wrappers.
+    /// Nested inside <see cref="TransactionContext"/> so it can access private fields directly,
+    /// without exposing those fields to the rest of the assembly.
+    /// Lives as a nested class so the MethodInfo fields for MakeGenericMethod are computed once
+    /// per application, not once per proxied interface type.
     /// </summary>
-    internal static Exception? TryDispose(TransactionContext ctx)
+    internal static class TransactionScopeExecutor
     {
-        Exception? ex = null;
-        try
-        {
-            ctx.Scope.Dispose();
-        }
-        catch (Exception e)
-        {
-            ex = e;
-        }
-        finally
-        {
-            TransactionHooks.ClearScope(ctx.Hooks);
-        }
-        return ex;
-    }
+        // M4: compiled delegate caches eliminate per-call MakeGenericMethod.Invoke with object[] boxing.
+        private static readonly ConcurrentDictionary<Type, Func<Task, TransactionContext, Task>>     _taskWrapperCache = new();
+        private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache   = new();
 
-    /// <summary>
-    /// Disposes the scope and always restores the AsyncLocal hook slot, then rethrows any Dispose
-    /// exception immediately. Use in <c>catch</c> blocks where hooks are not expected to run.
-    /// Use <see cref="TryDispose"/> in <c>finally</c> blocks where hooks must still fire.
-    /// </summary>
-    internal static void DisposeScope(TransactionContext ctx)
-    {
-        var ex = TryDispose(ctx);
-        if (ex is not null)
-        {
-            ExceptionDispatchInfo.Capture(ex).Throw();
-        }
-    }
+        // MethodInfo looked up once on a non-generic type — no per-T duplication.
+        private static readonly MethodInfo WrapGenericTaskAsyncMethod =
+            typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException(
+                $"TransactionScopeExecutor: required helper '{nameof(WrapGenericTaskAsync)}' not found.");
 
-    // -------------------------------------------------------------------------
-    // Rollback rules
-    // -------------------------------------------------------------------------
+        private static readonly MethodInfo WrapGenericValueTaskAsyncMethod =
+            typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException(
+                $"TransactionScopeExecutor: required helper '{nameof(WrapGenericValueTaskAsync)}' not found.");
 
-    internal static bool ShouldRollback(TransactionalAttribute attr, Exception ex)
-    {
-        // NoRollbackFor wins: matching exception type commits despite the exception.
-        if (attr.NoRollbackFor.Length > 0 && IsMatch(ex, attr.NoRollbackFor))
+        // -------------------------------------------------------------------------
+        // Scope factory
+        // -------------------------------------------------------------------------
+
+        internal static TransactionContext OpenScope(MethodInfo method, TransactionalAttribute attr, ITransactionLifecycleObserver observer)
         {
-            return false;
+            var sw = Stopwatch.StartNew();
+            var hooks = TransactionHooks.BeginScope(attr);
+            TransactionScope? scope = null;
+            try
+            {
+                scope = CreateScope(attr);          // scope exists before observer fires
+                observer.OnBegin(method, attr);
+                return new TransactionContext(method, scope, attr, sw, observer, hooks);
+            }
+            catch
+            {
+                scope?.Dispose();
+                TransactionHooks.ClearScope(hooks); // restore AsyncLocal on any failure
+                throw;
+            }
         }
 
-        // RollbackFor: if specified, only rollback for these types.
-        if (attr.RollbackFor.Length > 0)
-        {
-            return IsMatch(ex, attr.RollbackFor);
-        }
+        private static TransactionScope CreateScope(TransactionalAttribute attr) =>
+            new(
+                attr.Propagation,
+                new TransactionOptions
+                {
+                    IsolationLevel = attr.IsolationLevel,
+                    Timeout = attr.TimeoutSeconds.HasValue
+                        ? TimeSpan.FromSeconds(attr.TimeoutSeconds.Value)
+                        : TransactionManager.DefaultTimeout
+                },
+                TransactionScopeAsyncFlowOption.Enabled);
 
-        // Default: rollback on any exception.
-        return true;
-    }
+        // -------------------------------------------------------------------------
+        // Lifecycle helpers
+        // -------------------------------------------------------------------------
 
-    private static bool IsMatch(Exception ex, Type[] types) =>
-        types.Any(t => t.IsAssignableFrom(ex.GetType()));
-
-    // -------------------------------------------------------------------------
-    // Async wrappers — own the TransactionScope lifetime after the method returns.
-    // All commit/rollback/dispose logic is consolidated here.
-    //
-    // outcome: starts as RolledBack and is promoted to Committed or CommittedWithException
-    // only after Commit() returns successfully. This ensures hooks never fire on the rollback path
-    // and that hook failures are suppressed whenever an exception is already propagating.
-    // DisposeScope: Dispose + ClearScope in one call; if Dispose throws the exception propagates
-    // out of the finally before RunAsyncHooksAsync — hooks are correctly skipped.
-    // -------------------------------------------------------------------------
-
-    internal static async Task WrapVoidTaskAsync(Task task, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        try
+        internal static void Commit(TransactionContext ctx)
         {
             try
             {
-                await task.ConfigureAwait(false);
+                ctx._scope.Complete();
             }
-            catch (Exception ex) when (ShouldRollback(ctx.Attr, ex))
+            catch (Exception ex)
             {
-                Rollback(ctx, ex);
+                // Complete() can throw TransactionAbortedException (e.g. timeout).
+                // Treat as rollback so the observer is notified and Stopwatch is stopped.
+                ctx._stopwatch.Stop();
+                ctx._observer.OnRollback(ctx._method, ex, ctx._stopwatch.Elapsed);
                 throw;
             }
-            catch (Exception)
-            {
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
+            ctx._stopwatch.Stop();
+            // OnCommit is deferred to NotifyCommitOutcome, called after TryDispose confirms
+            // scope.Dispose() did not throw. If Dispose throws TransactionAbortedException,
+            // the observer receives OnRollback instead of OnCommit.
         }
-        finally
-        {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-    }
 
-    internal static async ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        try
+        internal static void Rollback(TransactionContext ctx, Exception ex)
         {
+            ctx._stopwatch.Stop();
+            ctx._observer.OnRollback(ctx._method, ex, ctx._stopwatch.Elapsed);
+        }
+
+        /// <summary>
+        /// Called after <see cref="TryDispose"/> to notify the observer of the final commit outcome.
+        /// Skipped when <paramref name="outcome"/> is <see cref="TransactionOutcome.RolledBack"/> —
+        /// <see cref="Rollback"/> already called <c>OnRollback</c>.
+        /// On the commit path, if <paramref name="disposeEx"/> is not null the transaction actually
+        /// rolled back; the observer receives <c>OnRollback</c> instead of <c>OnCommit</c>.
+        /// </summary>
+        internal static void NotifyCommitOutcome(TransactionContext ctx, TransactionOutcome outcome, Exception? disposeEx)
+        {
+            if (outcome == TransactionOutcome.RolledBack)
+            {
+                return;
+            }
+            if (disposeEx is null)
+            {
+                ctx._observer.OnCommit(ctx._method, ctx._stopwatch.Elapsed);
+            }
+            else
+            {
+                ctx._observer.OnRollback(ctx._method, disposeEx, ctx._stopwatch.Elapsed);
+            }
+        }
+
+        /// <summary>
+        /// Disposes the scope and always restores the AsyncLocal hook slot — even if Dispose throws.
+        /// Returns any exception thrown by Dispose so callers can rethrow it after hooks have run,
+        /// rather than letting it short-circuit hook execution.
+        ///
+        /// On the async path, <c>ClearScope</c> is called twice: once synchronously in
+        /// <c>HandleAsync</c> / <c>HandleValueTask*</c> (to restore the caller's ExecutionContext),
+        /// and again here inside the async wrapper's <c>finally</c>. The second call is harmless —
+        /// <c>ReferenceEquals</c> / null-checks guard against restoring the wrong value.
+        /// </summary>
+        internal static Exception? TryDispose(TransactionContext ctx)
+        {
+            Exception? ex = null;
             try
             {
-                await vt.ConfigureAwait(false);
+                ctx._scope.Dispose();
             }
-            catch (Exception ex) when (ShouldRollback(ctx.Attr, ex))
+            catch (Exception e)
             {
-                Rollback(ctx, ex);
-                throw;
+                ex = e;
             }
-            catch (Exception)
+            finally
             {
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
+                TransactionHooks.ClearScope(ctx.Hooks);
             }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
+            return ex;
         }
-        finally
-        {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-    }
 
-    // Called via reflection (MakeGenericMethod).
-    private static async Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        TResult result;
-        try
+        /// <summary>
+        /// Disposes the scope and always restores the AsyncLocal hook slot, then rethrows any Dispose
+        /// exception immediately. Use in <c>catch</c> blocks where hooks are not expected to run.
+        /// Use <see cref="TryDispose"/> in <c>finally</c> blocks where hooks must still fire.
+        /// </summary>
+        internal static void DisposeScope(TransactionContext ctx)
         {
+            var ex = TryDispose(ctx);
+            if (ex is not null)
+            {
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Rollback rules
+        // -------------------------------------------------------------------------
+
+        internal static bool ShouldRollback(TransactionContext ctx, Exception ex)
+        {
+            // Snapshot to guard against the attribute arrays being replaced concurrently.
+            var noRollbackFor = ctx._attr.NoRollbackFor;
+            var rollbackFor   = ctx._attr.RollbackFor;
+
+            // NoRollbackFor wins: matching exception type commits despite the exception.
+            if (noRollbackFor.Length > 0 && IsMatch(ex, noRollbackFor))
+            {
+                return false;
+            }
+
+            // RollbackFor: if specified, only rollback for these types.
+            if (rollbackFor.Length > 0)
+            {
+                return IsMatch(ex, rollbackFor);
+            }
+
+            // Default: rollback on any exception.
+            return true;
+        }
+
+        private static bool IsMatch(Exception ex, Type[] types) =>
+            types.Any(t => t.IsAssignableFrom(ex.GetType()));
+
+        // -------------------------------------------------------------------------
+        // M4: compiled wrapper dispatch for generic async return types.
+        // One compiled delegate per TResult — eliminates per-call MakeGenericMethod.Invoke
+        // and object[] allocation on the hot async path.
+        // -------------------------------------------------------------------------
+
+        internal static Task CallGenericTaskWrapper(Type tResult, Task task, TransactionContext ctx)
+        {
+            var del = _taskWrapperCache.GetOrAdd(tResult, static t =>
+            {
+                var method = WrapGenericTaskAsyncMethod.MakeGenericMethod(t);
+                var pTask  = Expression.Parameter(typeof(Task), "task");
+                var pCtx   = Expression.Parameter(typeof(TransactionContext), "ctx");
+                var call   = Expression.Call(method, Expression.Convert(pTask, typeof(Task<>).MakeGenericType(t)), pCtx);
+                return Expression.Lambda<Func<Task, TransactionContext, Task>>(
+                    Expression.Convert(call, typeof(Task)), pTask, pCtx).Compile();
+            });
+            return del(task, ctx);
+        }
+
+        internal static object CallGenericValueTaskWrapper(Type tResult, object vtBoxed, TransactionContext ctx)
+        {
+            var del = _vtWrapperCache.GetOrAdd(tResult, static t =>
+            {
+                var method = WrapGenericValueTaskAsyncMethod.MakeGenericMethod(t);
+                var vtType = typeof(ValueTask<>).MakeGenericType(t);
+                var pVt    = Expression.Parameter(typeof(object), "vt");
+                var pCtx   = Expression.Parameter(typeof(TransactionContext), "ctx");
+                var call   = Expression.Call(method, Expression.Convert(pVt, vtType), pCtx);
+                return Expression.Lambda<Func<object, TransactionContext, object>>(
+                    Expression.Convert(call, typeof(object)), pVt, pCtx).Compile();
+            });
+            return del(vtBoxed, ctx);
+        }
+
+        // -------------------------------------------------------------------------
+        // Async wrappers — own the TransactionScope lifetime after the method returns.
+        //
+        // outcome: starts as RolledBack and is promoted to Committed or CommittedWithException
+        // only after Commit() returns successfully. Ensures hooks never fire on the wrong path
+        // and that hook failures are suppressed whenever an exception is already propagating.
+        // NotifyCommitOutcome: called after TryDispose so the observer only receives OnCommit when
+        // Dispose confirms no error. If Dispose throws, the observer receives OnRollback instead.
+        // -------------------------------------------------------------------------
+
+        internal static async Task WrapVoidTaskAsync(Task task, TransactionContext ctx)
+        {
+            var outcome = TransactionOutcome.RolledBack;
             try
             {
-                result = await task.ConfigureAwait(false);
+                try
+                {
+                    await task.ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ShouldRollback(ctx, ex))
+                {
+                    Rollback(ctx, ex);
+                    throw;
+                }
+                catch (Exception)
+                {
+                    Commit(ctx); // NoRollbackFor path — commit despite exception
+                    outcome = TransactionOutcome.CommittedWithException;
+                    throw;
+                }
+                Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+                outcome = TransactionOutcome.Committed;
             }
-            catch (Exception ex) when (ShouldRollback(ctx.Attr, ex))
+            finally
             {
-                Rollback(ctx, ex);
-                throw;
+                var disposeEx = TryDispose(ctx);
+                var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+                NotifyCommitOutcome(ctx, outcome, disposeEx);
+                await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
             }
-            catch (Exception)
-            {
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
         }
-        finally
-        {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-        return result;
-    }
 
-    // Called via reflection (MakeGenericMethod). Awaits ValueTask<TResult> directly
-    // to avoid the AsTask() allocation on the already-completed fast path.
-    private static async ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        TResult result;
-        try
+        internal static async ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx)
         {
+            var outcome = TransactionOutcome.RolledBack;
             try
             {
-                result = await vt.ConfigureAwait(false);
+                try
+                {
+                    await vt.ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ShouldRollback(ctx, ex))
+                {
+                    Rollback(ctx, ex);
+                    throw;
+                }
+                catch (Exception)
+                {
+                    Commit(ctx); // NoRollbackFor path — commit despite exception
+                    outcome = TransactionOutcome.CommittedWithException;
+                    throw;
+                }
+                Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+                outcome = TransactionOutcome.Committed;
             }
-            catch (Exception ex) when (ShouldRollback(ctx.Attr, ex))
+            finally
             {
-                Rollback(ctx, ex);
-                throw;
+                var disposeEx = TryDispose(ctx);
+                var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+                NotifyCommitOutcome(ctx, outcome, disposeEx);
+                await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
             }
-            catch (Exception)
-            {
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
         }
-        finally
+
+        // Called via compiled delegate (CallGenericTaskWrapper).
+        private static async Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx)
         {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
+            var outcome = TransactionOutcome.RolledBack;
+            TResult result;
+            try
             {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                try
+                {
+                    result = await task.ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ShouldRollback(ctx, ex))
+                {
+                    Rollback(ctx, ex);
+                    throw;
+                }
+                catch (Exception)
+                {
+                    Commit(ctx); // NoRollbackFor path — commit despite exception
+                    outcome = TransactionOutcome.CommittedWithException;
+                    throw;
+                }
+                Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+                outcome = TransactionOutcome.Committed;
             }
+            finally
+            {
+                var disposeEx = TryDispose(ctx);
+                var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+                NotifyCommitOutcome(ctx, outcome, disposeEx);
+                await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
+            }
+            return result;
         }
-        return result;
+
+        // Called via compiled delegate (CallGenericValueTaskWrapper). Awaits ValueTask<TResult>
+        // directly to avoid the AsTask() allocation on the already-completed fast path.
+        private static async ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
+        {
+            var outcome = TransactionOutcome.RolledBack;
+            TResult result;
+            try
+            {
+                try
+                {
+                    result = await vt.ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ShouldRollback(ctx, ex))
+                {
+                    Rollback(ctx, ex);
+                    throw;
+                }
+                catch (Exception)
+                {
+                    Commit(ctx); // NoRollbackFor path — commit despite exception
+                    outcome = TransactionOutcome.CommittedWithException;
+                    throw;
+                }
+                Commit(ctx); // success path — outside catch scope, no risk of double Complete()
+                outcome = TransactionOutcome.Committed;
+            }
+            finally
+            {
+                var disposeEx = TryDispose(ctx);
+                var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+                NotifyCommitOutcome(ctx, outcome, disposeEx);
+                await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
+            }
+            return result;
+        }
     }
 }

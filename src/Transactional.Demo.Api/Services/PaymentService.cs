@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Transactional.Core.Attributes;
 using Transactional.Core.Hooks;
 using Transactional.Demo.Api.Data;
@@ -12,14 +13,14 @@ public class PaymentService : IPaymentService
 {
     private readonly CheckoutDbContext _db;
     private readonly ITransactionHooks _hooks;
-    private readonly HookOutputCollector _collector;
+    private readonly ILogger<PaymentService> _logger;
     private readonly IEventBus _eventBus;
 
-    public PaymentService(CheckoutDbContext db, ITransactionHooks hooks, HookOutputCollector collector, IEventBus eventBus)
+    public PaymentService(CheckoutDbContext db, ITransactionHooks hooks, ILogger<PaymentService> logger, IEventBus eventBus)
     {
         _db = db;
         _hooks = hooks;
-        _collector = collector;
+        _logger = logger;
         _eventBus = eventBus;
     }
 
@@ -40,10 +41,10 @@ public class PaymentService : IPaymentService
         // This guarantees the event is only published after the full checkout transaction commits.
         _hooks.AfterCommit(() =>
         {
-            _collector.Record("PaymentService.AfterCommit: publishing payment.approved event to event bus");
+            _logger.LogDebug("PaymentService.AfterCommit: publishing payment.approved event to event bus");
             _eventBus.Publish("payment.approved", $"orderId={orderId}, amount={amount:F2}");
         });
-        _hooks.AfterRollback(() => _collector.Record("PaymentService.AfterRollback: card NOT charged — funds not debited"));
+        _hooks.AfterRollback(() => _logger.LogDebug("PaymentService.AfterRollback: card NOT charged — funds not debited"));
 
         return record;
     }
@@ -53,7 +54,7 @@ public class PaymentService : IPaymentService
     [Transactional]
     public Task FailCardDeclinedAsync(int orderId, decimal amount, CancellationToken ct = default)
     {
-        _hooks.AfterRollback(() => _collector.Record("PaymentService.AfterRollback: decline logged — no charge attempted"));
+        _hooks.AfterRollback(() => _logger.LogDebug("PaymentService.AfterRollback: decline logged — no charge attempted"));
         throw new PaymentDeclinedException($"Card declined: insufficient funds (order #{orderId}, ${amount:F2})");
     }
 
