@@ -193,21 +193,30 @@ dotnet build
 dotnet test
 
 # Run a specific test class
-dotnet test --filter "FullyQualifiedName~OrderServiceIntegrationTests"
+dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
-# Run the demo API (Swagger at http://localhost:51938/swagger)
+# Run the demo API (Swagger at http://localhost:5000/swagger)
 dotnet run --project src/Transactional.Demo.Api
 ```
 
-### Demo API endpoints
+### Demo API — E-Commerce Checkout
 
-| Endpoint | What happens |
-|---|---|
-| `POST /orders/success` | Order inserted and committed — returns 201 |
-| `POST /orders/fail` | Order inserted, exception thrown — rolls back, returns 400 |
-| `GET /orders` | Returns all persisted orders |
-| `POST /fulfillment/fulfill` | Outer `Required` + inner `RequiresNew` — both commit |
-| `POST /fulfillment/fulfill-then-fail` | Inner `RequiresNew` commits before outer fails — inner data persists |
+Each endpoint demonstrates one specific `[Transactional]` behaviour. Every response includes `hooksOutput` (registered hooks and their execution order) and `publishedEvents` (events dispatched after commit) so you can observe the library's behaviour directly in the response body.
+
+| Endpoint | `[Transactional]` config | What it demonstrates |
+|---|---|---|
+| `POST /checkout/success` | `Required` | Full commit — OrderService, InventoryService, PaymentService join the outer scope; AuditService commits independently via `RequiresNew`; AfterCommit hooks fire at the outer commit |
+| `POST /checkout/payment-failure` | `Required` | Rollback — PaymentService throws before `SaveChanges`; outer scope disposes without `Complete()`; AfterRollback hooks run |
+| `POST /checkout/inventory-failure` | `Required` | Rollback — InventoryService throws before `SaveChanges`; identical lifecycle to payment failure |
+| `POST /checkout/audit-requires-new` | `Required` outer + `RequiresNew` audit | AuditEntry commits independently; outer scope then throws and rolls back — audit row survives |
+| `POST /checkout/no-rollback-for` | `NoRollbackFor=[NotificationException]` | `NotificationException` triggers `scope.Complete()` instead of rollback — order and payment persist despite the 400 response |
+| `POST /checkout/after-commit-hook` | `Required` | AfterCommit hook publishes `payment.approved` to the event bus **only after** `scope.Complete()`; hook does not fire when the inner method returns |
+| `POST /checkout/after-rollback-hook` | `Required` | Three compensating hooks (2 sync + 1 async) registered and executed in order after rollback |
+| `POST /checkout/suppress` | `Required` outer + `Suppress` read | InventoryReportService runs with `Transaction.Current = null`; outer scope is suspended for its duration and automatically resumed |
+| `GET /checkout/orders` | — | All persisted checkout orders |
+| `GET /checkout/audit-log` | — | All persisted audit entries |
+| `GET /checkout/payments` | — | All persisted payment records |
+| `DELETE /checkout/reset` | — | Clears all data between demo runs |
 
 ---
 
@@ -228,11 +237,18 @@ src/
     Observability/             ITransactionLifecycleObserver, NullTransactionObserver
     Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
     Extensions/                AddTransactionalServices() DI extension
-  Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite demo
+  Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
+    Entities/                  CheckoutOrder, InventoryReservation, PaymentRecord, AuditEntry
+    Data/                      CheckoutDbContext
+    Exceptions/                PaymentDeclinedException, InventoryException, NotificationException
+    Infrastructure/            HookOutputCollector, InMemoryEventBus (both Scoped per-request)
+    Services/                  OrderService, InventoryService, PaymentService, AuditService,
+                               InventoryReportService, CheckoutService (8 scenario methods)
+    Controllers/               CheckoutController (8 POST + 4 GET/DELETE)
 tests/
   Transactional.Tests/
     Unit/                      Proxy mechanics, propagation, rollback rules, observer
-    Integration/               Real SQLite commit/rollback
+    Integration/               CheckoutIntegrationTests — real SQLite, full service graph
     Integration/Hooks/         AfterCommit, AfterRollback, AfterCompletion, nested scopes
 ```
 

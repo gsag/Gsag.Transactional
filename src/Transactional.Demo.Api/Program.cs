@@ -7,8 +7,11 @@ using Transactional.Demo.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Absolute path prevents working-directory ambiguity between `dotnet run`,
+// published binaries, and test hosts.
+var dbPath = Path.Combine(AppContext.BaseDirectory, "checkout.db");
 builder.Services.AddDbContext<CheckoutDbContext>(options =>
-    options.UseSqlite("Data Source=checkout.db"));
+    options.UseSqlite($"Data Source={dbPath}"));
 
 // Per-request collectors — Scoped so each HTTP request gets its own list.
 // Hooks registered inside [Transactional] methods write to these; the controller
@@ -45,6 +48,9 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
+    // EnsureCreated is intentional for this demo — no migrations needed.
+    // Note: EnsureCreated and Migrate() are mutually exclusive; enabling migrations
+    // later would require dropping and recreating the database.
     db.Database.EnsureCreated();
 }
 

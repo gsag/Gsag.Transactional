@@ -4,7 +4,7 @@ public class InventoryReservation
 {
     public int Id { get; set; }
     public int OrderId { get; set; }
-    public string ProductId { get; set; } = "";
-    public int Quantity { get; set; }
-    public DateTime ReservedAt { get; set; }
+    public required string ProductId { get; init; }
+    public int Quantity { get; init; }
+    public DateTimeOffset ReservedAt { get; init; }
 }

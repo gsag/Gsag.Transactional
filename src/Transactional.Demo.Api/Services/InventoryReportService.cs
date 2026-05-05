@@ -21,12 +21,12 @@ public class InventoryReportService : IInventoryReportService
     // Transaction.Current is null inside — this read does not enlist in any transaction.
     // Useful for reads that should not block writers or hold locks within a larger transaction.
     [Transactional(Propagation = TransactionScopeOption.Suppress)]
-    public async Task<InventoryReport> ReadAvailableStockAsync()
+    public async Task<InventoryReport> ReadAvailableStockAsync(CancellationToken ct = default)
     {
         var isOutsideTransaction = Transaction.Current is null;
         _collector.Record($"InventoryReportService: running with Transaction.Current = {(isOutsideTransaction ? "null ✓ (Suppress confirmed)" : "active (unexpected!)")}");
 
-        var count = await _db.Reservations.AsNoTracking().CountAsync();
+        var count = await _db.Reservations.AsNoTracking().CountAsync(ct);
 
         _collector.Record($"InventoryReportService: read {count} reservation(s) — executed OUTSIDE ambient transaction");
 

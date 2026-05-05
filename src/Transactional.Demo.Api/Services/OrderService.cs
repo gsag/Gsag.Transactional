@@ -21,17 +21,17 @@ public class OrderService : IOrderService
     }
 
     [Transactional]
-    public async Task<CheckoutOrder> CreateAsync(string scenario, decimal amount)
+    public async Task<CheckoutOrder> CreateAsync(string scenario, decimal amount, CancellationToken ct = default)
     {
         var order = new CheckoutOrder
         {
             Scenario = scenario,
             Status = "created",
             Amount = amount,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() => _collector.Record("OrderService.AfterCommit: order record confirmed"));
         _hooks.AfterRollback(() => _collector.Record("OrderService.AfterRollback: order rolled back — record discarded"));
@@ -40,6 +40,6 @@ public class OrderService : IOrderService
         return order;
     }
 
-    public async Task<IEnumerable<CheckoutOrder>> GetAllAsync()
-        => await _db.Orders.AsNoTracking().OrderByDescending(o => o.CreatedAt).ToListAsync();
+    public async Task<IReadOnlyList<CheckoutOrder>> GetAllAsync(CancellationToken ct = default)
+        => await _db.Orders.AsNoTracking().OrderByDescending(o => o.CreatedAt).ToListAsync(ct);
 }

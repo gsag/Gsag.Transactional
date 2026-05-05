@@ -11,4 +11,35 @@ public class CheckoutDbContext : DbContext
     public DbSet<InventoryReservation> Reservations => Set<InventoryReservation>();
     public DbSet<PaymentRecord> Payments => Set<PaymentRecord>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CheckoutOrder>(b =>
+        {
+            b.Property(o => o.Scenario).HasMaxLength(100).IsRequired();
+            b.Property(o => o.Status).HasMaxLength(50).IsRequired();
+            b.HasIndex(o => o.CreatedAt);
+        });
+
+        modelBuilder.Entity<InventoryReservation>(b =>
+        {
+            b.Property(r => r.ProductId).HasMaxLength(50).IsRequired();
+            b.HasOne<CheckoutOrder>().WithMany().HasForeignKey(r => r.OrderId);
+            b.HasIndex(r => r.OrderId);
+        });
+
+        modelBuilder.Entity<PaymentRecord>(b =>
+        {
+            b.Property(p => p.Status).HasMaxLength(50).IsRequired();
+            b.HasOne<CheckoutOrder>().WithMany().HasForeignKey(p => p.OrderId);
+            b.HasIndex(p => p.OrderId);
+        });
+
+        modelBuilder.Entity<AuditEntry>(b =>
+        {
+            b.Property(e => e.Action).HasMaxLength(100).IsRequired();
+            b.Property(e => e.Scenario).HasMaxLength(100).IsRequired();
+            b.HasIndex(e => e.OccurredAt);
+        });
+    }
 }

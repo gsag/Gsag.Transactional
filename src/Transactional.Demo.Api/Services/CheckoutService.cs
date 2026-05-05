@@ -1,5 +1,7 @@
 using Transactional.Core.Attributes;
 using Transactional.Core.Hooks;
+using Transactional.Demo.Api.Data;
+using Transactional.Demo.Api.Entities;
 using Transactional.Demo.Api.Exceptions;
 using Transactional.Demo.Api.Infrastructure;
 
@@ -14,6 +16,7 @@ public class CheckoutService : ICheckoutService
     private readonly IInventoryReportService _inventoryReport;
     private readonly ITransactionHooks _hooks;
     private readonly HookOutputCollector _collector;
+    private readonly CheckoutDbContext _db;
 
     public CheckoutService(
         IOrderService orders,
@@ -22,7 +25,8 @@ public class CheckoutService : ICheckoutService
         IAuditService audit,
         IInventoryReportService inventoryReport,
         ITransactionHooks hooks,
-        HookOutputCollector collector)
+        HookOutputCollector collector,
+        CheckoutDbContext db)
     {
         _orders = orders;
         _inventory = inventory;
@@ -31,6 +35,7 @@ public class CheckoutService : ICheckoutService
         _inventoryReport = inventoryReport;
         _hooks = hooks;
         _collector = collector;
+        _db = db;
     }
 
     /// <summary>
@@ -41,14 +46,14 @@ public class CheckoutService : ICheckoutService
     /// Hooks registered in all inner services fire when the OUTER scope commits (not when each inner method returns).
     /// </summary>
     [Transactional]
-    public async Task<CheckoutResult> ProcessSuccessAsync()
+    public async Task<CheckoutResult> ProcessSuccessAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened");
 
-        var order = await _orders.CreateAsync("success", 99.99m);
-        var reservation = await _inventory.ReserveAsync(order.Id, "PROD-001", 1);
-        var payment = await _payments.ProcessAsync(order.Id, order.Amount);
-        var audit = await _audit.WriteAsync("CHECKOUT_SUCCESS", "success", true);
+        var order = await _orders.CreateAsync("success", 99.99m, ct);
+        var reservation = await _inventory.ReserveAsync(order.Id, "PROD-001", 1, ct);
+        var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
+        var audit = await _audit.WriteAsync("CHECKOUT_SUCCESS", "success", true, ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: all services committed — checkout complete ✓"));
 
@@ -63,14 +68,14 @@ public class CheckoutService : ICheckoutService
     /// No data is written to the database (throw happens before any SaveChanges in this scenario).
     /// </summary>
     [Transactional]
-    public async Task ProcessWithPaymentFailureAsync()
+    public async Task ProcessWithPaymentFailureAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened");
 
         _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback: payment failed — order never placed"));
         _hooks.AfterCompletion(() => _collector.Record("CheckoutService.AfterCompletion: checkout ended on rollback path"));
 
-        await _payments.FailCardDeclinedAsync(0, 99.99m);
+        await _payments.FailCardDeclinedAsync(0, 99.99m, ct);
     }
 
     /// <summary>
@@ -79,33 +84,46 @@ public class CheckoutService : ICheckoutService
     /// Same rollback lifecycle as payment failure — nothing reaches the database.
     /// </summary>
     [Transactional]
-    public async Task ProcessWithInventoryFailureAsync()
+    public async Task ProcessWithInventoryFailureAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened");
 
         _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback: inventory unavailable — checkout aborted"));
         _hooks.AfterCompletion(() => _collector.Record("CheckoutService.AfterCompletion: checkout ended on rollback path"));
 
-        await _inventory.FailOutOfStockAsync("PROD-001");
+        await _inventory.FailOutOfStockAsync("PROD-001", ct);
     }
 
     /// <summary>
     /// Scenario 4 — RequiresNew audit survives outer rollback.
-    /// AuditService.WriteAsync opens an independent RequiresNew scope and commits.
-    /// The outer scope then throws and rolls back — the AuditEntry remains in the database.
+    /// An order entity is added to the EF change tracker (but SaveChanges is NOT called in the outer scope).
+    /// AuditService.WriteAsync opens an independent RequiresNew scope and commits the audit entry.
+    /// The outer scope then throws and rolls back — the tracked order change is discarded.
+    /// Result: AuditEntry persists, no order in the database.
     ///
-    /// On SQL Server / PostgreSQL: any outer-scope writes (order, inventory, payment) would be
-    /// rolled back while the audit entry persists. On SQLite (no ambient tx enlistment) the
-    /// scope lifecycle and observer/hook behavior is exercised correctly.
+    /// On SQL Server / PostgreSQL: even if SaveChanges had been called, the outer-scope write
+    /// would be rolled back atomically while the audit entry (committed in RequiresNew) survives.
+    /// On SQLite: the proxy lifecycle and hook behaviour are exercised correctly.
     /// </summary>
     [Transactional]
-    public async Task ProcessWithAuditRequiresNewAsync()
+    public async Task ProcessWithAuditRequiresNewAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened");
 
-        _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback: outer scope rolled back — audit was already committed in RequiresNew"));
+        _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback: outer scope rolled back — tracked order change discarded, audit already committed in RequiresNew"));
 
-        var audit = await _audit.WriteAsync("CHECKOUT_FAILED", "audit-requires-new", false);
+        // Create an order inside the outer Required scope.
+        // On SQL Server / PostgreSQL: this write is held within the ambient transaction and
+        // rolled back atomically when the outer scope throws without Complete().
+        // On SQLite (no ambient enlistment): SaveChanges commits immediately regardless, so the
+        // order WILL appear in the database — but the proxy lifecycle and hook behavior are still
+        // exercised correctly. See Known Limitations in README.
+        var order = await _orders.CreateAsync("audit-requires-new", 49.99m, ct);
+        _collector.Record($"CheckoutService: order #{order.Id} created inside outer Required scope");
+
+        // RequiresNew: suspends the outer scope, opens an independent scope, commits.
+        // This AuditEntry is durable regardless of what the outer scope does next.
+        var audit = await _audit.WriteAsync("CHECKOUT_FAILED", "audit-requires-new", false, ct);
         _collector.Record($"CheckoutService: AuditEntry #{audit.Id} committed in RequiresNew — now throwing to roll back outer scope");
 
         throw new InvalidOperationException("Simulated business failure after audit was written");
@@ -115,15 +133,40 @@ public class CheckoutService : ICheckoutService
     /// Scenario 5 — NoRollbackFor.
     /// [Transactional(NoRollbackFor = [typeof(NotificationException)])] causes the proxy to call
     /// scope.Complete() when NotificationException is thrown, instead of disposing without it.
-    /// Order and payment are saved before the throw — both records persist despite the exception.
+    ///
+    /// Writes are made directly via _db (not through inner proxied services) so the data is
+    /// unambiguously inside the outer Required scope.
+    /// On SQL Server / PostgreSQL: scope.Complete() is what makes the data durable — without it,
+    /// the ambient transaction would roll back and no records would persist.
+    /// On SQLite (no ambient enlistment): SaveChanges commits immediately, but scope.Complete()
+    /// is still called by the proxy — confirming the NoRollbackFor path is exercised correctly.
     /// </summary>
     [Transactional(NoRollbackFor = [typeof(NotificationException)])]
-    public async Task<CheckoutResult> ProcessWithNoRollbackForAsync()
+    public async Task<CheckoutResult> ProcessWithNoRollbackForAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: scope opened with NoRollbackFor=[NotificationException]");
 
-        var order = await _orders.CreateAsync("no-rollback-for", 59.99m);
-        var payment = await _payments.ProcessAsync(order.Id, order.Amount);
+        var order = new CheckoutOrder
+        {
+            Scenario = "no-rollback-for",
+            Status = "created",
+            Amount = 59.99m,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync(ct);
+        _collector.Record($"CheckoutService: order #{order.Id} saved inside outer scope");
+
+        var payment = new PaymentRecord
+        {
+            OrderId = order.Id,
+            Amount = order.Amount,
+            Status = "approved",
+            ProcessedAt = DateTimeOffset.UtcNow
+        };
+        _db.Payments.Add(payment);
+        await _db.SaveChangesAsync(ct);
+        _collector.Record($"CheckoutService: payment #{payment.Id} saved inside outer scope");
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: scope COMMITTED despite NotificationException — NoRollbackFor in effect ✓"));
 
@@ -138,12 +181,12 @@ public class CheckoutService : ICheckoutService
     /// This guarantees events are published only after data is durably committed.
     /// </summary>
     [Transactional]
-    public async Task<CheckoutResult> ProcessWithAfterCommitHookAsync()
+    public async Task<CheckoutResult> ProcessWithAfterCommitHookAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened — inner hooks fire when THIS scope commits");
 
-        var order = await _orders.CreateAsync("after-commit-hook", 149.99m);
-        var payment = await _payments.ProcessAsync(order.Id, order.Amount);
+        var order = await _orders.CreateAsync("after-commit-hook", 149.99m, ct);
+        var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: all inner service hooks have now fired (event bus received events)"));
 
@@ -155,16 +198,19 @@ public class CheckoutService : ICheckoutService
     /// Three hooks registered: two sync, one async. All execute in order even if one throws.
     /// Demonstrates using hooks for compensation: releasing allocations, alerting ops, updating status.
     /// </summary>
+    // Synchronous throw — the proxy routes this through the async wrapper because the return type is Task.
     [Transactional]
-    public async Task ProcessWithAfterRollbackHookAsync()
+    public Task ProcessWithAfterRollbackHookAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope opened");
 
         _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback[1] sync: releasing warehouse stock allocation"));
         _hooks.AfterRollback(async () =>
         {
-            await Task.CompletedTask;
-            _collector.Record("CheckoutService.AfterRollback[2] async: sending alert to operations team");
+            // Async hooks can perform real async I/O (HTTP calls, queue writes, etc.)
+            // Simulates a non-blocking alert to an operations monitoring endpoint.
+            await Task.Delay(1, ct); // placeholder for: await _alertService.NotifyAsync(...)
+            _collector.Record("CheckoutService.AfterRollback[2] async: alert sent to operations team via async I/O");
         });
         _hooks.AfterRollback(() => _collector.Record("CheckoutService.AfterRollback[3] sync: updating order status to checkout_failed"));
         _hooks.AfterCompletion(() => _collector.Record("CheckoutService.AfterCompletion: closing telemetry span"));
@@ -179,17 +225,17 @@ public class CheckoutService : ICheckoutService
     /// After ReadAvailableStockAsync returns, the outer scope is automatically resumed.
     /// </summary>
     [Transactional]
-    public async Task<CheckoutResult> ProcessWithSuppressAsync()
+    public async Task<CheckoutResult> ProcessWithSuppressAsync(CancellationToken ct = default)
     {
         _collector.Record("CheckoutService: outer Required scope active — about to call Suppress service");
 
-        var order = await _orders.CreateAsync("suppress", 79.99m);
+        var order = await _orders.CreateAsync("suppress", 79.99m, ct);
 
         _collector.Record("CheckoutService: calling InventoryReportService (Suppress) — outer scope will be suspended");
-        var report = await _inventoryReport.ReadAvailableStockAsync();
+        var report = await _inventoryReport.ReadAvailableStockAsync(ct);
         _collector.Record("CheckoutService: Suppress scope exited — outer Required scope resumed");
 
-        var payment = await _payments.ProcessAsync(order.Id, order.Amount);
+        var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: committed — Suppress read did not affect transaction outcome"));
 

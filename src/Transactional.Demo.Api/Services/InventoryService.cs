@@ -22,17 +22,17 @@ public class InventoryService : IInventoryService
     }
 
     [Transactional]
-    public async Task<InventoryReservation> ReserveAsync(int orderId, string productId, int quantity)
+    public async Task<InventoryReservation> ReserveAsync(int orderId, string productId, int quantity, CancellationToken ct = default)
     {
         var reservation = new InventoryReservation
         {
             OrderId = orderId,
             ProductId = productId,
             Quantity = quantity,
-            ReservedAt = DateTime.UtcNow
+            ReservedAt = DateTimeOffset.UtcNow
         };
         _db.Reservations.Add(reservation);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() => _collector.Record($"InventoryService.AfterCommit: reservation for {productId} (qty: {quantity}) confirmed"));
         _hooks.AfterRollback(() => _collector.Record($"InventoryService.AfterRollback: releasing {quantity}x {productId} back to stock"));
@@ -40,14 +40,15 @@ public class InventoryService : IInventoryService
         return reservation;
     }
 
+    // Synchronous throw — no async work is done before the exception.
+    // The proxy still routes this through the async wrapper because the interface return type is Task.
     [Transactional]
-    public async Task FailOutOfStockAsync(string productId)
+    public Task FailOutOfStockAsync(string productId, CancellationToken ct = default)
     {
         _hooks.AfterRollback(() => _collector.Record("InventoryService.AfterRollback: out-of-stock check failed — nothing to release"));
-        await Task.CompletedTask;
         throw new InventoryException($"Out of stock: {productId} — 0 units available");
     }
 
-    public async Task<IEnumerable<InventoryReservation>> GetAllAsync()
-        => await _db.Reservations.AsNoTracking().OrderByDescending(r => r.ReservedAt).ToListAsync();
+    public async Task<IReadOnlyList<InventoryReservation>> GetAllAsync(CancellationToken ct = default)
+        => await _db.Reservations.AsNoTracking().OrderByDescending(r => r.ReservedAt).ToListAsync(ct);
 }

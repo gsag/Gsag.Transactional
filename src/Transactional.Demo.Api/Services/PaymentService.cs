@@ -24,17 +24,17 @@ public class PaymentService : IPaymentService
     }
 
     [Transactional]
-    public async Task<PaymentRecord> ProcessAsync(int orderId, decimal amount)
+    public async Task<PaymentRecord> ProcessAsync(int orderId, decimal amount, CancellationToken ct = default)
     {
         var record = new PaymentRecord
         {
             OrderId = orderId,
             Amount = amount,
             Status = "approved",
-            ProcessedAt = DateTime.UtcNow
+            ProcessedAt = DateTimeOffset.UtcNow
         };
         _db.Payments.Add(record);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         // Hook fires when the OUTER scope commits — not when ProcessAsync returns.
         // This guarantees the event is only published after the full checkout transaction commits.
@@ -48,14 +48,15 @@ public class PaymentService : IPaymentService
         return record;
     }
 
+    // Synchronous throw — no async work is done before the exception.
+    // The proxy still routes this through the async wrapper because the interface return type is Task.
     [Transactional]
-    public async Task FailCardDeclinedAsync(int orderId, decimal amount)
+    public Task FailCardDeclinedAsync(int orderId, decimal amount, CancellationToken ct = default)
     {
         _hooks.AfterRollback(() => _collector.Record("PaymentService.AfterRollback: decline logged — no charge attempted"));
-        await Task.CompletedTask;
         throw new PaymentDeclinedException($"Card declined: insufficient funds (order #{orderId}, ${amount:F2})");
     }
 
-    public async Task<IEnumerable<PaymentRecord>> GetAllAsync()
-        => await _db.Payments.AsNoTracking().OrderByDescending(p => p.ProcessedAt).ToListAsync();
+    public async Task<IReadOnlyList<PaymentRecord>> GetAllAsync(CancellationToken ct = default)
+        => await _db.Payments.AsNoTracking().OrderByDescending(p => p.ProcessedAt).ToListAsync(ct);
 }

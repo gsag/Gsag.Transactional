@@ -3,8 +3,8 @@ namespace Transactional.Demo.Api.Entities;
 public class CheckoutOrder
 {
     public int Id { get; set; }
-    public string Scenario { get; set; } = "";
-    public string Status { get; set; } = "created";
-    public decimal Amount { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public required string Scenario { get; init; }
+    public required string Status { get; init; }
+    public decimal Amount { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
 }

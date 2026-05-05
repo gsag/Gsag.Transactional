@@ -8,5 +8,5 @@ public interface IInventoryReportService
     /// Reads inventory data with Suppress propagation — runs outside any ambient transaction.
     /// Transaction.Current is null for the duration of this call.
     /// </summary>
-    Task<InventoryReport> ReadAvailableStockAsync();
+    Task<InventoryReport> ReadAvailableStockAsync(CancellationToken ct = default);
 }
