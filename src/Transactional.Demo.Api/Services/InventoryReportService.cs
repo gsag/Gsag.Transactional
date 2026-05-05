@@ -1,20 +1,20 @@
 using System.Transactions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Transactional.Core.Attributes;
 using Transactional.Demo.Api.Data;
-using Transactional.Demo.Api.Infrastructure;
 
 namespace Transactional.Demo.Api.Services;
 
 public class InventoryReportService : IInventoryReportService
 {
     private readonly CheckoutDbContext _db;
-    private readonly HookOutputCollector _collector;
+    private readonly ILogger<InventoryReportService> _logger;
 
-    public InventoryReportService(CheckoutDbContext db, HookOutputCollector collector)
+    public InventoryReportService(CheckoutDbContext db, ILogger<InventoryReportService> logger)
     {
         _db = db;
-        _collector = collector;
+        _logger = logger;
     }
 
     // Suppress: if an ambient transaction is active, it is suspended for the duration of this call.
@@ -24,11 +24,13 @@ public class InventoryReportService : IInventoryReportService
     public async Task<InventoryReport> ReadAvailableStockAsync(CancellationToken ct = default)
     {
         var isOutsideTransaction = Transaction.Current is null;
-        _collector.Record($"InventoryReportService: running with Transaction.Current = {(isOutsideTransaction ? "null ✓ (Suppress confirmed)" : "active (unexpected!)")}");
+        _logger.LogDebug(
+            "InventoryReportService: running with Transaction.Current = {Status}",
+            isOutsideTransaction ? "null (Suppress confirmed)" : "active (unexpected!)");
 
         var count = await _db.Reservations.AsNoTracking().CountAsync(ct);
 
-        _collector.Record($"InventoryReportService: read {count} reservation(s) — executed OUTSIDE ambient transaction");
+        _logger.LogDebug("InventoryReportService: read {Count} reservation(s) — executed OUTSIDE ambient transaction", count);
 
         return new InventoryReport(count, "Read outside ambient transaction via [Transactional(Suppress)]");
     }

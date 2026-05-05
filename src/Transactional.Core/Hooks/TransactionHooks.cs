@@ -67,15 +67,16 @@ internal sealed class HookCollection
     /// </summary>
     internal HookCollectionRole Role { get; init; }
 
-    private readonly Dictionary<HookEvent, List<Action>>     _sync  = [];
-    private readonly Dictionary<HookEvent, List<Func<Task>>> _async = [];
+    private Dictionary<HookEvent, List<Action>>?     _sync;
+    private Dictionary<HookEvent, List<Func<Task>>>? _async;
 
     internal bool HasHooksFor(HookEvent evt) =>
-        (_sync.TryGetValue(evt,  out var s) && s.Count > 0) ||
-        (_async.TryGetValue(evt, out var a) && a.Count > 0);
+        (_sync  is not null && _sync.TryGetValue(evt,  out var s) && s.Count > 0) ||
+        (_async is not null && _async.TryGetValue(evt, out var a) && a.Count > 0);
 
     internal void AddSync(HookEvent evt, Action action)
     {
+        _sync ??= [];
         if (!_sync.TryGetValue(evt, out var list))
         {
             _sync[evt] = list = [];
@@ -85,6 +86,7 @@ internal sealed class HookCollection
 
     internal void AddAsync(HookEvent evt, Func<Task> action)
     {
+        _async ??= [];
         if (!_async.TryGetValue(evt, out var list))
         {
             _async[evt] = list = [];
@@ -93,10 +95,10 @@ internal sealed class HookCollection
     }
 
     internal IReadOnlyList<Action>     SyncFor(HookEvent evt)  =>
-        _sync.TryGetValue(evt,  out var l) ? l : [];
+        _sync  is not null && _sync.TryGetValue(evt,  out var l) ? l : [];
 
     internal IReadOnlyList<Func<Task>> AsyncFor(HookEvent evt) =>
-        _async.TryGetValue(evt, out var l) ? l : [];
+        _async is not null && _async.TryGetValue(evt, out var l) ? l : [];
 }
 
 /// <summary>

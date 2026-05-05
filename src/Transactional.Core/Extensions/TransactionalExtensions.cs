@@ -32,7 +32,10 @@ public static class TransactionalExtensions
         foreach (var serviceType in candidates)
         {
             var interfaceType = serviceType.GetInterfaces()
-                .FirstOrDefault(i => i.Name == $"I{serviceType.Name}" && i.Assembly == assembly);
+                .FirstOrDefault(i =>
+                    i.Name == $"I{serviceType.Name}"
+                    && i.Assembly == assembly
+                    && i.Namespace == serviceType.Namespace);
 
             if (interfaceType is null)
             {

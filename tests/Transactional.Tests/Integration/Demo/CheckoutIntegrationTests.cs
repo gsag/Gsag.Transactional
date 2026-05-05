@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Transactional.Core.Attributes;
 using Transactional.Core.Hooks;
 using Transactional.Core.Observability;
@@ -19,7 +20,7 @@ namespace Transactional.Tests.Integration.Demo;
 // Local observer — records COMMIT/ROLLBACK events for assertion
 // ---------------------------------------------------------------------------
 
-internal sealed class RecordingObserver : ITransactionLifecycleObserver
+internal sealed class CheckoutRecordingObserver : ITransactionLifecycleObserver
 {
     public List<string> Calls { get; } = [];
     public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
@@ -59,15 +60,15 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var eventBus = new InMemoryEventBus();
 
         _orderService = TransactionProxyFactory.Create<IOrderService>(
-            new OrderService(_db, hooks, collector));
+            new OrderService(_db, hooks, NullLogger<OrderService>.Instance));
         _inventoryService = TransactionProxyFactory.Create<IInventoryService>(
-            new InventoryService(_db, hooks, collector));
+            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance));
         _paymentService = TransactionProxyFactory.Create<IPaymentService>(
-            new PaymentService(_db, hooks, collector, eventBus));
+            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus));
         _auditService = TransactionProxyFactory.Create<IAuditService>(
-            new AuditService(_db, hooks, collector));
+            new AuditService(_db, hooks, NullLogger<AuditService>.Instance));
         var reportService = TransactionProxyFactory.Create<IInventoryReportService>(
-            new InventoryReportService(_db, collector));
+            new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
 
         _checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(_orderService, _inventoryService, _paymentService,
@@ -192,11 +193,10 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Observer_AfterCommit_DataVisibleAndObserverReceivesCommit()
     {
-        var observer = new RecordingObserver();
+        var observer = new CheckoutRecordingObserver();
         var hooks = new TransactionHooks();
-        var collector = new HookOutputCollector();
         var svc = TransactionProxyFactory.Create<IOrderService>(
-            new OrderService(_db, hooks, collector), observer);
+            new OrderService(_db, hooks, NullLogger<OrderService>.Instance), observer);
 
         await svc.CreateAsync("observer-commit", 10m);
 
@@ -208,11 +208,10 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Observer_AfterRollback_NothingPersistedAndObserverReceivesRollback()
     {
-        var observer = new RecordingObserver();
+        var observer = new CheckoutRecordingObserver();
         var hooks = new TransactionHooks();
-        var collector = new HookOutputCollector();
         var svc = TransactionProxyFactory.Create<IInventoryService>(
-            new InventoryService(_db, hooks, collector), observer);
+            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance), observer);
 
         await Assert.ThrowsAsync<InventoryException>(
             () => svc.FailOutOfStockAsync("PROD-001"));
@@ -227,16 +226,15 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     {
         // Verifies that a normal successful ProcessAsync call reports COMMIT to the observer.
         // The NoRollbackFor path is covered by NoRollbackFor_WhenNotificationExceptionThrown_OrderAndPaymentPersist.
-        var observer = new RecordingObserver();
+        var observer = new CheckoutRecordingObserver();
         var hooks = new TransactionHooks();
-        var collector = new HookOutputCollector();
         var eventBus = new InMemoryEventBus();
 
         // Create a real order first so the PaymentRecord FK constraint is satisfied.
         var order = await _orderService.CreateAsync("observer-payment", 99m);
 
         var svc = TransactionProxyFactory.Create<IPaymentService>(
-            new PaymentService(_db, hooks, collector, eventBus), observer);
+            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus), observer);
 
         var payment = await svc.ProcessAsync(order.Id, 99m);
         Assert.NotNull(payment);
@@ -255,11 +253,11 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var collector = new HookOutputCollector();
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
-        var orderSvc = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, collector));
-        var inventorySvc = TransactionProxyFactory.Create<IInventoryService>(new InventoryService(_db, hooks, collector));
-        var paymentSvc = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, collector, eventBus));
-        var auditSvc = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, collector));
-        var reportSvc = TransactionProxyFactory.Create<IInventoryReportService>(new InventoryReportService(_db, collector));
+        var orderSvc     = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, NullLogger<OrderService>.Instance));
+        var inventorySvc = TransactionProxyFactory.Create<IInventoryService>(new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance));
+        var paymentSvc   = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus));
+        var auditSvc     = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, NullLogger<AuditService>.Instance));
+        var reportSvc    = TransactionProxyFactory.Create<IInventoryReportService>(new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
         var checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(orderSvc, inventorySvc, paymentSvc, auditSvc, reportSvc, hooks, collector, _db));
 
@@ -291,8 +289,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             var tasks = resolvedContexts.Select(db =>
             {
                 var hooks = new TransactionHooks();
-                var collector = new HookOutputCollector();
-                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, collector))
+                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance))
                     .CreateAsync("concurrent", 10m);
             });
 

@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 using Transactional.Core.Attributes;
 using Transactional.Core.Hooks;
 using Transactional.Core.Observability;
+using TransactionScopeExecutor = Transactional.Core.Proxy.TransactionContext.TransactionScopeExecutor;
 
 namespace Transactional.Core.Proxy;
 
@@ -22,6 +23,11 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     // Key includes the concrete type so that different implementations of the same interface
     // each get their own attribute entries.
     private static readonly ConcurrentDictionary<(MethodInfo method, Type concrete), TransactionalAttribute?> _attributeCache = new();
+
+    // _delegateCache key is the interface MethodInfo — not the concrete method — because
+    // the Expression.Convert(instanceParam, method.DeclaringType!) in BuildDelegate targets
+    // the interface, and virtual dispatch carries the call to the correct concrete override.
+    // Including the concrete type in the key is unnecessary and would fragment the cache.
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
     public static T Wrap(T target, ITransactionLifecycleObserver? observer = null)
@@ -52,7 +58,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
 
             // 1. Attribute on the interface method — checked first so interface-level
             //    declarations take precedence (e.g. library contracts, test doubles).
-            var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: true);
+            var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: false);
             if (a is not null)
             {
                 return a;
@@ -72,7 +78,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
                 if (map.InterfaceMethods[i] == m)
                 {
                     return map.TargetMethods[i]
-                        .GetCustomAttribute<TransactionalAttribute>(inherit: true);
+                        .GetCustomAttribute<TransactionalAttribute>(inherit: false);
                 }
             }
             return null;
@@ -118,7 +124,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             {
                 result = InvokeTarget(method, args);
             }
-            catch (Exception ex) when (TransactionScopeExecutor.ShouldRollback(ctx.Attr, ex))
+            catch (Exception ex) when (TransactionScopeExecutor.ShouldRollback(ctx, ex))
             {
                 TransactionScopeExecutor.Rollback(ctx, ex);
                 throw;
@@ -137,6 +143,9 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         {
             var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
             var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
+            // NotifyCommitOutcome is called after Dispose so the observer only receives OnCommit
+            // when scope.Dispose() confirms the transaction committed without error.
+            TransactionScopeExecutor.NotifyCommitOutcome(ctx, outcome, disposeEx);
             TransactionHooks.RunSyncHooks(ctx.Hooks, effectiveOutcome);
             if (disposeEx is not null)
             {
@@ -169,7 +178,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             if (returnType.IsGenericType)
             {
                 var resultType = returnType.GetGenericArguments()[0];
-                return TransactionScopeExecutor.WrapGenericTaskAsyncMethod.MakeGenericMethod(resultType).Invoke(null, [task, ctx])!;
+                return TransactionScopeExecutor.CallGenericTaskWrapper(resultType, task, ctx);
             }
             return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
         }
@@ -218,7 +227,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             var vt = InvokeTarget(method, args)!;
             TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
             var resultType = returnType.GetGenericArguments()[0];
-            return TransactionScopeExecutor.WrapGenericValueTaskAsyncMethod.MakeGenericMethod(resultType).Invoke(null, [vt, ctx])!;
+            return TransactionScopeExecutor.CallGenericValueTaskWrapper(resultType, vt, ctx);
         }
         catch (Exception ex)
         {

@@ -9,6 +9,14 @@ namespace Transactional.Core.Hooks;
 ///   - Register hooks from anywhere inside a [Transactional] method.
 ///   - The proxy runs hooks after TransactionScope.Dispose() resolves the outcome.
 ///   - No-op if called outside a [Transactional] scope or inside a Suppress scope.
+///
+/// Async overloads inside synchronous [Transactional] methods: all three async overloads
+/// (<see cref="AfterCommit(Func{Task})"/>, <see cref="AfterRollback(Func{Task})"/>,
+/// <see cref="AfterCompletion(Func{Task})"/>) always throw <see cref="NotSupportedException"/>
+/// after the method returns, regardless of the event type and transaction outcome.
+/// The proxy cannot await them on the synchronous call path. Change the method return type
+/// to <see cref="System.Threading.Tasks.Task"/> or <see cref="System.Threading.Tasks.Task{T}"/>
+/// to use async hooks.
 /// </summary>
 public interface ITransactionHooks
 {
