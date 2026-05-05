@@ -1,6 +1,6 @@
 # csharp-transactional-pattern
 
-![.NET](https://img.shields.io/badge/.NET-9-512BD4?logo=dotnet) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-experimental-orange)
+[![CI](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-experimental-orange)
 
 Declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
 
