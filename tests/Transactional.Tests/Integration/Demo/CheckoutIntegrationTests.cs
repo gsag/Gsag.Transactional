@@ -56,7 +56,6 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         await _db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
 
         var hooks = new TransactionHooks();
-        var collector = new HookOutputCollector();
         var eventBus = new InMemoryEventBus();
 
         _orderService = TransactionProxyFactory.Create<IOrderService>(
@@ -72,7 +71,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
         _checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(_orderService, _inventoryService, _paymentService,
-                _auditService, reportService, hooks, collector, _db));
+                _auditService, reportService, hooks, new HookOutputCollector(), _db));
     }
 
     public async Task DisposeAsync()

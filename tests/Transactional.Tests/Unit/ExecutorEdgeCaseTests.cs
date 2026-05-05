@@ -155,8 +155,9 @@ public class ExecutorEdgeCaseTests
 
     /// <summary>
     /// Double-fault: scope.Dispose() throws TransactionAbortedException AND the observer
-    /// also throws in OnRollback. The observer exception propagates and masks the disposeEx,
-    /// because NotifyCommitOutcome runs before the ExceptionDispatchInfo.Capture rethrow.
+    /// also throws in OnRollback. NotifyCommitOutcome calls ThrowingOnRollbackObserver.OnRollback,
+    /// which throws before ExceptionDispatchInfo.Capture(disposeEx).Throw() is reached —
+    /// so the observer exception escapes the finally block and masks the disposeEx.
     /// </summary>
     [Fact]
     public void Dispose_WhenAbortedAndObserverOnRollbackThrows_ObserverExceptionPropagates()

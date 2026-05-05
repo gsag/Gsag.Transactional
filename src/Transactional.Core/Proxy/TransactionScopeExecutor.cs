@@ -108,8 +108,16 @@ internal sealed class TransactionContext(
             }
             catch (Exception ex)
             {
-                // Complete() can throw TransactionAbortedException (e.g. timeout).
-                // Treat as rollback so the observer is notified and Stopwatch is stopped.
+                // Complete() can throw (e.g. TransactionAbortedException on DTC timeout or
+                // transaction manager abort). Treat as rollback: stop the clock and call
+                // OnRollback here.
+                //
+                // Two-path OnRollback design: if this catch fires while executing inside the
+                // async wrappers' NoRollbackFor catch block, `outcome` stays RolledBack and
+                // NotifyCommitOutcome returns early — no duplicate OnRollback is fired.
+                // Note: with System.Transactions alone (no DTC) Complete() just sets a flag
+                // and does not throw; this path is exercised by DTC timeout or IEnlistmentNotification
+                // voting to abort during Prepare.
                 ctx._stopwatch.Stop();
                 ctx._observer.OnRollback(ctx._method, ex, ctx._stopwatch.Elapsed);
                 throw;
