@@ -141,7 +141,7 @@ public async Task AuditLogAsync(...) { }
 
 ## Transaction Lifecycle Hooks
 
-`ITransactionHooks` lets you schedule side effects to run after the transaction commits, rolls back, or completes — without touching the transaction logic itself.
+`ITransactionHooks` lets you schedule side effects at every point in the transaction lifecycle — before and after commit or rollback — without touching the transaction logic itself.
 
 ```csharp
 public class MyService : IMyService
@@ -162,6 +162,10 @@ public class MyService : IMyService
         _db.Entities.Add(entity);
         await _db.SaveChangesAsync();
 
+        // Fires inside the scope, before scope.Complete(). If this throws, the
+        // transaction rolls back and AfterRollback fires instead of AfterCommit.
+        _hooks.BeforeCommit(async () => await _validator.ValidateFinalStateAsync());
+
         // Fires only after the transaction commits.
         _hooks.AfterCommit(async () => await _bus.PublishAsync(new EntityCreated(entity.Id)));
 
@@ -173,13 +177,15 @@ public class MyService : IMyService
 }
 ```
 
-| Method | Fires when |
-|---|---|
-| `AfterCommit` | Transaction committed successfully |
-| `AfterRollback` | Transaction rolled back |
-| `AfterCompletion` | Transaction completed in any way — commit or rollback |
+| Method | When it fires | Inside scope? | If the hook throws |
+|---|---|---|---|
+| `BeforeCommit` | Just before `scope.Complete()` — success and `NoRollbackFor` paths | Yes | Success path: transaction rolls back, `AfterRollback` fires. `NoRollbackFor` path: exception suppressed, original exception propagates. |
+| `AfterCommit` | After the transaction commits | No | Propagates to the caller |
+| `BeforeRollback` | Just before `scope.Dispose()` on the rollback path | Yes | Suppressed — original rollback exception always propagates |
+| `AfterRollback` | After the transaction rolls back | No | Suppressed |
+| `AfterCompletion` | After the transaction resolves, commit or rollback | No | Suppressed on rollback and `NoRollbackFor` paths |
 
-Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. `ITransactionHooks` is registered automatically by `AddTransactionalServices()`.
+Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Async overloads (`Func<Task>`) throw `NotSupportedException` when registered inside a synchronous `[Transactional]` method — change the method return type to `Task` to use them. `ITransactionHooks` is registered automatically by `AddTransactionalServices()`.
 
 ---
 
@@ -197,7 +203,7 @@ dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
 # Run the demo API — opens Swagger automatically in the browser
 # http://localhost:51938/swagger  (HTTPS: https://localhost:51937/swagger)
-dotnet run --project src/Transactional.Demo.Api
+dotnet run --project demo/Transactional.Demo.Api
 ```
 
 ### Demo API — E-Commerce Checkout
@@ -231,13 +237,14 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 ## Project structure
 
 ```
-src/
+core/
   Transactional.Core/          Pure library — no framework dependencies
     Attributes/                [Transactional] attribute
-    Hooks/                     ITransactionHooks (AfterCommit, AfterRollback, AfterCompletion)
+    Hooks/                     ITransactionHooks (BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion)
     Observability/             ITransactionLifecycleObserver, NullTransactionObserver
     Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
     Extensions/                AddTransactionalServices() DI extension
+demo/
   Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
     Entities/                  CheckoutOrder, InventoryReservation, PaymentRecord, AuditEntry
     Data/                      CheckoutDbContext
@@ -250,7 +257,7 @@ tests/
   Transactional.Tests/
     Unit/                      Proxy mechanics, propagation, rollback rules, observer
     Integration/               CheckoutIntegrationTests — real SQLite, full service graph
-    Integration/Hooks/         AfterCommit, AfterRollback, AfterCompletion, nested scopes
+    Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
 ```
 
 ---
