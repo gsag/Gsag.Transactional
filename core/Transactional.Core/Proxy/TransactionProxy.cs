@@ -181,91 +181,59 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     private object HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
+        Task task;
         try
         {
-            var task = (Task)InvokeTarget(method, args)!;
-            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-            if (returnType.IsGenericType)
-            {
-                var resultType = returnType.GetGenericArguments()[0];
-                return TransactionScopeExecutor.CallGenericTaskWrapper(resultType, task, ctx);
-            }
-            return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
+            task = (Task)InvokeTarget(method, args)!;
         }
         catch (Exception ex)
         {
-            try
-            {
-                TransactionScopeExecutor.Rollback(ctx, ex);
-            }
-            finally
-            {
-                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
-                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
-                if (disposeEx is not null)
-                {
-                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
-                }
-            }
-            throw;
+            // InvokeTarget threw before returning its task — convert to a pre-faulted task so
+            // the normal async wrapper runs the full rollback lifecycle (BeforeRollback hooks,
+            // observer notifications, AfterRollback/AfterCompletion hooks) without duplication.
+            task = returnType.IsGenericType
+                ? TransactionScopeExecutor.CreateFaultedTask(returnType.GetGenericArguments()[0], ex)
+                : Task.FromException(ex);
         }
+        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
+        if (returnType.IsGenericType)
+        {
+            return TransactionScopeExecutor.CallGenericTaskWrapper(returnType.GetGenericArguments()[0], task, ctx);
+        }
+        return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
     }
 
     private object HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
+        ValueTask vt;
         try
         {
-            var vt = (ValueTask)InvokeTarget(method, args)!;
-            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-            return TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx);
+            vt = (ValueTask)InvokeTarget(method, args)!;
         }
         catch (Exception ex)
         {
-            try
-            {
-                TransactionScopeExecutor.Rollback(ctx, ex);
-            }
-            finally
-            {
-                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
-                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
-                if (disposeEx is not null)
-                {
-                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
-                }
-            }
-            throw;
+            vt = ValueTask.FromException(ex);
         }
+        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
+        return TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx);
     }
 
     private object HandleValueTaskGeneric(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
+        var resultType = returnType.GetGenericArguments()[0];
+        object vt;
         try
         {
-            var vt = InvokeTarget(method, args)!;
-            TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-            var resultType = returnType.GetGenericArguments()[0];
-            return TransactionScopeExecutor.CallGenericValueTaskWrapper(resultType, vt, ctx);
+            vt = InvokeTarget(method, args)!;
         }
         catch (Exception ex)
         {
-            try
-            {
-                TransactionScopeExecutor.Rollback(ctx, ex);
-            }
-            finally
-            {
-                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
-                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
-                if (disposeEx is not null)
-                {
-                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
-                }
-            }
-            throw;
+            vt = TransactionScopeExecutor.CreateFaultedValueTask(resultType, ex);
         }
+        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
+        return TransactionScopeExecutor.CallGenericValueTaskWrapper(resultType, vt, ctx);
     }
 
     private object? InvokeTarget(MethodInfo method, object?[] args)

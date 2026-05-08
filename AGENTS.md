@@ -143,7 +143,7 @@ if (interfaceType is null)
 
 **`HandleSync` must stay purely synchronous** — routing through `.GetAwaiter().GetResult()` corrupts `Transaction.Current` after `Dispose()`, breaking `RequiresNew` propagation (confirmed by `RequiresNew_InsideAmbientScope_SuspendsAndRestoresOuterTransaction` test).
 
-**Sync-throw-before-task catch blocks**: `HandleAsync`, `HandleValueTask`, and `HandleValueTaskGeneric` each have a `catch` block for the case where `InvokeTarget` throws synchronously before returning its task. These blocks call `Rollback` → `TryDispose` → `NotifyCommitOutcome(RolledBack)` so that `OnComplete` fires on this path too.
+**Sync-throw-before-task**: if `InvokeTarget` throws synchronously before returning its `Task`/`ValueTask`, the exception is caught and converted to a pre-faulted task (`Task.FromException`, `ValueTask.FromException`, or the generic variants via `CreateFaultedTask`/`CreateFaultedValueTask` compiled delegates). `ClearScope` is then called unconditionally and the faulted task is fed into the normal async wrapper — ensuring the full rollback lifecycle (BeforeRollback hooks, observer notifications, AfterRollback/AfterCompletion hooks) runs on this path without any duplication.
 
 ### TransactionScopeExecutor
 

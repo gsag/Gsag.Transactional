@@ -19,8 +19,10 @@ namespace Transactional.Core.Proxy;
 internal static class TransactionScopeExecutor
 {
     // Compiled delegate caches eliminate per-call MakeGenericMethod.Invoke with object[] boxing.
-    private static readonly ConcurrentDictionary<Type, Func<Task, TransactionContext, Task>>     _taskWrapperCache = new();
-    private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache   = new();
+    private static readonly ConcurrentDictionary<Type, Func<Task, TransactionContext, Task>>     _taskWrapperCache   = new();
+    private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache     = new();
+    private static readonly ConcurrentDictionary<Type, Func<Exception, Task>>                   _faultedTaskCache   = new();
+    private static readonly ConcurrentDictionary<Type, Func<Exception, object>>                 _faultedVtCache     = new();
 
     // MethodInfo looked up once on a non-generic type — no per-T duplication.
     private static readonly MethodInfo WrapGenericTaskAsyncMethod =
@@ -223,6 +225,41 @@ internal static class TransactionScopeExecutor
         });
         return del(vtBoxed, ctx);
     }
+
+    // -------------------------------------------------------------------------
+    // Faulted-task factories — used when InvokeTarget throws synchronously before
+    // returning its Task/ValueTask. Converting to a pre-faulted task lets the normal
+    // async wrappers run the full rollback lifecycle (hooks + observer) without any
+    // duplication. Compiled delegates are cached per TResult to avoid per-call reflection.
+    // -------------------------------------------------------------------------
+
+    // Returns Task<TResult>.FromException(ex), typed as Task so it can be stored alongside
+    // non-generic tasks and still downcast correctly inside CallGenericTaskWrapper.
+    internal static Task CreateFaultedTask(Type tResult, Exception ex) =>
+        _faultedTaskCache.GetOrAdd(tResult, static t =>
+        {
+            var exParam = Expression.Parameter(typeof(Exception), "ex");
+            var fromEx  = Expression.Call(
+                typeof(Task).GetMethod(nameof(Task.FromException), 1, [typeof(Exception)])!.MakeGenericMethod(t),
+                exParam);
+            return Expression.Lambda<Func<Exception, Task>>(fromEx, exParam).Compile();
+        })(ex);
+
+    // Returns new ValueTask<TResult>(Task<TResult>.FromException(ex)), boxed as object
+    // so it can be passed to CallGenericValueTaskWrapper's object parameter.
+    internal static object CreateFaultedValueTask(Type tResult, Exception ex) =>
+        _faultedVtCache.GetOrAdd(tResult, static t =>
+        {
+            var exParam = Expression.Parameter(typeof(Exception), "ex");
+            var fromEx  = Expression.Call(
+                typeof(Task).GetMethod(nameof(Task.FromException), 1, [typeof(Exception)])!.MakeGenericMethod(t),
+                exParam);
+            var vtCtor  = typeof(ValueTask<>).MakeGenericType(t)
+                .GetConstructor([typeof(Task<>).MakeGenericType(t)])!;
+            return Expression.Lambda<Func<Exception, object>>(
+                Expression.Convert(Expression.New(vtCtor, fromEx), typeof(object)),
+                exParam).Compile();
+        })(ex);
 
     // -------------------------------------------------------------------------
     // Async wrappers — own the TransactionScope lifetime after the method returns.
