@@ -5,9 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — v0.3.0
+## [0.3.0-alpha] — 2026-05-08
 
 ### Added
+- `ITransactionLifecycleObserver.OnComplete(MethodInfo, bool committed, TimeSpan)`: fires after every transaction resolves — commit or rollback — regardless of outcome. Useful for recording execution-time metrics without duplicating logic across `OnCommit` and `OnRollback`.
+- `CompositeTransactionObserver`: Composite pattern over `ITransactionLifecycleObserver`. When multiple observers are registered, the proxy wraps them and calls each in registration order. Enables logging, metrics, and tracing observers to coexist without modifying any existing class.
+- `AddTransactionalObserver<T>()` DI extension: registers `T` as both its concrete type (injectable directly) and as `ITransactionLifecycleObserver` (forwarded). Idempotent per type. The proxy factory builds the composite automatically when two or more observers are registered.
+- `AddTransactionalLogging()` refactored to delegate to `AddTransactionalObserver<LoggingTransactionObserver>()` — combinable with additional observers.
+- `InMemoryMetricsObserver` demo observer: accumulates `TotalTransactions`, `Committed`, `RolledBack`, and `TotalElapsedMs` via `Interlocked`; exposed via `GET /checkout/metrics`. Registered alongside `LoggingTransactionObserver` in the demo to exercise the Composite.
 - `BeforeCommit` hook (sync + async): fires inside the `TransactionScope` before `scope.Complete()`.
   - On the success path, a throwing hook causes a rollback and `AfterRollback` fires instead of `AfterCommit`.
   - On the `NoRollbackFor` path, hook failures are suppressed so the original business exception always propagates.
@@ -21,6 +26,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Repository folders reorganized: `core/Transactional.Core`, `demo/Transactional.Demo.Api`, `tests/Transactional.Tests` (previously all under `src/`).
 - `HookCollection`, `HookCollectionRole`, and `TransactionOutcome` extracted from `TransactionHooks.cs` into individual files.
 - `TransactionContext` extracted from `TransactionScopeExecutor.cs` into its own file; `TransactionScopeExecutor` promoted from nested class to top-level `internal static class`.
+- `DisposeScope` helper removed from `TransactionScopeExecutor` — all callers now use `TryDispose` + `NotifyCommitOutcome` directly so `OnComplete` fires on every path.
+
+### Fixed
+- `OnComplete` not fired when a method threw synchronously before returning its `Task` / `ValueTask` (the `HandleAsync`, `HandleValueTask`, and `HandleValueTaskGeneric` catch blocks in `TransactionProxy` were calling `DisposeScope`, which skipped `NotifyCommitOutcome`).
+- `AvgElapsedMs` in `InMemoryMetricsObserver` was dividing by `TotalTransactions` (incremented in `OnBegin`) instead of `CompletedCount` (incremented in `OnComplete`), producing a wrong average when transactions were still in flight.
 
 ---
 
