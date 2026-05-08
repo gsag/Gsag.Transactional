@@ -5,6 +5,7 @@ using Transactional.Core.Attributes;
 using Transactional.Core.Hooks;
 using Transactional.Demo.Api.Data;
 using Transactional.Demo.Api.Entities;
+using Transactional.Demo.Api.Infrastructure;
 
 namespace Transactional.Demo.Api.Services;
 
@@ -13,12 +14,14 @@ public class AuditService : IAuditService
     private readonly CheckoutDbContext _db;
     private readonly ITransactionHooks _hooks;
     private readonly ILogger<AuditService> _logger;
+    private readonly HookOutputCollector _collector;
 
-    public AuditService(CheckoutDbContext db, ITransactionHooks hooks, ILogger<AuditService> logger)
+    public AuditService(CheckoutDbContext db, ITransactionHooks hooks, ILogger<AuditService> logger, HookOutputCollector collector)
     {
         _db = db;
         _hooks = hooks;
         _logger = logger;
+        _collector = collector;
     }
 
     // RequiresNew: opens an independent TransactionScope, suspending any ambient one.
@@ -29,6 +32,7 @@ public class AuditService : IAuditService
     public async Task<AuditEntry> WriteAsync(string action, string scenario, bool succeeded, CancellationToken ct = default)
     {
         _logger.LogDebug("AuditService.WriteAsync: RequiresNew scope opened — independent of outer transaction");
+        _collector.Record("AuditService: RequiresNew scope opened — independent of outer transaction");
 
         var entry = new AuditEntry
         {
@@ -42,7 +46,11 @@ public class AuditService : IAuditService
 
         // This hook fires at the RequiresNew scope commit — before WriteAsync even returns to the caller.
         // It does NOT wait for the outer scope; RequiresNew has its own independent hook collection.
-        _hooks.AfterCommit(() => _logger.LogDebug("AuditService.AfterCommit (RequiresNew): audit entry committed — hook fired at THIS scope's commit, independent of outer"));
+        _hooks.AfterCommit(() =>
+        {
+            _logger.LogDebug("AuditService.AfterCommit (RequiresNew): audit entry committed — hook fired at THIS scope's commit, independent of outer");
+            _collector.Record($"AuditService.AfterCommit (RequiresNew): entry #{entry.Id} committed — fires before outer scope resolves");
+        });
 
         _logger.LogDebug("AuditService.WriteAsync: AuditEntry written and committed in RequiresNew scope — persists regardless of outer outcome");
 

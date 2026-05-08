@@ -5,6 +5,7 @@ using Transactional.Core.Hooks;
 using Transactional.Demo.Api.Data;
 using Transactional.Demo.Api.Entities;
 using Transactional.Demo.Api.Exceptions;
+using Transactional.Demo.Api.Infrastructure;
 
 namespace Transactional.Demo.Api.Services;
 
@@ -13,12 +14,14 @@ public class InventoryService : IInventoryService
     private readonly CheckoutDbContext _db;
     private readonly ITransactionHooks _hooks;
     private readonly ILogger<InventoryService> _logger;
+    private readonly HookOutputCollector _collector;
 
-    public InventoryService(CheckoutDbContext db, ITransactionHooks hooks, ILogger<InventoryService> logger)
+    public InventoryService(CheckoutDbContext db, ITransactionHooks hooks, ILogger<InventoryService> logger, HookOutputCollector collector)
     {
         _db = db;
         _hooks = hooks;
         _logger = logger;
+        _collector = collector;
     }
 
     [Transactional]
@@ -34,8 +37,16 @@ public class InventoryService : IInventoryService
         _db.Reservations.Add(reservation);
         await _db.SaveChangesAsync(ct);
 
-        _hooks.AfterCommit(() => _logger.LogDebug("InventoryService.AfterCommit: reservation for {ProductId} (qty: {Quantity}) confirmed", productId, quantity));
-        _hooks.AfterRollback(() => _logger.LogDebug("InventoryService.AfterRollback: releasing {Quantity}x {ProductId} back to stock", quantity, productId));
+        _hooks.AfterCommit(() =>
+        {
+            _logger.LogDebug("InventoryService.AfterCommit: reservation for {ProductId} (qty: {Quantity}) confirmed", productId, quantity);
+            _collector.Record($"InventoryService.AfterCommit: {quantity}x {productId} reserved");
+        });
+        _hooks.AfterRollback(() =>
+        {
+            _logger.LogDebug("InventoryService.AfterRollback: releasing {Quantity}x {ProductId} back to stock", quantity, productId);
+            _collector.Record($"InventoryService.AfterRollback: {quantity}x {productId} released back to stock");
+        });
 
         return reservation;
     }
@@ -45,7 +56,11 @@ public class InventoryService : IInventoryService
     [Transactional]
     public Task FailOutOfStockAsync(string productId, CancellationToken ct = default)
     {
-        _hooks.AfterRollback(() => _logger.LogDebug("InventoryService.AfterRollback: out-of-stock check failed — nothing to release"));
+        _hooks.AfterRollback(() =>
+        {
+            _logger.LogDebug("InventoryService.AfterRollback: out-of-stock check failed — nothing to release");
+            _collector.Record($"InventoryService.AfterRollback: out-of-stock for {productId} — nothing to release");
+        });
         throw new InventoryException($"Out of stock: {productId} — 0 units available");
     }
 
