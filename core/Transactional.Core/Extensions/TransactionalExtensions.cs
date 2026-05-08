@@ -49,7 +49,13 @@ public static class TransactionalExtensions
             services.AddScoped(interfaceType, sp =>
             {
                 var instance = sp.GetRequiredService(serviceType);
-                var observer = sp.GetService<ITransactionLifecycleObserver>();
+                var registeredObservers = sp.GetServices<ITransactionLifecycleObserver>().ToList();
+                ITransactionLifecycleObserver observer = registeredObservers.Count switch
+                {
+                    0 => NullTransactionObserver.Instance,
+                    1 => registeredObservers[0],
+                    _ => new CompositeTransactionObserver(registeredObservers)
+                };
                 return TransactionProxyFactory.Create(interfaceType, instance, observer);
             });
         }
@@ -58,18 +64,43 @@ public static class TransactionalExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="LoggingTransactionObserver"/> as the ambient
-    /// <see cref="ITransactionLifecycleObserver"/>. All proxied services will emit
-    /// structured log entries at DEBUG (BEGIN/COMMIT) and WARNING (ROLLBACK) level.
-    ///
-    /// Custom implementations must use Singleton or Transient lifetime — never Scoped,
-    /// since the observer is resolved once and shared across all proxy instances.
+    /// Registers <see cref="LoggingTransactionObserver"/> as a transaction lifecycle observer.
+    /// All proxied services will emit structured log entries at DEBUG (BEGIN/COMMIT/COMPLETE)
+    /// and WARNING (ROLLBACK) level. Can be combined with other observers via
+    /// <see cref="AddTransactionalObserver{T}"/> — the proxy will dispatch to all in registration order.
     /// </summary>
-    public static IServiceCollection AddTransactionalLogging(this IServiceCollection services)
+    public static IServiceCollection AddTransactionalLogging(this IServiceCollection services) =>
+        services.AddTransactionalObserver<LoggingTransactionObserver>();
+
+    /// <summary>
+    /// Registers <typeparamref name="T"/> as an additional <see cref="ITransactionLifecycleObserver"/>.
+    /// When multiple observers are registered, the proxy wraps them in a
+    /// <see cref="CompositeTransactionObserver"/> and calls each in registration order.
+    /// <typeparamref name="T"/> is also registered as its concrete type so it can be injected
+    /// directly (e.g., a metrics observer injected into a controller to read counters).
+    /// Calling this method more than once with the same <typeparamref name="T"/> is idempotent.
+    /// Observers must use Singleton or Transient lifetime — never Scoped.
+    /// </summary>
+    public static IServiceCollection AddTransactionalObserver<T>(this IServiceCollection services)
+        where T : class, ITransactionLifecycleObserver
     {
-        services.TryAddSingleton<ITransactionLifecycleObserver, LoggingTransactionObserver>();
+        // Guard type prevents duplicate forwarding when this method is called more than once
+        // with the same T (e.g., AddTransactionalLogging() called twice).
+        if (services.Any(d => d.ServiceType == typeof(ObserverRegistered<T>)))
+        {
+            return services;
+        }
+        services.AddSingleton<ObserverRegistered<T>>();
+        services.TryAddSingleton<T>();
+        // Forward ITransactionLifecycleObserver to the concrete singleton so the same
+        // instance is used whether resolved via the interface or the concrete type.
+        services.AddSingleton<ITransactionLifecycleObserver>(sp => sp.GetRequiredService<T>());
         return services;
     }
+
+    // Internal marker: one instance per observer type T, used to detect duplicate
+    // AddTransactionalObserver<T>() calls and prevent double registration.
+    private sealed class ObserverRegistered<T> where T : class, ITransactionLifecycleObserver { }
 
     // BindingFlags.NonPublic is included to detect explicitly implemented interface methods,
     // which are Private from the declaring class's perspective.

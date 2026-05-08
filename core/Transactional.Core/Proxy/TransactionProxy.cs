@@ -200,7 +200,12 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             }
             finally
             {
-                TransactionScopeExecutor.DisposeScope(ctx);
+                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
+                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
             }
             throw;
         }
@@ -223,7 +228,12 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             }
             finally
             {
-                TransactionScopeExecutor.DisposeScope(ctx);
+                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
+                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
             }
             throw;
         }
@@ -247,7 +257,12 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             }
             finally
             {
-                TransactionScopeExecutor.DisposeScope(ctx);
+                var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
+                TransactionScopeExecutor.NotifyCommitOutcome(ctx, TransactionOutcome.RolledBack, disposeEx);
+                if (disposeEx is not null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeEx).Throw();
+                }
             }
             throw;
         }

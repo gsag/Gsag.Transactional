@@ -162,6 +162,7 @@ public class ThrowOnBeginObserver : ITransactionLifecycleObserver
         throw new InvalidOperationException("observer refused");
     public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +175,7 @@ public class ThrowOnRollbackObserver : ITransactionLifecycleObserver
     public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
         throw new InvalidOperationException("observer rollback refused");
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 public interface IThrowSyncService
@@ -314,7 +316,7 @@ public class HookErrorTests
 
     /// <summary>
     /// Regression: when observer.OnRollback throws inside the synchronous preamble catch block
-    /// (the method threw before returning its Task), DisposeScope must still run so the AsyncLocal
+    /// (the method threw before returning its Task), TryDispose must still run so the AsyncLocal
     /// hook slot is restored and subsequent calls operate on a clean scope.
     /// </summary>
     [Fact]

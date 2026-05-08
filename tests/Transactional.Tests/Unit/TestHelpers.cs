@@ -16,4 +16,7 @@ public class RecordingObserver : ITransactionLifecycleObserver
 
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
         Calls.Add($"ROLLBACK:{method.Name}");
+
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) =>
+        Calls.Add($"COMPLETE:{method.Name}:{committed}");
 }
