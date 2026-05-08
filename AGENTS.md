@@ -19,7 +19,7 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~OrderServiceIntegrationTests"
 
 # Run the demo API (Swagger at http://localhost:51938/swagger)
-dotnet run --project src/Transactional.Demo.Api
+dotnet run --project demo/Transactional.Demo.Api
 ```
 
 Always run `dotnet test` after any change to `Transactional.Core`. Do not skip failing tests.
@@ -27,18 +27,23 @@ Always run `dotnet test` after any change to `Transactional.Core`. Do not skip f
 ## Project Structure
 
 ```
-src/
+core/
   Transactional.Core/               No framework dependencies
     Attributes/TransactionalAttribute.cs
     Hooks/
-      ITransactionHooks.cs          Public interface — AfterCommit, AfterRollback, AfterCompletion
+      ITransactionHooks.cs          Public interface — BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion
       HookEvent.cs                  Enum used as dictionary key inside HookCollection
-      TransactionHooks.cs           AsyncLocal-backed impl; HookCollection; BeginScope/ClearScope
+      HookCollection.cs             Per-scope container (sync + async dictionaries, Previous pointer)
+      HookCollectionRole.cs         Owning / Joining / SuppressThrowaway
+      TransactionOutcome.cs         Committed / CommittedWithException / RolledBack
+      TransactionHooks.cs           AsyncLocal-backed impl; BeginScope/ClearScope
     Observability/NullTransactionObserver.cs   Null Object singleton
+    Proxy/TransactionContext.cs     Per-invocation context (method, scope, attr, stopwatch, observer, hooks)
     Proxy/TransactionProxy.cs       ← routing, caching, return-type dispatch
     Proxy/TransactionScopeExecutor.cs ← all commit/rollback/dispose logic and async wrappers
     Proxy/TransactionProxyFactory.cs
     Extensions/TransactionalExtensions.cs
+demo/
   Transactional.Demo.Api/           ASP.NET Core + EF Core + SQLite
     Entities/Order.cs
     Data/AppDbContext.cs
@@ -56,6 +61,8 @@ tests/
         AfterCommitTests.cs
         AfterRollbackTests.cs
         AfterCompletionTests.cs
+        BeforeCommitTests.cs
+        BeforeRollbackTests.cs
         HookScopeTests.cs
         HookErrorTests.cs
         SyncPathHookTests.cs

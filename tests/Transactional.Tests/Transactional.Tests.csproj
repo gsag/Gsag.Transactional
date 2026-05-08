@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Transactional.Core\Transactional.Core.csproj" />
-    <ProjectReference Include="..\..\src\Transactional.Demo.Api\Transactional.Demo.Api.csproj" />
+    <ProjectReference Include="..\..\core\Transactional.Core\Transactional.Core.csproj" />
+    <ProjectReference Include="..\..\demo\Transactional.Demo.Api\Transactional.Demo.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>
