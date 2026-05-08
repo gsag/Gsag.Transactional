@@ -33,6 +33,19 @@ public record ResetResponse(
     /// <summary>Human-readable confirmation that all tables were cleared.</summary>
     string Message);
 
+/// <summary>Cumulative transaction counters collected by <see cref="InMemoryMetricsObserver"/>.</summary>
+public record MetricsResponse(
+    /// <summary>Total number of transaction scopes opened since startup.</summary>
+    long TotalTransactions,
+    /// <summary>Number of transactions that committed successfully.</summary>
+    long Committed,
+    /// <summary>Number of transactions that rolled back.</summary>
+    long RolledBack,
+    /// <summary>Total execution time across all completed transactions, in milliseconds.</summary>
+    long TotalElapsedMs,
+    /// <summary>Average execution time per completed transaction, in milliseconds. Zero when no transactions have completed.</summary>
+    double AvgElapsedMs);
+
 /// <summary>
 /// Demonstrates eight distinct behaviours of the <c>[Transactional]</c> attribute library,
 /// each isolated in its own endpoint. Every POST response includes <c>HooksOutput</c> and
@@ -50,6 +63,7 @@ public class CheckoutController : ControllerBase
     private readonly HookOutputCollector _collector;
     private readonly IEventBus _eventBus;
     private readonly CheckoutDbContext _db;
+    private readonly InMemoryMetricsObserver _metrics;
 
     public CheckoutController(
         ICheckoutService checkout,
@@ -58,7 +72,8 @@ public class CheckoutController : ControllerBase
         IPaymentService paymentService,
         HookOutputCollector collector,
         IEventBus eventBus,
-        CheckoutDbContext db)
+        CheckoutDbContext db,
+        InMemoryMetricsObserver metrics)
     {
         _checkout = checkout;
         _orderService = orderService;
@@ -67,6 +82,7 @@ public class CheckoutController : ControllerBase
         _collector = collector;
         _eventBus = eventBus;
         _db = db;
+        _metrics = metrics;
     }
 
     // -------------------------------------------------------------------------
@@ -376,6 +392,30 @@ public class CheckoutController : ControllerBase
     {
         var payments = await _paymentService.GetAllAsync(ct);
         return Ok(payments);
+    }
+
+    /// <summary>Cumulative transaction metrics collected by the Composite Observer.</summary>
+    /// <remarks>
+    /// Demonstrates the <b>Composite Observer</b> pattern: <c>LoggingTransactionObserver</c> and
+    /// <c>InMemoryMetricsObserver</c> are both registered via <c>AddTransactionalObserver&lt;T&gt;()</c>.
+    /// The proxy wraps them in a <c>CompositeTransactionObserver</c> and calls each in sequence —
+    /// neither observer knows about the other, and no existing class was modified.<br/>
+    /// Counters are cumulative from startup. Call <c>DELETE /checkout/reset</c> to clear data
+    /// (counters are not reset — they are observer-level, not DB-level).
+    /// </remarks>
+    /// <response code="200">Cumulative transaction counters since API startup.</response>
+    [HttpGet("metrics")]
+    [ProducesResponseType(typeof(MetricsResponse), StatusCodes.Status200OK)]
+    public ActionResult<MetricsResponse> GetMetrics()
+    {
+        var completed = _metrics.CompletedCount;
+        var avgMs = completed > 0 ? (double)_metrics.TotalElapsedMs / completed : 0;
+        return Ok(new MetricsResponse(
+            TotalTransactions: _metrics.TotalTransactions,
+            Committed:         _metrics.Committed,
+            RolledBack:        _metrics.RolledBack,
+            TotalElapsedMs:    _metrics.TotalElapsedMs,
+            AvgElapsedMs:      Math.Round(avgMs, 2)));
     }
 
     /// <summary>Clears all data from every table. Use between demo runs to start with a clean state.</summary>
