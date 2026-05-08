@@ -58,21 +58,22 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
+        var collector = new HookOutputCollector();
 
         _orderService = TransactionProxyFactory.Create<IOrderService>(
-            new OrderService(_db, hooks, NullLogger<OrderService>.Instance));
+            new OrderService(_db, hooks, NullLogger<OrderService>.Instance, collector));
         _inventoryService = TransactionProxyFactory.Create<IInventoryService>(
-            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance));
+            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, collector));
         _paymentService = TransactionProxyFactory.Create<IPaymentService>(
-            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus));
+            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
         _auditService = TransactionProxyFactory.Create<IAuditService>(
-            new AuditService(_db, hooks, NullLogger<AuditService>.Instance));
+            new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
         var reportService = TransactionProxyFactory.Create<IInventoryReportService>(
             new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
 
         _checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(_orderService, _inventoryService, _paymentService,
-                _auditService, reportService, hooks, new HookOutputCollector(), _db));
+                _auditService, reportService, hooks, collector, _db));
     }
 
     public async Task DisposeAsync()
@@ -196,7 +197,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var observer = new CheckoutRecordingObserver();
         var hooks = new TransactionHooks();
         var svc = TransactionProxyFactory.Create<IOrderService>(
-            new OrderService(_db, hooks, NullLogger<OrderService>.Instance), observer);
+            new OrderService(_db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()), observer);
 
         await svc.CreateAsync("observer-commit", 10m);
 
@@ -211,7 +212,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var observer = new CheckoutRecordingObserver();
         var hooks = new TransactionHooks();
         var svc = TransactionProxyFactory.Create<IInventoryService>(
-            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance), observer);
+            new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, new HookOutputCollector()), observer);
 
         await Assert.ThrowsAsync<InventoryException>(
             () => svc.FailOutOfStockAsync("PROD-001"));
@@ -234,7 +235,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var order = await _orderService.CreateAsync("observer-payment", 99m);
 
         var svc = TransactionProxyFactory.Create<IPaymentService>(
-            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus), observer);
+            new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, new HookOutputCollector()), observer);
 
         var payment = await svc.ProcessAsync(order.Id, 99m);
         Assert.NotNull(payment);
@@ -253,10 +254,10 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var collector = new HookOutputCollector();
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
-        var orderSvc     = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, NullLogger<OrderService>.Instance));
-        var inventorySvc = TransactionProxyFactory.Create<IInventoryService>(new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance));
-        var paymentSvc   = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus));
-        var auditSvc     = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, NullLogger<AuditService>.Instance));
+        var orderSvc     = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, NullLogger<OrderService>.Instance, collector));
+        var inventorySvc = TransactionProxyFactory.Create<IInventoryService>(new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, collector));
+        var paymentSvc   = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
+        var auditSvc     = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
         var reportSvc    = TransactionProxyFactory.Create<IInventoryReportService>(new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
         var checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(orderSvc, inventorySvc, paymentSvc, auditSvc, reportSvc, hooks, collector, _db));
@@ -289,7 +290,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             var tasks = resolvedContexts.Select(db =>
             {
                 var hooks = new TransactionHooks();
-                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance))
+                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()))
                     .CreateAsync("concurrent", 10m);
             });
 
