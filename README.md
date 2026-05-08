@@ -189,6 +189,60 @@ Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Asyn
 
 ---
 
+## Transaction Lifecycle Observer
+
+`ITransactionLifecycleObserver` lets infrastructure components (logging, metrics, tracing) observe every transaction without coupling to business logic. Register one or more implementations in DI — the proxy calls all of them in registration order.
+
+| Method | When it fires | `committed` |
+|---|---|---|
+| `OnBegin` | Immediately after the `TransactionScope` is opened | — |
+| `OnCommit` | After `scope.Complete()` succeeds | — |
+| `OnRollback` | When the transaction aborts (exception or `Transaction.Current.Rollback()`) | — |
+| `OnComplete` | After the transaction resolves — commit **or** rollback | `true` on commit, `false` on rollback |
+
+`OnComplete` is useful for recording execution-time metrics with a single handler regardless of outcome.
+
+### Registering observers
+
+```csharp
+// Single observer — structured log entries at DEBUG/WARNING level
+builder.Services.AddTransactionalLogging();
+
+// Multiple observers — Composite pattern, called in registration order
+builder.Services.AddTransactionalLogging()
+                .AddTransactionalObserver<MetricsObserver>()
+                .AddTransactionalObserver<TracingObserver>();
+```
+
+When two or more observers are registered, the proxy wraps them in a `CompositeTransactionObserver` automatically — no code changes needed in existing observers.
+
+`AddTransactionalObserver<T>()` also registers `T` as its concrete type, so it can be injected directly alongside the interface:
+
+```csharp
+// Inject MetricsObserver directly to read counters; it is the same singleton the proxy uses.
+public class MetricsController(MetricsObserver metrics) : ControllerBase { ... }
+```
+
+### Custom observer
+
+```csharp
+public class TracingObserver : ITransactionLifecycleObserver
+{
+    public void OnBegin(MethodInfo method, TransactionalAttribute attr)
+        => Tracer.StartSpan(method.Name);
+
+    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
+
+    public void OnRollback(MethodInfo method, Exception ex, TimeSpan elapsed)
+        => Tracer.SetError(ex);
+
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed)
+        => Tracer.Finish(committed, elapsed);
+}
+```
+
+---
+
 ## Running locally
 
 ```bash
@@ -223,6 +277,7 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 | `GET /checkout/orders` | — | All persisted checkout orders |
 | `GET /checkout/audit-log` | — | All persisted audit entries |
 | `GET /checkout/payments` | — | All persisted payment records |
+| `GET /checkout/metrics` | — | Cumulative transaction counters from `InMemoryMetricsObserver` — demonstrates the Composite Observer pattern with two registered observers |
 | `DELETE /checkout/reset` | — | Clears all data between demo runs |
 
 ---
@@ -241,21 +296,24 @@ core/
   Transactional.Core/          Pure library — no framework dependencies
     Attributes/                [Transactional] attribute
     Hooks/                     ITransactionHooks (BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion)
-    Observability/             ITransactionLifecycleObserver, NullTransactionObserver
+    Observability/             ITransactionLifecycleObserver, NullTransactionObserver,
+                               LoggingTransactionObserver, CompositeTransactionObserver
     Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
-    Extensions/                AddTransactionalServices() DI extension
+    Extensions/                AddTransactionalServices(), AddTransactionalLogging(),
+                               AddTransactionalObserver<T>() DI extensions
 demo/
   Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
     Entities/                  CheckoutOrder, InventoryReservation, PaymentRecord, AuditEntry
     Data/                      CheckoutDbContext
     Exceptions/                PaymentDeclinedException, InventoryException, NotificationException
-    Infrastructure/            HookOutputCollector, InMemoryEventBus (both Scoped per-request)
+    Infrastructure/            HookOutputCollector, InMemoryEventBus (Scoped per-request),
+                               InMemoryMetricsObserver (Singleton — Composite Observer demo)
     Services/                  OrderService, InventoryService, PaymentService, AuditService,
                                InventoryReportService, CheckoutService (8 scenario methods)
-    Controllers/               CheckoutController (8 POST + 4 GET/DELETE)
+    Controllers/               CheckoutController (8 POST + 5 GET/DELETE)
 tests/
   Transactional.Tests/
-    Unit/                      Proxy mechanics, propagation, rollback rules, observer
+    Unit/                      Proxy mechanics, propagation, rollback rules, observer, composite observer
     Integration/               CheckoutIntegrationTests — real SQLite, full service graph
     Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
 ```

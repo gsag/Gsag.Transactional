@@ -16,7 +16,7 @@ dotnet build
 dotnet test
 
 # Run a single test class
-dotnet test --filter "FullyQualifiedName~OrderServiceIntegrationTests"
+dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
 # Run the demo API (Swagger at http://localhost:51938/swagger)
 dotnet run --project demo/Transactional.Demo.Api
@@ -29,7 +29,8 @@ Always run `dotnet test` after any change to `Transactional.Core`. Do not skip f
 ```
 core/
   Transactional.Core/               No framework dependencies
-    Attributes/TransactionalAttribute.cs
+    Attributes/
+      TransactionalAttribute.cs
     Hooks/
       ITransactionHooks.cs          Public interface — BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion
       HookEvent.cs                  Enum used as dictionary key inside HookCollection
@@ -37,26 +38,63 @@ core/
       HookCollectionRole.cs         Owning / Joining / SuppressThrowaway
       TransactionOutcome.cs         Committed / CommittedWithException / RolledBack
       TransactionHooks.cs           AsyncLocal-backed impl; BeginScope/ClearScope
-    Observability/NullTransactionObserver.cs   Null Object singleton
-    Proxy/TransactionContext.cs     Per-invocation context (method, scope, attr, stopwatch, observer, hooks)
-    Proxy/TransactionProxy.cs       ← routing, caching, return-type dispatch
-    Proxy/TransactionScopeExecutor.cs ← all commit/rollback/dispose logic and async wrappers
-    Proxy/TransactionProxyFactory.cs
-    Extensions/TransactionalExtensions.cs
+    Observability/
+      ITransactionLifecycleObserver.cs  OnBegin / OnCommit / OnRollback / OnComplete
+      NullTransactionObserver.cs        Null Object singleton
+      LoggingTransactionObserver.cs     MEL-based built-in observer (Debug + Warning)
+      CompositeTransactionObserver.cs   Composite — dispatches to N observers in order (fail-fast)
+    Proxy/
+      TransactionContext.cs         Per-invocation context (method, scope, attr, stopwatch, observer, hooks)
+      TransactionProxy.cs           ← routing, caching, return-type dispatch
+      TransactionScopeExecutor.cs   ← all commit/rollback/dispose logic and async wrappers
+      TransactionProxyFactory.cs
+    Extensions/
+      TransactionalExtensions.cs    AddTransactionalServices / AddTransactionalLogging / AddTransactionalObserver<T>
 demo/
   Transactional.Demo.Api/           ASP.NET Core + EF Core + SQLite
-    Entities/Order.cs
-    Data/AppDbContext.cs
-    Services/{IOrderService,OrderService}.cs
-    Services/{IOrderFulfillmentService,OrderFulfillmentService}.cs  ← cross-service RequiresNew demo
-    Controllers/OrdersController.cs
-    Controllers/OrderFulfillmentController.cs
+    Entities/
+      CheckoutOrder.cs
+      InventoryReservation.cs
+      PaymentRecord.cs
+      AuditEntry.cs
+    Data/
+      CheckoutDbContext.cs
+    Exceptions/
+      PaymentDeclinedException.cs
+      InventoryException.cs
+      NotificationException.cs
+    Infrastructure/
+      HookOutputCollector.cs        Scoped per-request hook log collector
+      IEventBus.cs / InMemoryEventBus.cs  Scoped in-memory event bus
+      InMemoryMetricsObserver.cs    Singleton composite-observer demo — Interlocked counters
+    Services/
+      IOrderService / OrderService
+      IInventoryService / InventoryService
+      IPaymentService / PaymentService
+      IAuditService / AuditService        ← RequiresNew inner scope demo
+      ICheckoutService / CheckoutService  ← outer Required scope; orchestrates all inner services
+      IInventoryReportService / InventoryReportService  ← Suppress demo
+    Controllers/
+      CheckoutController.cs         8 POST scenarios + 5 GET/DELETE utility endpoints
+    appsettings.json
+    appsettings.Development.json    Transactional.Core → Debug (enables observer logs locally)
     Program.cs
 tests/
   Transactional.Tests/
-    Unit/TransactionProxyTests.cs
+    Unit/
+      TestHelpers.cs                RecordingObserver + shared doubles
+      CompositeObserverTests.cs     OnComplete, Composite multi-observer, fail-fast
+      ExecutorEdgeCaseTests.cs
+      ExtensionsTests.cs            DI registration, AddTransactionalObserver idempotency
+      LoggingObserverTests.cs
+      ObserverTests.cs              OnBegin/OnCommit/OnRollback/OnComplete per return type
+      PropagationTests.cs
+      ProxyFactoryTests.cs
+      ProxyMechanicsTests.cs
+      RollbackRulesTests.cs
     Integration/
-      OrderServiceIntegrationTests.cs
+      Demo/
+        CheckoutIntegrationTests.cs ← real SQLite, full service graph
       Hooks/
         AfterCommitTests.cs
         AfterRollbackTests.cs
@@ -105,6 +143,8 @@ if (interfaceType is null)
 
 **`HandleSync` must stay purely synchronous** — routing through `.GetAwaiter().GetResult()` corrupts `Transaction.Current` after `Dispose()`, breaking `RequiresNew` propagation (confirmed by `RequiresNew_InsideAmbientScope_SuspendsAndRestoresOuterTransaction` test).
 
+**Sync-throw-before-task catch blocks**: `HandleAsync`, `HandleValueTask`, and `HandleValueTaskGeneric` each have a `catch` block for the case where `InvokeTarget` throws synchronously before returning its task. These blocks call `Rollback` → `TryDispose` → `NotifyCommitOutcome(RolledBack)` so that `OnComplete` fires on this path too.
+
 ### TransactionScopeExecutor
 
 Non-generic static class that owns all commit/rollback/dispose logic. Keeping it non-generic ensures `WrapGenericTaskAsyncMethod` and `WrapGenericValueTaskAsyncMethod` (MethodInfo fields used for `MakeGenericMethod` calls) are computed **once per application**, not once per proxied interface type.
@@ -112,13 +152,25 @@ Non-generic static class that owns all commit/rollback/dispose logic. Keeping it
 All async wrappers use a **nested try pattern**:
 - Inner try/catch handles business exceptions only
 - Success-path `Commit` is outside all catch blocks — prevents double `scope.Complete()` if the observer throws during `OnCommit`
-- Outer `finally` calls `TryDispose` (captures Dispose exceptions for deferred rethrow) then `RunAsyncHooksAsync`, then rethrows any captured Dispose exception via `ExceptionDispatchInfo`
+- Outer `finally` calls `TryDispose` (captures Dispose exceptions for deferred rethrow) then `NotifyCommitOutcome` then `RunAsyncHooksAsync`, then rethrows any captured Dispose exception via `ExceptionDispatchInfo`
 
 `ShouldRollback` implements the three-rule precedence: `NoRollbackFor` wins → `RollbackFor` restricts → default rolls back on any exception.
 
-`TryDispose` vs `DisposeScope`: `TryDispose` captures the Dispose exception so hooks can still run; `DisposeScope` rethrows immediately. Use `TryDispose` in `finally` blocks, `DisposeScope` in `catch` blocks (where hooks are not expected).
+`TryDispose`: captures the Dispose exception and returns it, so `NotifyCommitOutcome` and hooks can still run before the exception is rethrown via `ExceptionDispatchInfo`. Used in every `finally` block and in the sync-throw-before-task `catch` blocks in `TransactionProxy`.
+
+`NotifyCommitOutcome`: called after `TryDispose` to fire `OnCommit`/`OnRollback` and always `OnComplete` on the observer. On the `RolledBack` path it calls only `OnComplete(committed: false)` — `OnRollback` was already called by `Rollback()`. On commit paths it calls `OnCommit` then `OnComplete(committed: true)`; if Dispose threw, it calls `OnRollback(disposeEx)` then `OnComplete(committed: false)` instead.
 
 `TransactionOutcome` enum drives hook dispatch: `Committed`, `CommittedWithException` (NoRollbackFor path), `RolledBack`. On rollback or `CommittedWithException` paths `suppressExceptions = true` so hook failures do not mask the original exception.
+
+### ITransactionLifecycleObserver / CompositeTransactionObserver
+
+`ITransactionLifecycleObserver` has four methods: `OnBegin`, `OnCommit`, `OnRollback`, `OnComplete`. `OnComplete` fires after every transaction resolves — commit or rollback — and carries a `committed` bool and elapsed `TimeSpan`.
+
+`CompositeTransactionObserver` (internal) wraps a list of observers and dispatches to each in registration order. Exceptions propagate immediately (fail-fast — second observer is not called if the first throws).
+
+`AddTransactionalObserver<T>()` registers `T` as a Singleton both as `T` and as `ITransactionLifecycleObserver` (via forwarding factory). An `ObserverRegistered<T>` marker type prevents duplicate registration. The proxy factory resolves all registered `ITransactionLifecycleObserver` instances via `GetServices<T>()` and builds a composite when there are two or more.
+
+`AddTransactionalLogging()` delegates to `AddTransactionalObserver<LoggingTransactionObserver>()` — it is fully composable with other observers.
 
 ### ITransactionHooks / TransactionHooks
 
@@ -133,18 +185,17 @@ All async wrappers use a **nested try pattern**:
 
 **`BeginScope`** is called by `OpenScope` before the `TransactionScope` is created. It reads `Transaction.Current` to detect joining and sets the `AsyncLocal` accordingly. **`ClearScope`** is called synchronously from `HandleAsync`/`HandleValueTask*` (to restore the caller's `ExecutionContext` before the returned task is awaited) and again inside `TryDispose` (the second call is harmless — guards prevent clobbering).
 
-**Hook execution** — `RunAsyncHooksAsync` / `RunSyncHooks` dispatch by `TransactionOutcome`. On sync paths, `EnsureNoAsyncHooks` is called for all three events before any hook executes, so a `NotSupportedException` fires before any side effect.
+**Hook execution** — `RunAsyncHooksAsync` / `RunSyncHooks` dispatch by `TransactionOutcome`. On sync paths, `EnsureNoAsyncHooks` is called for all five hook events before any hook executes, so a `NotSupportedException` fires before any side effect.
 
 ### AddTransactionalServices(Assembly)
 
-Convention: `OrderService` → `IOrderService` (interface must be named `I{ClassName}` and live in the same assembly). Registers the concrete class as `Scoped`, then registers the interface as `Scoped` using a factory that wraps the concrete instance in a `TransactionProxy`.
+Convention: `OrderService` → `IOrderService` (interface must be named `I{ClassName}` and live in the same assembly and namespace). Registers the concrete class as `Scoped`, then registers the interface as `Scoped` using a factory that wraps the concrete instance in a `TransactionProxy`. `ITransactionHooks` is registered as a Singleton (idempotent via `TryAddSingleton`).
 
-### Cross-service RequiresNew pattern
+### Cross-service composition patterns
 
-`OrderFulfillmentService` demonstrates the correct way to compose two `[Transactional]` services with different propagation levels:
+**RequiresNew** — `CheckoutService` (outer `Required`) calls `AuditService.WriteAsync` which uses `[Transactional(RequiresNew)]`. The audit scope opens independently, commits, and returns before the outer scope resolves. If the outer scope later rolls back, the audit entry is already durable.
 
-- **Outer** (`OrderFulfillmentService`, `Required`): receives `IOrderService` already proxied via DI
-- **Inner** (`OrderService.CreateRequiresNewAsync`, `RequiresNew`): called through the inner proxy, opens its own independent scope
+**Suppress** — `CheckoutService` (outer `Required`) calls `InventoryReportService.ReadAvailableStockAsync` which uses `[Transactional(Suppress)]`. The ambient transaction is suspended for the duration of the call; `Transaction.Current` is `null` inside. The outer scope is automatically resumed when the call returns.
 
 Self-invocation bypasses the proxy — calling `this.Method()` inside the same class skips `DispatchProxy` entirely. Always inject the dependency as its interface so the call routes through the proxy.
 
