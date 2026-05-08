@@ -26,6 +26,7 @@ internal sealed class CheckoutRecordingObserver : ITransactionLifecycleObserver
     public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
     public void OnCommit(MethodInfo method, TimeSpan elapsed) => Calls.Add($"COMMIT:{method.Name}");
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) => Calls.Add($"ROLLBACK:{method.Name}");
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 // ---------------------------------------------------------------------------

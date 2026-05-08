@@ -72,6 +72,7 @@ public class ThrowingOnCommitObserver : ITransactionLifecycleObserver
     public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
         throw new InvalidOperationException("observer-commit-fail");
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 public class ObserverTests
@@ -148,6 +149,7 @@ public class ObserverTests
             () => _proxy.ThrowSynchronouslyAsync());
         Assert.Contains("BEGIN:ThrowSynchronouslyAsync", _observer.Calls);
         Assert.Contains("ROLLBACK:ThrowSynchronouslyAsync", _observer.Calls);
+        Assert.Contains("COMPLETE:ThrowSynchronouslyAsync:False", _observer.Calls);
         Assert.DoesNotContain("COMMIT:ThrowSynchronouslyAsync", _observer.Calls);
     }
 

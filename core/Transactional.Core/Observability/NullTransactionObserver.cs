@@ -10,4 +10,5 @@ internal sealed class NullTransactionObserver : ITransactionLifecycleObserver
     public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
     public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }

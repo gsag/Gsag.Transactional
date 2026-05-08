@@ -18,4 +18,10 @@ public interface ITransactionLifecycleObserver
 
     /// <summary>Called when the transaction is aborted due to an exception.</summary>
     void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed);
+
+    /// <summary>
+    /// Called after the transaction resolves — commit or rollback — regardless of outcome.
+    /// Useful for recording execution time metrics without duplicating logic in OnCommit and OnRollback.
+    /// </summary>
+    void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed);
 }

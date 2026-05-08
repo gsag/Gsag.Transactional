@@ -117,15 +117,18 @@ internal static class TransactionScopeExecutor
     {
         if (outcome == TransactionOutcome.RolledBack)
         {
+            ctx.Observer.OnComplete(ctx.Method, committed: false, ctx.Stopwatch.Elapsed);
             return;
         }
         if (disposeEx is null)
         {
             ctx.Observer.OnCommit(ctx.Method, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Method, committed: true, ctx.Stopwatch.Elapsed);
         }
         else
         {
             ctx.Observer.OnRollback(ctx.Method, disposeEx, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Method, committed: false, ctx.Stopwatch.Elapsed);
         }
     }
 
@@ -155,20 +158,6 @@ internal static class TransactionScopeExecutor
             TransactionHooks.ClearScope(ctx.Hooks);
         }
         return ex;
-    }
-
-    /// <summary>
-    /// Disposes the scope and always restores the AsyncLocal hook slot, then rethrows any Dispose
-    /// exception immediately. Use in <c>catch</c> blocks where hooks are not expected to run.
-    /// Use <see cref="TryDispose"/> in <c>finally</c> blocks where hooks must still fire.
-    /// </summary>
-    internal static void DisposeScope(TransactionContext ctx)
-    {
-        var ex = TryDispose(ctx);
-        if (ex is not null)
-        {
-            ExceptionDispatchInfo.Capture(ex).Throw();
-        }
     }
 
     // -------------------------------------------------------------------------

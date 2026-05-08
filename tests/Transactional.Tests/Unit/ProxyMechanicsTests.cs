@@ -64,6 +64,7 @@ public class ConcurrentRecordingObserver : ITransactionLifecycleObserver
     public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
         Interlocked.Increment(ref _commits);
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 public class ProxyMechanicsTests

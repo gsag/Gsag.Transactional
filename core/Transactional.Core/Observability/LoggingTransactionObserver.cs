@@ -34,4 +34,10 @@ public sealed class LoggingTransactionObserver : ITransactionLifecycleObserver
             "Transaction ROLLBACK — {Method} ({Ms} ms) [{ExceptionType}: {ExceptionMessage}]",
             method.Name, (long)elapsed.TotalMilliseconds,
             exception.GetType().Name, exception.Message);
+
+    /// <inheritdoc/>
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) =>
+        _logger.LogDebug(
+            "Transaction COMPLETE — {Method} ({Ms} ms) committed={Committed}",
+            method.Name, (long)elapsed.TotalMilliseconds, committed);
 }

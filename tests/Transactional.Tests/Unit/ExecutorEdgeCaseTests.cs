@@ -54,6 +54,7 @@ public class ThrowingOnBeginObserver : ITransactionLifecycleObserver
         throw new InvalidOperationException("begin-fail");
     public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 // Observer that throws in OnRollback — exercises the double-fault path where
@@ -64,6 +65,7 @@ public class ThrowingOnRollbackObserver : ITransactionLifecycleObserver
     public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
     public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
         throw new InvalidOperationException("observer-rollback-fail");
+    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
 }
 
 // Service that votes to abort the ambient transaction then returns normally.

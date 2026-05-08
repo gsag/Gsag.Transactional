@@ -110,10 +110,12 @@ public class ExtensionsTests
         var services = NewServices()
             .AddTransactionalLogging();
 
+        // ITransactionLifecycleObserver is registered via factory (forwarding to LoggingTransactionObserver).
         var descriptor = services.Single(d => d.ServiceType == typeof(ITransactionLifecycleObserver));
-
-        Assert.Equal(typeof(LoggingTransactionObserver), descriptor.ImplementationType);
         Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+
+        // Concrete type is also registered so it can be injected directly.
+        Assert.Contains(services, d => d.ServiceType == typeof(LoggingTransactionObserver));
     }
 
     [Fact]
@@ -126,5 +128,17 @@ public class ExtensionsTests
         var count = services.Count(d => d.ServiceType == typeof(ITransactionLifecycleObserver));
 
         Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void AddTransactionalObserver_TwoDistinctTypes_RegistersBoth()
+    {
+        var services = NewServices()
+            .AddTransactionalLogging()
+            .AddTransactionalObserver<RecordingObserver>();
+
+        var count = services.Count(d => d.ServiceType == typeof(ITransactionLifecycleObserver));
+
+        Assert.Equal(2, count);
     }
 }
