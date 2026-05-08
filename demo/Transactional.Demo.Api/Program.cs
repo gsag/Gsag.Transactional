@@ -27,8 +27,10 @@ builder.Services.AddScoped<HookOutputCollector>();
 builder.Services.AddScoped<InMemoryEventBus>();
 builder.Services.AddScoped<IEventBus>(sp => sp.GetRequiredService<InMemoryEventBus>());
 
-// Emit structured DEBUG/WARNING log entries for every transaction lifecycle event.
-builder.Services.AddTransactionalLogging();
+// Two observers registered side-by-side — the proxy wraps them in CompositeTransactionObserver
+// and calls each in registration order. Composite Observer pattern in action.
+builder.Services.AddTransactionalLogging()                                 // LoggingTransactionObserver (MEL)
+                .AddTransactionalObserver<InMemoryMetricsObserver>();      // InMemoryMetricsObserver (counters)
 
 // Discover all service classes with [Transactional] methods and I{Name} interface:
 // OrderService, InventoryService, PaymentService, AuditService,
