@@ -19,16 +19,16 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
 # Run the demo API (Swagger at http://localhost:51938/swagger)
-dotnet run --project demo/Transactional.Demo.Api
+dotnet run --project samples/Gsag.Transactional.Demo.Api
 ```
 
-Always run `dotnet test` after any change to `Transactional.Core`. Do not skip failing tests.
+Always run `dotnet test` after any change to `Gsag.Transactional.Core`. Do not skip failing tests.
 
 ## Project Structure
 
 ```
-core/
-  Transactional.Core/               No framework dependencies
+src/
+  Gsag.Transactional.Core/          No framework dependencies
     Attributes/
       TransactionalAttribute.cs
     Hooks/
@@ -50,8 +50,8 @@ core/
       TransactionProxyFactory.cs
     Extensions/
       TransactionalExtensions.cs    AddTransactionalServices / AddTransactionalLogging / AddTransactionalObserver<T>
-demo/
-  Transactional.Demo.Api/           ASP.NET Core + EF Core + SQLite
+samples/
+  Gsag.Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite
     Entities/
       CheckoutOrder.cs
       InventoryReservation.cs
@@ -80,7 +80,7 @@ demo/
     appsettings.Development.json    Transactional.Core → Debug (enables observer logs locally)
     Program.cs
 tests/
-  Transactional.Tests/
+  Gsag.Transactional.Tests/
     Unit/
       TestHelpers.cs                RecordingObserver + shared doubles
       CompositeObserverTests.cs     OnComplete, Composite multi-observer, fail-fast

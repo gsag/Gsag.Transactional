@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-experimental-orange)
 
-Declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
+Lightweight declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
 
 Inspired by Spring Framework's `@Transactional`, this project brings the same declarative model to .NET. Instead of wrapping every method in `try/catch/TransactionScope.Complete()`, you annotate it once and let the proxy handle commit, rollback, and lifecycle hooks — keeping business logic free of transaction plumbing.
 
@@ -257,7 +257,7 @@ dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 
 # Run the demo API — opens Swagger automatically in the browser
 # http://localhost:51938/swagger  (HTTPS: https://localhost:51937/swagger)
-dotnet run --project demo/Transactional.Demo.Api
+dotnet run --project samples/Gsag.Transactional.Demo.Api
 ```
 
 ### Demo API — E-Commerce Checkout
@@ -292,8 +292,8 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 ## Project structure
 
 ```
-core/
-  Transactional.Core/          Pure library — no framework dependencies
+src/
+  Gsag.Transactional.Core/     Pure library — no framework dependencies
     Attributes/                [Transactional] attribute
     Hooks/                     ITransactionHooks (BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion)
     Observability/             ITransactionLifecycleObserver, NullTransactionObserver,
@@ -301,8 +301,8 @@ core/
     Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
     Extensions/                AddTransactionalServices(), AddTransactionalLogging(),
                                AddTransactionalObserver<T>() DI extensions
-demo/
-  Transactional.Demo.Api/      ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
+samples/
+  Gsag.Transactional.Demo.Api/ ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
     Entities/                  CheckoutOrder, InventoryReservation, PaymentRecord, AuditEntry
     Data/                      CheckoutDbContext
     Exceptions/                PaymentDeclinedException, InventoryException, NotificationException
@@ -312,7 +312,7 @@ demo/
                                InventoryReportService, CheckoutService (8 scenario methods)
     Controllers/               CheckoutController (8 POST + 5 GET/DELETE)
 tests/
-  Transactional.Tests/
+  Gsag.Transactional.Tests/
     Unit/                      Proxy mechanics, propagation, rollback rules, observer, composite observer
     Integration/               CheckoutIntegrationTests — real SQLite, full service graph
     Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
