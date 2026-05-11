@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\core\Transactional.Core\Transactional.Core.csproj" />
-    <ProjectReference Include="..\..\demo\Transactional.Demo.Api\Transactional.Demo.Api.csproj" />
+    <ProjectReference Include="..\..\src\Gsag.Transactional.Core\Gsag.Transactional.Core.csproj" />
+    <ProjectReference Include="..\..\samples\Gsag.Transactional.Demo.Api\Gsag.Transactional.Demo.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\core\Transactional.Core\Transactional.Core.csproj" />
+    <ProjectReference Include="..\..\src\Gsag.Transactional.Core\Gsag.Transactional.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

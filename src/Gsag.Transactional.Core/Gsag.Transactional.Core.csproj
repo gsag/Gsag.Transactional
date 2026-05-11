@@ -42,7 +42,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Transactional.Tests" />
+    <InternalsVisibleTo Include="Gsag.Transactional.Tests" />
   </ItemGroup>
 
 </Project>
