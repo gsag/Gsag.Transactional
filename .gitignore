@@ -25,3 +25,6 @@ project.lock.json
 # OS
 .DS_Store
 Thumbs.db
+
+# DocFX — generated YAML metadata (source for API reference build)
+docs/_src/api/

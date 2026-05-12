@@ -392,3 +392,15 @@ tests/
     Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
 ```
 
+## Documentation
+
+The full documentation site (guides, Mermaid diagrams, API reference) is available at
+**https://gsag.github.io/Gsag.Transactional**.
+
+To build the docs locally:
+
+```bash
+dotnet tool install -g docfx
+docfx --serve    # builds and opens http://localhost:8080
+```
+

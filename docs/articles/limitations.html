@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Limitations | Gsag.Transactional </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Limitations | Gsag.Transactional ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.4.0/docs/_src/articles/limitations.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="limitations">Limitations</h1>
+
+<p>These are known constraints of the <code>DispatchProxy</code>-based approach. Most have straightforward workarounds.</p>
+<hr>
+<h2 id="1-must-be-injected-as-an-interface">1. Must be injected as an interface</h2>
+<p><code>DispatchProxy</code> can only intercept calls made through an <strong>interface</strong>. Injecting the concrete class directly bypasses the proxy.</p>
+<pre><code class="lang-csharp">// WRONG — receives the unwrapped OrderService, no scope is created
+public class CheckoutService(OrderService orders) { }
+
+// CORRECT — receives TransactionProxy&lt;IOrderService&gt;
+public class CheckoutService(IOrderService orders) { }
+</code></pre>
+<p><strong>Why:</strong> <code>DispatchProxy.Create&lt;T&gt;()</code> requires <code>T</code> to be an interface. There is no equivalent mechanism for concrete classes without external AOP tooling.</p>
+<hr>
+<h2 id="2-only-interface-typed-registrations-are-proxied">2. Only interface-typed registrations are proxied</h2>
+<p><code>AddTransactionalServices</code> registers services as <code>Scoped</code> under their <strong>interface</strong> type and wraps the implementation in a proxy. If you resolve the concrete type directly (e.g., via <code>[FromKeyedServices]</code> or a factory), you receive the unwrapped instance.</p>
+<p><strong>Workaround:</strong> Always consume services through the interface type in DI. Use <code>AddTransactionalService&lt;IFoo, FooService&gt;()</code> for non-convention registrations.</p>
+<hr>
+<h2 id="3-self-invocation-bypasses-the-proxy">3. Self-invocation bypasses the proxy</h2>
+<p>Calling a <code>[Transactional]</code> method via <code>this.Method()</code> from within the same class sends the call directly to the concrete instance — <code>DispatchProxy</code> is not in the call chain.</p>
+<pre><code class="lang-csharp">public class OrderService : IOrderService
+{
+    [Transactional]
+    public async Task PlaceOrderAsync(Order order)
+    {
+        await WriteAuditAsync(order); // ← bypasses proxy, no scope is opened
+    }
+
+    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
+    public async Task WriteAuditAsync(Order order) { ... }
+}
+</code></pre>
+<p><strong>Workaround:</strong> Extract the inner method to a separate service and inject it as an interface.</p>
+<hr>
+<h2 id="4-only-async-and-void-returning-methods-are-fully-supported">4. Only async and void-returning methods are fully supported</h2>
+<p><code>[Transactional]</code> supports:</p>
+<ul>
+<li><code>Task</code></li>
+<li><code>Task&lt;T&gt;</code></li>
+<li><code>ValueTask</code></li>
+<li><code>ValueTask&lt;T&gt;</code></li>
+<li>Synchronous (non-async) return types — runs synchronously, no async hook support</li>
+</ul>
+<p>Methods returning other types (e.g., <code>IAsyncEnumerable&lt;T&gt;</code>, custom awaitables) are not intercepted and are forwarded directly to the target.</p>
+<hr>
+<h2 id="5-async-hooks-cannot-be-used-on-synchronous-call-paths">5. Async hooks cannot be used on synchronous call paths</h2>
+<p>Registering a <code>Func&lt;Task&gt;</code> hook inside a method with a synchronous return type throws <code>NotSupportedException</code> at execution time, before any hook runs:</p>
+<pre><code>Async hooks cannot be awaited on a synchronous [Transactional] call path.
+Change the method return type to Task, Task&lt;T&gt;, ValueTask, or ValueTask&lt;T&gt;.
+</code></pre>
+<p><strong>Workaround:</strong> Change the method signature to return <code>Task</code> (or <code>ValueTask</code>), or use the synchronous <code>Action</code> overloads.</p>
+<hr>
+<h2 id="6-ef-core-sqlite-does-not-support-ambient-transactions">6. EF Core SQLite does not support ambient transactions</h2>
+<p>EF Core 9's SQLite provider sets <code>SupportsAmbientTransactions = false</code>. This means <code>DbConnection</code> does not enlist in the <code>TransactionScope</code>, so database-level rollback cannot be tested with SQLite in integration tests.</p>
+<p><strong>Workaround:</strong> Throw before <code>SaveChangesAsync()</code> to test rollback semantics at the proxy level. For full database rollback tests, use a provider that supports ambient transactions (SQL Server, PostgreSQL via Npgsql).</p>
+<hr>
+<h2 id="7-beforerollback-cannot-vote-to-commit">7. BeforeRollback cannot vote to commit</h2>
+<p><code>BeforeRollback</code> hooks run on the rollback path — the decision to roll back has already been made. Throwing inside a <code>BeforeRollback</code> hook does not change the outcome; the exception is suppressed and the rollback proceeds.</p>
+<p>If you need to intercept before a rollback decision is made, register a <code>BeforeCommit</code> hook instead (it can cause a rollback by throwing).</p>
+
+</article>
+
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Gsag.Transactional — MIT License
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

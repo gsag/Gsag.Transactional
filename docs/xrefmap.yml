@@ -1,0 +1,410 @@
+### YamlMime:XRefMap
+sorted: true
+references:
+- uid: Gsag.Transactional.Core.Attributes
+  name: Gsag.Transactional.Core.Attributes
+  href: api/Gsag.Transactional.Core.Attributes.html
+  commentId: N:Gsag.Transactional.Core.Attributes
+  fullName: Gsag.Transactional.Core.Attributes
+  nameWithType: Gsag.Transactional.Core.Attributes
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute
+  name: TransactionalAttribute
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html
+  commentId: T:Gsag.Transactional.Core.Attributes.TransactionalAttribute
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute
+  nameWithType: TransactionalAttribute
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel
+  name: IsolationLevel
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_IsolationLevel
+  commentId: P:Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel
+  nameWithType: TransactionalAttribute.IsolationLevel
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel*
+  name: IsolationLevel
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_IsolationLevel_
+  commentId: Overload:Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.IsolationLevel
+  nameWithType: TransactionalAttribute.IsolationLevel
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor
+  name: NoRollbackFor
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_NoRollbackFor
+  commentId: P:Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor
+  nameWithType: TransactionalAttribute.NoRollbackFor
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor*
+  name: NoRollbackFor
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_NoRollbackFor_
+  commentId: Overload:Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.NoRollbackFor
+  nameWithType: TransactionalAttribute.NoRollbackFor
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation
+  name: Propagation
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_Propagation
+  commentId: P:Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation
+  nameWithType: TransactionalAttribute.Propagation
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation*
+  name: Propagation
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_Propagation_
+  commentId: Overload:Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.Propagation
+  nameWithType: TransactionalAttribute.Propagation
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor
+  name: RollbackFor
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_RollbackFor
+  commentId: P:Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor
+  nameWithType: TransactionalAttribute.RollbackFor
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor*
+  name: RollbackFor
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_RollbackFor_
+  commentId: Overload:Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.RollbackFor
+  nameWithType: TransactionalAttribute.RollbackFor
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds
+  name: TimeoutSeconds
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_TimeoutSeconds
+  commentId: P:Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds
+  nameWithType: TransactionalAttribute.TimeoutSeconds
+- uid: Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds*
+  name: TimeoutSeconds
+  href: api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html#Gsag_Transactional_Core_Attributes_TransactionalAttribute_TimeoutSeconds_
+  commentId: Overload:Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Attributes.TransactionalAttribute.TimeoutSeconds
+  nameWithType: TransactionalAttribute.TimeoutSeconds
+- uid: Gsag.Transactional.Core.Extensions
+  name: Gsag.Transactional.Core.Extensions
+  href: api/Gsag.Transactional.Core.Extensions.html
+  commentId: N:Gsag.Transactional.Core.Extensions
+  fullName: Gsag.Transactional.Core.Extensions
+  nameWithType: Gsag.Transactional.Core.Extensions
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions
+  name: TransactionalExtensions
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html
+  commentId: T:Gsag.Transactional.Core.Extensions.TransactionalExtensions
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions
+  nameWithType: TransactionalExtensions
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  name: AddTransactionalLogging(IServiceCollection)
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_Microsoft_Extensions_DependencyInjection_IServiceCollection_
+  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  nameWithType: TransactionalExtensions.AddTransactionalLogging(IServiceCollection)
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging*
+  name: AddTransactionalLogging
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging
+  nameWithType: TransactionalExtensions.AddTransactionalLogging
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver*
+  name: AddTransactionalObserver
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver
+  nameWithType: TransactionalExtensions.AddTransactionalObserver
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  name: AddTransactionalObserver<T>(IServiceCollection)
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver__1_Microsoft_Extensions_DependencyInjection_IServiceCollection_
+  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  name.vb: AddTransactionalObserver(Of T)(IServiceCollection)
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver<T>(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  fullName.vb: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver(Of T)(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  nameWithType: TransactionalExtensions.AddTransactionalObserver<T>(IServiceCollection)
+  nameWithType.vb: TransactionalExtensions.AddTransactionalObserver(Of T)(IServiceCollection)
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService*
+  name: AddTransactionalService
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService
+  nameWithType: TransactionalExtensions.AddTransactionalService
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  name: AddTransactionalService<TInterface, TImplementation>(IServiceCollection)
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService__2_Microsoft_Extensions_DependencyInjection_IServiceCollection_
+  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  name.vb: AddTransactionalService(Of TInterface, TImplementation)(IServiceCollection)
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService<TInterface, TImplementation>(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  fullName.vb: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService(Of TInterface, TImplementation)(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+  nameWithType: TransactionalExtensions.AddTransactionalService<TInterface, TImplementation>(IServiceCollection)
+  nameWithType.vb: TransactionalExtensions.AddTransactionalService(Of TInterface, TImplementation)(IServiceCollection)
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly)
+  name: AddTransactionalServices(IServiceCollection, Assembly)
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_Microsoft_Extensions_DependencyInjection_IServiceCollection_System_Reflection_Assembly_
+  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly)
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Reflection.Assembly)
+  nameWithType: TransactionalExtensions.AddTransactionalServices(IServiceCollection, Assembly)
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices*
+  name: AddTransactionalServices
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices
+  nameWithType: TransactionalExtensions.AddTransactionalServices
+- uid: Gsag.Transactional.Core.Hooks
+  name: Gsag.Transactional.Core.Hooks
+  href: api/Gsag.Transactional.Core.Hooks.html
+  commentId: N:Gsag.Transactional.Core.Hooks
+  fullName: Gsag.Transactional.Core.Hooks
+  nameWithType: Gsag.Transactional.Core.Hooks
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks
+  name: ITransactionHooks
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html
+  commentId: T:Gsag.Transactional.Core.Hooks.ITransactionHooks
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks
+  nameWithType: ITransactionHooks
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Action)
+  name: AfterCommit(Action)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCommit_System_Action_
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Action)
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Action)
+  nameWithType: ITransactionHooks.AfterCommit(Action)
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func{System.Threading.Tasks.Task})
+  name: AfterCommit(Func<Task>)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCommit_System_Func_System_Threading_Tasks_Task__
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func{System.Threading.Tasks.Task})
+  name.vb: AfterCommit(Func(Of Task))
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func<System.Threading.Tasks.Task>)
+  fullName.vb: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func(Of System.Threading.Tasks.Task))
+  nameWithType: ITransactionHooks.AfterCommit(Func<Task>)
+  nameWithType.vb: ITransactionHooks.AfterCommit(Func(Of Task))
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit*
+  name: AfterCommit
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCommit_
+  commentId: Overload:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit
+  nameWithType: ITransactionHooks.AfterCommit
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Action)
+  name: AfterCompletion(Action)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCompletion_System_Action_
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Action)
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Action)
+  nameWithType: ITransactionHooks.AfterCompletion(Action)
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func{System.Threading.Tasks.Task})
+  name: AfterCompletion(Func<Task>)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCompletion_System_Func_System_Threading_Tasks_Task__
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func{System.Threading.Tasks.Task})
+  name.vb: AfterCompletion(Func(Of Task))
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func<System.Threading.Tasks.Task>)
+  fullName.vb: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func(Of System.Threading.Tasks.Task))
+  nameWithType: ITransactionHooks.AfterCompletion(Func<Task>)
+  nameWithType.vb: ITransactionHooks.AfterCompletion(Func(Of Task))
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion*
+  name: AfterCompletion
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCompletion_
+  commentId: Overload:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion
+  nameWithType: ITransactionHooks.AfterCompletion
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Action)
+  name: AfterRollback(Action)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterRollback_System_Action_
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Action)
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Action)
+  nameWithType: ITransactionHooks.AfterRollback(Action)
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func{System.Threading.Tasks.Task})
+  name: AfterRollback(Func<Task>)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterRollback_System_Func_System_Threading_Tasks_Task__
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func{System.Threading.Tasks.Task})
+  name.vb: AfterRollback(Func(Of Task))
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func<System.Threading.Tasks.Task>)
+  fullName.vb: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func(Of System.Threading.Tasks.Task))
+  nameWithType: ITransactionHooks.AfterRollback(Func<Task>)
+  nameWithType.vb: ITransactionHooks.AfterRollback(Func(Of Task))
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback*
+  name: AfterRollback
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterRollback_
+  commentId: Overload:Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback
+  nameWithType: ITransactionHooks.AfterRollback
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Action)
+  name: BeforeCommit(Action)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeCommit_System_Action_
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Action)
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Action)
+  nameWithType: ITransactionHooks.BeforeCommit(Action)
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func{System.Threading.Tasks.Task})
+  name: BeforeCommit(Func<Task>)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeCommit_System_Func_System_Threading_Tasks_Task__
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func{System.Threading.Tasks.Task})
+  name.vb: BeforeCommit(Func(Of Task))
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func<System.Threading.Tasks.Task>)
+  fullName.vb: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func(Of System.Threading.Tasks.Task))
+  nameWithType: ITransactionHooks.BeforeCommit(Func<Task>)
+  nameWithType.vb: ITransactionHooks.BeforeCommit(Func(Of Task))
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit*
+  name: BeforeCommit
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeCommit_
+  commentId: Overload:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit
+  nameWithType: ITransactionHooks.BeforeCommit
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Action)
+  name: BeforeRollback(Action)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeRollback_System_Action_
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Action)
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Action)
+  nameWithType: ITransactionHooks.BeforeRollback(Action)
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func{System.Threading.Tasks.Task})
+  name: BeforeRollback(Func<Task>)
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeRollback_System_Func_System_Threading_Tasks_Task__
+  commentId: M:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func{System.Threading.Tasks.Task})
+  name.vb: BeforeRollback(Func(Of Task))
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func<System.Threading.Tasks.Task>)
+  fullName.vb: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func(Of System.Threading.Tasks.Task))
+  nameWithType: ITransactionHooks.BeforeRollback(Func<Task>)
+  nameWithType.vb: ITransactionHooks.BeforeRollback(Func(Of Task))
+- uid: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback*
+  name: BeforeRollback
+  href: api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html#Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeRollback_
+  commentId: Overload:Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback
+  nameWithType: ITransactionHooks.BeforeRollback
+- uid: Gsag.Transactional.Core.Observability
+  name: Gsag.Transactional.Core.Observability
+  href: api/Gsag.Transactional.Core.Observability.html
+  commentId: N:Gsag.Transactional.Core.Observability
+  fullName: Gsag.Transactional.Core.Observability
+  nameWithType: Gsag.Transactional.Core.Observability
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver
+  name: ITransactionObserver
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html
+  commentId: T:Gsag.Transactional.Core.Observability.ITransactionObserver
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver
+  nameWithType: ITransactionObserver
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin(Gsag.Transactional.Core.Observability.TransactionInfo)
+  name: OnBegin(TransactionInfo)
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnBegin_Gsag_Transactional_Core_Observability_TransactionInfo_
+  commentId: M:Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin(Gsag.Transactional.Core.Observability.TransactionInfo)
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin(Gsag.Transactional.Core.Observability.TransactionInfo)
+  nameWithType: ITransactionObserver.OnBegin(TransactionInfo)
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin*
+  name: OnBegin
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnBegin_
+  commentId: Overload:Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin
+  nameWithType: ITransactionObserver.OnBegin
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit(Gsag.Transactional.Core.Observability.TransactionInfo,System.TimeSpan)
+  name: OnCommit(TransactionInfo, TimeSpan)
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnCommit_Gsag_Transactional_Core_Observability_TransactionInfo_System_TimeSpan_
+  commentId: M:Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit(Gsag.Transactional.Core.Observability.TransactionInfo,System.TimeSpan)
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit(Gsag.Transactional.Core.Observability.TransactionInfo, System.TimeSpan)
+  nameWithType: ITransactionObserver.OnCommit(TransactionInfo, TimeSpan)
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit*
+  name: OnCommit
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnCommit_
+  commentId: Overload:Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit
+  nameWithType: ITransactionObserver.OnCommit
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete(Gsag.Transactional.Core.Observability.TransactionInfo,System.Boolean,System.TimeSpan)
+  name: OnComplete(TransactionInfo, bool, TimeSpan)
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnComplete_Gsag_Transactional_Core_Observability_TransactionInfo_System_Boolean_System_TimeSpan_
+  commentId: M:Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete(Gsag.Transactional.Core.Observability.TransactionInfo,System.Boolean,System.TimeSpan)
+  name.vb: OnComplete(TransactionInfo, Boolean, TimeSpan)
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete(Gsag.Transactional.Core.Observability.TransactionInfo, bool, System.TimeSpan)
+  fullName.vb: Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete(Gsag.Transactional.Core.Observability.TransactionInfo, Boolean, System.TimeSpan)
+  nameWithType: ITransactionObserver.OnComplete(TransactionInfo, bool, TimeSpan)
+  nameWithType.vb: ITransactionObserver.OnComplete(TransactionInfo, Boolean, TimeSpan)
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete*
+  name: OnComplete
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnComplete_
+  commentId: Overload:Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete
+  nameWithType: ITransactionObserver.OnComplete
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback(Gsag.Transactional.Core.Observability.TransactionInfo,System.Exception,System.TimeSpan)
+  name: OnRollback(TransactionInfo, Exception, TimeSpan)
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnRollback_Gsag_Transactional_Core_Observability_TransactionInfo_System_Exception_System_TimeSpan_
+  commentId: M:Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback(Gsag.Transactional.Core.Observability.TransactionInfo,System.Exception,System.TimeSpan)
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback(Gsag.Transactional.Core.Observability.TransactionInfo, System.Exception, System.TimeSpan)
+  nameWithType: ITransactionObserver.OnRollback(TransactionInfo, Exception, TimeSpan)
+- uid: Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback*
+  name: OnRollback
+  href: api/Gsag.Transactional.Core.Observability.ITransactionObserver.html#Gsag_Transactional_Core_Observability_ITransactionObserver_OnRollback_
+  commentId: Overload:Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback
+  nameWithType: ITransactionObserver.OnRollback
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo
+  name: TransactionInfo
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html
+  commentId: T:Gsag.Transactional.Core.Observability.TransactionInfo
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo
+  nameWithType: TransactionInfo
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType
+  name: DeclaringType
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_DeclaringType
+  commentId: P:Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType
+  nameWithType: TransactionInfo.DeclaringType
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType*
+  name: DeclaringType
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_DeclaringType_
+  commentId: Overload:Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.DeclaringType
+  nameWithType: TransactionInfo.DeclaringType
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel
+  name: IsolationLevel
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_IsolationLevel
+  commentId: P:Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel
+  nameWithType: TransactionInfo.IsolationLevel
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel*
+  name: IsolationLevel
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_IsolationLevel_
+  commentId: Overload:Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.IsolationLevel
+  nameWithType: TransactionInfo.IsolationLevel
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.MethodName
+  name: MethodName
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_MethodName
+  commentId: P:Gsag.Transactional.Core.Observability.TransactionInfo.MethodName
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.MethodName
+  nameWithType: TransactionInfo.MethodName
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.MethodName*
+  name: MethodName
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_MethodName_
+  commentId: Overload:Gsag.Transactional.Core.Observability.TransactionInfo.MethodName
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.MethodName
+  nameWithType: TransactionInfo.MethodName
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.Propagation
+  name: Propagation
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_Propagation
+  commentId: P:Gsag.Transactional.Core.Observability.TransactionInfo.Propagation
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.Propagation
+  nameWithType: TransactionInfo.Propagation
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.Propagation*
+  name: Propagation
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_Propagation_
+  commentId: Overload:Gsag.Transactional.Core.Observability.TransactionInfo.Propagation
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.Propagation
+  nameWithType: TransactionInfo.Propagation
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds
+  name: TimeoutSeconds
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_TimeoutSeconds
+  commentId: P:Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds
+  nameWithType: TransactionInfo.TimeoutSeconds
+- uid: Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds*
+  name: TimeoutSeconds
+  href: api/Gsag.Transactional.Core.Observability.TransactionInfo.html#Gsag_Transactional_Core_Observability_TransactionInfo_TimeoutSeconds_
+  commentId: Overload:Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Observability.TransactionInfo.TimeoutSeconds
+  nameWithType: TransactionInfo.TimeoutSeconds

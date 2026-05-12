@@ -1,0 +1,264 @@
+{
+  "source_base_path": "C:/Workspace/github/Gsag.Transactional",
+  "xrefmap": "xrefmap.yml",
+  "files": [
+    {
+      "type": "Resource",
+      "output": {
+        "resource": {
+          "relative_path": "index.json"
+        }
+      }
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Attributes.TransactionalAttribute",
+      "Summary": "<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Attributes.TransactionalAttribute.yml\" sourcestartlinenumber=\"1\">Marks a method as transactional. The dynamic proxy wraps the call in a\nTransactionScope — committing on success and rolling back on exception.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Attributes.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Attributes.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Attributes",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Extensions.TransactionalExtensions",
+      "Summary": "<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.yml\" sourcestartlinenumber=\"1\">Extension methods for registering Gsag.Transactional.Core services with the .NET DI container.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Extensions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Extensions.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Extensions",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Hooks.ITransactionHooks.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Hooks.ITransactionHooks",
+      "Summary": "<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"1\">Schedules callbacks to run at transaction lifecycle points inside a [Transactional] scope.\nInject this interface into any service that needs to react to commit or rollback\n(e.g. publishing domain events, compensating side effects, clearing caches).</p>\n<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"5\">Lifecycle:</p>\n<ul sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"6\">\n<li sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"6\">Register hooks from anywhere inside a [Transactional] method.</li>\n<li sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"7\">Before* hooks run inside the scope — failures can still influence the transaction outcome.</li>\n<li sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"8\">After* hooks run after TransactionScope.Dispose() resolves the outcome.</li>\n<li sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"9\">No-op if called outside a [Transactional] scope or inside a Suppress scope.</li>\n</ul>\n<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Hooks.ITransactionHooks.yml\" sourcestartlinenumber=\"11\">Async overloads inside synchronous [Transactional] methods: all async overloads\n(<xref href=\"Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func%7bSystem.Threading.Tasks.Task%7d)\" data-throw-if-not-resolved=\"false\"></xref>, <xref href=\"Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func%7bSystem.Threading.Tasks.Task%7d)\" data-throw-if-not-resolved=\"false\"></xref>,\n<xref href=\"Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func%7bSystem.Threading.Tasks.Task%7d)\" data-throw-if-not-resolved=\"false\"></xref>, <xref href=\"Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func%7bSystem.Threading.Tasks.Task%7d)\" data-throw-if-not-resolved=\"false\"></xref>,\n<xref href=\"Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func%7bSystem.Threading.Tasks.Task%7d)\" data-throw-if-not-resolved=\"false\"></xref>) always throw <xref href=\"System.NotSupportedException\" data-throw-if-not-resolved=\"false\"></xref>\nafter the method returns, regardless of the event type and transaction outcome.\nThe proxy cannot await them on the synchronous call path. Change the method return type\nto <xref href=\"System.Threading.Tasks.Task\" data-throw-if-not-resolved=\"false\"></xref> or <xref href=\"System.Threading.Tasks.Task%601\" data-throw-if-not-resolved=\"false\"></xref>\nto use async hooks.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Hooks.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Hooks.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Hooks",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Observability.ITransactionObserver.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Observability.ITransactionObserver.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Observability.ITransactionObserver",
+      "Summary": "<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Observability.ITransactionObserver.yml\" sourcestartlinenumber=\"1\">Receives notifications at each stage of a transaction managed by TransactionProxy.\nRegister an implementation in DI (or pass directly to TransactionProxyFactory.Create)\nto observe transaction events for logging, metrics, or testing.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Observability.TransactionInfo.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Observability.TransactionInfo.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Observability.TransactionInfo",
+      "Summary": "<p sourcefile=\"docs/_src/api/Gsag.Transactional.Core.Observability.TransactionInfo.yml\" sourcestartlinenumber=\"1\">Stable public snapshot of a transaction's configuration, passed to\n<xref href=\"Gsag.Transactional.Core.Observability.ITransactionObserver\" data-throw-if-not-resolved=\"false\"></xref> at every lifecycle event.\nDecouples observer implementations from <xref href=\"System.Reflection.MethodInfo\" data-throw-if-not-resolved=\"false\"></xref>\nand from the proxy's internal wiring.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "docs/_src/api/Gsag.Transactional.Core.Observability.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Gsag.Transactional.Core.Observability.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Gsag.Transactional.Core.Observability",
+      "Summary": null
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "docs/_src/api/toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/toc.html"
+        },
+        ".json": {
+          "relative_path": "api/toc.json"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/architecture.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/architecture.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/getting-started.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/getting-started.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/hooks.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/hooks.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/installation.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/installation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/limitations.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/limitations.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/propagation.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/propagation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/articles/rollback-rules.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/rollback-rules.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "docs/_src/articles/toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "articles/toc.html"
+        },
+        ".json": {
+          "relative_path": "articles/toc.json"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/_src/index.md",
+      "output": {
+        ".html": {
+          "relative_path": "index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "docs/_src/toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "toc.html"
+        },
+        ".json": {
+          "relative_path": "toc.json"
+        }
+      },
+      "version": ""
+    }
+  ],
+  "groups": [
+    {
+      "xrefmap": "xrefmap.yml"
+    }
+  ]
+}

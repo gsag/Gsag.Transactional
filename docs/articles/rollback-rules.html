@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Rollback Rules | Gsag.Transactional </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Rollback Rules | Gsag.Transactional ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.4.0/docs/_src/articles/rollback-rules.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="rollback-rules">Rollback Rules</h1>
+
+<p>By default, any exception thrown by a <code>[Transactional]</code> method causes the scope to roll back. <code>RollbackFor</code> and <code>NoRollbackFor</code> let you fine-tune this behaviour.</p>
+<hr>
+<h2 id="default-behaviour">Default behaviour</h2>
+<p>No configuration needed — any exception rolls back:</p>
+<pre><code class="lang-csharp">[Transactional]
+public async Task PlaceOrderAsync(Order order)
+{
+    // Any exception here → rollback
+}
+</code></pre>
+<hr>
+<h2 id="rollbackfor--restrict-rollback-to-specific-types">RollbackFor — restrict rollback to specific types</h2>
+<p>When <code>RollbackFor</code> is non-empty, <strong>only</strong> the listed exception types (and their subclasses) trigger rollback. All other exceptions cause the transaction to <strong>commit</strong> even though the exception propagates to the caller.</p>
+<pre><code class="lang-csharp">[Transactional(RollbackFor = [typeof(DbException)])]
+public async Task PlaceOrderAsync(Order order)
+{
+    // DbException or any subclass → rollback
+    // Any other exception (e.g. ArgumentException) → commits, exception still thrown
+}
+</code></pre>
+<hr>
+<h2 id="norollbackfor--commit-despite-specific-exceptions">NoRollbackFor — commit despite specific exceptions</h2>
+<p>When <code>NoRollbackFor</code> is set, the listed exception types (and their subclasses) cause the transaction to <strong>commit</strong> even though the exception propagates to the caller. All other exceptions still roll back.</p>
+<pre><code class="lang-csharp">[Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+public async Task PlaceOrderAsync(Order order, CancellationToken ct)
+{
+    // OperationCanceledException → commits (partial work is preserved)
+    // Any other exception → rolls back
+}
+</code></pre>
+<p>A common reason to use this: a user cancels a long-running request mid-flight. The work completed so far is valid and should be saved; the cancellation is not a data-corruption event.</p>
+<hr>
+<h2 id="precedence">Precedence</h2>
+<p>When a type appears in <strong>both</strong> <code>RollbackFor</code> and <code>NoRollbackFor</code>, <code>NoRollbackFor</code> always wins:</p>
+<pre><code class="lang-csharp">[Transactional(
+    RollbackFor   = [typeof(InvalidOperationException)],
+    NoRollbackFor = [typeof(InvalidOperationException)])]
+// → commits on InvalidOperationException (NoRollbackFor takes precedence)
+</code></pre>
+<p>Subclass resolution applies to both lists: if <code>IOException</code> is in <code>NoRollbackFor</code> and a <code>FileNotFoundException</code> is thrown, the transaction commits (because <code>FileNotFoundException</code> is a subclass of <code>IOException</code>).</p>
+<hr>
+<h2 id="scenario-reference">Scenario reference</h2>
+<table>
+<thead>
+<tr>
+<th>Exception thrown</th>
+<th><code>RollbackFor</code></th>
+<th><code>NoRollbackFor</code></th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>InvalidOperationException</code></td>
+<td>—</td>
+<td>—</td>
+<td>Rollback (default)</td>
+</tr>
+<tr>
+<td><code>ArgumentException</code></td>
+<td><code>[InvalidOperationException]</code></td>
+<td>—</td>
+<td><strong>Commit</strong> (not in RollbackFor list)</td>
+</tr>
+<tr>
+<td><code>InvalidOperationException</code></td>
+<td><code>[InvalidOperationException]</code></td>
+<td>—</td>
+<td>Rollback</td>
+</tr>
+<tr>
+<td><code>OperationCanceledException</code></td>
+<td>—</td>
+<td><code>[OperationCanceledException]</code></td>
+<td><strong>Commit</strong></td>
+</tr>
+<tr>
+<td><code>TaskCanceledException</code></td>
+<td>—</td>
+<td><code>[OperationCanceledException]</code></td>
+<td><strong>Commit</strong> (subclass)</td>
+</tr>
+<tr>
+<td><code>InvalidOperationException</code></td>
+<td><code>[InvalidOperationException]</code></td>
+<td><code>[InvalidOperationException]</code></td>
+<td><strong>Commit</strong> (NoRollbackFor wins)</td>
+</tr>
+</tbody>
+</table>
+
+</article>
+
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Gsag.Transactional — MIT License
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

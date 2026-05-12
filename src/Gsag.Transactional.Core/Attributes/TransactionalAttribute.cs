@@ -15,7 +15,10 @@ public sealed class TransactionalAttribute : Attribute
     /// <summary>Isolation level for the transaction. Default: ReadCommitted.</summary>
     public IsolationLevel IsolationLevel { get; init; } = IsolationLevel.ReadCommitted;
 
-    /// <summary>Transaction timeout in seconds. Zero (default) means the system default applies.</summary>
+    /// <summary>
+    /// Transaction timeout in seconds. Zero (default) uses <see cref="System.Transactions.TransactionManager.DefaultTimeout"/>.
+    /// Minimum effective value is 1.
+    /// </summary>
     public int TimeoutSeconds { get; init; }
 
     /// <summary>
