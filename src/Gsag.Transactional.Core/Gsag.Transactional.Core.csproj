@@ -11,7 +11,6 @@
     <!-- Package identity -->
     <IsPackable>true</IsPackable>
     <PackageId>Gsag.Transactional.Core</PackageId>
-    <Version>0.3.0-alpha</Version>
     <Description>Lightweight declarative [Transactional] attribute for C# using only native .NET — DispatchProxy + TransactionScope. No AOP libraries required. Supports Required, RequiresNew, Suppress propagation modes, configurable rollback rules, and AfterCommit / AfterRollback / AfterCompletion hooks.</Description>
     <PackageTags>transactions;transactional;dispatchproxy;system.transactions;aop;declarative</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -27,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
