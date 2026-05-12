@@ -5,6 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.0-alpha] — 2026-05-12
+
+### Added
+- DocFX documentation site targeting GitHub Pages: 7 articles (installation, getting started, propagation modes, transaction hooks, rollback rules, limitations, architecture), API reference generated from XML comments, dark mode, search.
+- `docs/_src/build.ps1` — local preview script (clean → metadata → serve at `http://localhost:8080`).
+- NuGet publish workflow (`.github/workflows/publish.yml`): packs and pushes `Gsag.Transactional.Core` to NuGet.org on `v*` tag push.
+- Codecov integration: coverage uploaded from CI and badge added to README.
+- Dependabot configuration for NuGet and GitHub Actions dependency updates.
+- `.editorconfig` and `Directory.Build.props` for consistent code style across the solution.
+- MinVer for automatic version resolution from git tags.
+- Test suite expanded: `TimeoutTests`, `CancellationTests`, `StressTests`, `NestedPropagationTests` (144 tests total).
+
+### Changed
+- Repository restructured to OSS layout: `src/`, `samples/`, `tests/`.
+- Public API stabilized: implementation types internalized, namespaces aligned, `ITransactionLifecycleObserver` renamed to `ITransactionObserver`.
+- `TransactionalAttribute.TimeoutSeconds`: changed from `int?` to `int` (`0` = system default) to satisfy the C# named attribute argument constraint (CS0655).
+- Unit tests reorganized into subfolders mirroring the source structure.
+
+### Fixed
+- `ITransactionObserver.OnRollback` XML comment: clarified it is not called when a `BeforeRollback` hook exception is suppressed.
+
+---
+
 ## [0.3.0-alpha] — 2026-05-08
 
 ### Added
