@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <Authors>Guilherme Gonçalves</Authors>
+    <Company>Guilherme Gonçalves</Company>
+    <Copyright>Copyright 2026 Guilherme Gonçalves</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/gsag/Gsag.Transactional</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- Source Link + reproducible builds -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>
