@@ -5,8 +5,9 @@ using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Xunit;
+using Gsag.Transactional.Tests.Unit;
 
-namespace Gsag.Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit.Extensions;
 
 // Service pair that follows the I{ClassName} convention — discovered by AddTransactionalServices.
 public interface IExtTestService { string Do(); }

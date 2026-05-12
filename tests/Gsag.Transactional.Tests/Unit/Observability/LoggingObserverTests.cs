@@ -3,7 +3,7 @@ using System.Transactions;
 using Gsag.Transactional.Core.Observability;
 using Xunit;
 
-namespace Gsag.Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit.Observability;
 
 public class LoggingObserverTests
 {

@@ -3,7 +3,7 @@ using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Gsag.Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit.Proxy;
 
 public interface IPropagationService
 {

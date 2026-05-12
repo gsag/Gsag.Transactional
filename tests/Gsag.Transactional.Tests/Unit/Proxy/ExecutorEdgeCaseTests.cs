@@ -4,8 +4,9 @@ using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
+using Gsag.Transactional.Tests.Unit;
 
-namespace Gsag.Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit.Proxy;
 
 // Async services that vote to abort the ambient transaction then return normally.
 // scope.Complete() does not throw on the aborted transaction — scope.Dispose() does.
