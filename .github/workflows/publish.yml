@@ -15,6 +15,11 @@ jobs:
         with:
           fetch-depth: 0  # MinVer needs full history to resolve version from tag
 
+      - name: Verify tag is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor ${{ github.sha }} origin/main || { echo "Tag is not on main — aborting publish."; exit 1; }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
