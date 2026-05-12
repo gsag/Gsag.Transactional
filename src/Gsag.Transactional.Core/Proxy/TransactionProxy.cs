@@ -1,12 +1,12 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
 
-namespace Transactional.Core.Proxy;
+namespace Gsag.Transactional.Core.Proxy;
 
 /// <summary>
 /// A DispatchProxy that intercepts method calls and wraps those decorated with
@@ -16,7 +16,7 @@ namespace Transactional.Core.Proxy;
 internal class TransactionProxy<T> : DispatchProxy where T : class
 {
     private T _target = null!;
-    private ITransactionLifecycleObserver _observer = NullTransactionObserver.Instance;
+    private ITransactionObserver _observer = NullTransactionObserver.Instance;
 
     // Per-T caches — static fields on a generic type are intentionally per-T instantiation.
     // Key includes the concrete type so that different implementations of the same interface
@@ -29,7 +29,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     // Including the concrete type in the key is unnecessary and would fragment the cache.
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
-    public static T Wrap(T target, ITransactionLifecycleObserver? observer = null)
+    public static T Wrap(T target, ITransactionObserver? observer = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (!typeof(T).IsInterface)

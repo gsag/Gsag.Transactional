@@ -1,16 +1,14 @@
-using System.Reflection;
-using Transactional.Core.Attributes;
-using Transactional.Core.Observability;
+﻿using Gsag.Transactional.Core.Observability;
 
-namespace Transactional.Demo.Api.Infrastructure;
+namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
 /// <summary>
-/// Demo implementation of <see cref="ITransactionLifecycleObserver"/> that accumulates
+/// Demo implementation of <see cref="ITransactionObserver"/> that accumulates
 /// in-memory transaction counters. Registered alongside <see cref="LoggingTransactionObserver"/>
 /// to demonstrate the Composite Observer pattern — the proxy calls both in registration order.
 /// Thread-safe via Interlocked for concurrent HTTP requests.
 /// </summary>
-public sealed class InMemoryMetricsObserver : ITransactionLifecycleObserver
+public sealed class InMemoryMetricsObserver : ITransactionObserver
 {
     private long _totalTransactions;
     private long _committed;
@@ -24,16 +22,16 @@ public sealed class InMemoryMetricsObserver : ITransactionLifecycleObserver
     public long CompletedCount    => Interlocked.Read(ref _completedCount);
     public long TotalElapsedMs    => Interlocked.Read(ref _totalElapsedMs);
 
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         Interlocked.Increment(ref _totalTransactions);
 
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) =>
         Interlocked.Increment(ref _committed);
 
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
         Interlocked.Increment(ref _rolledBack);
 
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed)
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed)
     {
         Interlocked.Increment(ref _completedCount);
         Interlocked.Add(ref _totalElapsedMs, (long)elapsed.TotalMilliseconds);

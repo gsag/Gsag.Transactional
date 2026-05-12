@@ -1,9 +1,9 @@
-using System.IO;
-using Transactional.Core.Attributes;
-using Transactional.Core.Proxy;
+﻿using System.IO;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 public interface IRollbackService
 {

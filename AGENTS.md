@@ -39,9 +39,9 @@ src/
       TransactionOutcome.cs         Committed / CommittedWithException / RolledBack
       TransactionHooks.cs           AsyncLocal-backed impl; BeginScope/ClearScope
     Observability/
-      ITransactionLifecycleObserver.cs  OnBegin / OnCommit / OnRollback / OnComplete
+      ITransactionObserver.cs           OnBegin / OnCommit / OnRollback / OnComplete
       NullTransactionObserver.cs        Null Object singleton
-      LoggingTransactionObserver.cs     MEL-based built-in observer (Debug + Warning)
+      LoggingTransactionObserver.cs     MEL-based built-in observer (Debug + Warning) — internal
       CompositeTransactionObserver.cs   Composite — dispatches to N observers in order (fail-fast)
     Proxy/
       TransactionContext.cs         Per-invocation context (method, scope, attr, stopwatch, observer, hooks)
@@ -77,7 +77,7 @@ samples/
     Controllers/
       CheckoutController.cs         8 POST scenarios + 5 GET/DELETE utility endpoints
     appsettings.json
-    appsettings.Development.json    Transactional.Core → Debug (enables observer logs locally)
+    appsettings.Development.json    Gsag.Transactional.Core → Debug (enables observer logs locally)
     Program.cs
 tests/
   Gsag.Transactional.Tests/
@@ -162,15 +162,15 @@ All async wrappers use a **nested try pattern**:
 
 `TransactionOutcome` enum drives hook dispatch: `Committed`, `CommittedWithException` (NoRollbackFor path), `RolledBack`. On rollback or `CommittedWithException` paths `suppressExceptions = true` so hook failures do not mask the original exception.
 
-### ITransactionLifecycleObserver / CompositeTransactionObserver
+### ITransactionObserver / CompositeTransactionObserver
 
-`ITransactionLifecycleObserver` has four methods: `OnBegin`, `OnCommit`, `OnRollback`, `OnComplete`. `OnComplete` fires after every transaction resolves — commit or rollback — and carries a `committed` bool and elapsed `TimeSpan`.
+`ITransactionObserver` has four methods: `OnBegin`, `OnCommit`, `OnRollback`, `OnComplete`. `OnComplete` fires after every transaction resolves — commit or rollback — and carries a `committed` bool and elapsed `TimeSpan`.
 
 `CompositeTransactionObserver` (internal) wraps a list of observers and dispatches to each in registration order. Exceptions propagate immediately (fail-fast — second observer is not called if the first throws).
 
-`AddTransactionalObserver<T>()` registers `T` as a Singleton both as `T` and as `ITransactionLifecycleObserver` (via forwarding factory). An `ObserverRegistered<T>` marker type prevents duplicate registration. The proxy factory resolves all registered `ITransactionLifecycleObserver` instances via `GetServices<T>()` and builds a composite when there are two or more.
+`AddTransactionalObserver<T>()` registers `T` as a Singleton both as `T` and as `ITransactionObserver` (via forwarding factory). An `ObserverRegistered<T>` marker type prevents duplicate registration. The proxy factory resolves all registered `ITransactionObserver` instances via `GetServices<T>()` and builds a composite when there are two or more.
 
-`AddTransactionalLogging()` delegates to `AddTransactionalObserver<LoggingTransactionObserver>()` — it is fully composable with other observers.
+`LoggingTransactionObserver` is **internal** — register it via `AddTransactionalLogging()`, not directly. `AddTransactionalLogging()` delegates to `AddTransactionalObserver<LoggingTransactionObserver>()` — it is fully composable with other observers.
 
 ### ITransactionHooks / TransactionHooks
 

@@ -1,12 +1,12 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Transactional.Demo.Api.Data;
-using Transactional.Demo.Api.Entities;
-using Transactional.Demo.Api.Exceptions;
-using Transactional.Demo.Api.Infrastructure;
-using Transactional.Demo.Api.Services;
+using Gsag.Transactional.Demo.Api.Data;
+using Gsag.Transactional.Demo.Api.Entities;
+using Gsag.Transactional.Demo.Api.Exceptions;
+using Gsag.Transactional.Demo.Api.Infrastructure;
+using Gsag.Transactional.Demo.Api.Services;
 
-namespace Transactional.Demo.Api.Controllers;
+namespace Gsag.Transactional.Demo.Api.Controllers;
 
 /// <summary>Response envelope returned by all scenario POST endpoints.</summary>
 public record CheckoutResponse(

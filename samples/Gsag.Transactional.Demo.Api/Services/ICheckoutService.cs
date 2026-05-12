@@ -1,6 +1,6 @@
-using Transactional.Demo.Api.Entities;
+﻿using Gsag.Transactional.Demo.Api.Entities;
 
-namespace Transactional.Demo.Api.Services;
+namespace Gsag.Transactional.Demo.Api.Services;
 
 public record CheckoutResult(
     /// <remarks>Null on rollback-only scenarios (2, 3, 7) that never create an order.</remarks>

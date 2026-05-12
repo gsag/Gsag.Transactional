@@ -1,22 +1,20 @@
-using System.Reflection;
-using Transactional.Core.Attributes;
-using Transactional.Core.Observability;
+﻿using Gsag.Transactional.Core.Observability;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
-public class RecordingObserver : ITransactionLifecycleObserver
+public class RecordingObserver : ITransactionObserver
 {
     public List<string> Calls { get; } = [];
 
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
-        Calls.Add($"BEGIN:{method.Name}");
+    public void OnBegin(TransactionInfo info) =>
+        Calls.Add($"BEGIN:{info.MethodName}");
 
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
-        Calls.Add($"COMMIT:{method.Name}");
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) =>
+        Calls.Add($"COMMIT:{info.MethodName}");
 
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
-        Calls.Add($"ROLLBACK:{method.Name}");
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
+        Calls.Add($"ROLLBACK:{info.MethodName}");
 
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) =>
-        Calls.Add($"COMPLETE:{method.Name}:{committed}");
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) =>
+        Calls.Add($"COMPLETE:{info.MethodName}:{committed}");
 }

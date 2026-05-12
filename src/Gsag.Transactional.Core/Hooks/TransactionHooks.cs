@@ -1,7 +1,7 @@
-using System.Transactions;
-using Transactional.Core.Attributes;
+﻿using System.Transactions;
+using Gsag.Transactional.Core.Attributes;
 
-namespace Transactional.Core.Hooks;
+namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Internal implementation of <see cref="ITransactionHooks"/>.
@@ -159,7 +159,7 @@ internal sealed class TransactionHooks : ITransactionHooks
         {
             throw new NotSupportedException(
                 "Async hooks cannot be awaited on a synchronous [Transactional] call path. " +
-                "Change the method return type to Task or Task<T>.");
+                "Change the method return type to Task, Task<T>, ValueTask, or ValueTask<T>.");
         }
     }
 

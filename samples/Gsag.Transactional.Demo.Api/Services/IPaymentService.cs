@@ -1,6 +1,6 @@
-using Transactional.Demo.Api.Entities;
+﻿using Gsag.Transactional.Demo.Api.Entities;
 
-namespace Transactional.Demo.Api.Services;
+namespace Gsag.Transactional.Demo.Api.Services;
 
 public interface IPaymentService
 {

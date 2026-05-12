@@ -1,10 +1,9 @@
-using System.Reflection;
-using Transactional.Core.Attributes;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
+﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 // ---------------------------------------------------------------------------
 // Service doubles
@@ -171,7 +170,7 @@ public class CompositeObserverTests
 // Additional helper — tracks event dispatch order across observer instances
 // ---------------------------------------------------------------------------
 
-file class OrderTrackingObserver : ITransactionLifecycleObserver
+file class OrderTrackingObserver : ITransactionObserver
 {
     private readonly string _name;
     private readonly List<string> _order;
@@ -182,15 +181,15 @@ file class OrderTrackingObserver : ITransactionLifecycleObserver
         _order = order;
     }
 
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         _order.Add($"{_name}:BEGIN");
 
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) =>
         _order.Add($"{_name}:COMMIT");
 
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
         _order.Add($"{_name}:ROLLBACK");
 
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) =>
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) =>
         _order.Add($"{_name}:COMPLETE");
 }

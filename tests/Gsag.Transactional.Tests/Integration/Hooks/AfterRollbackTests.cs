@@ -1,9 +1,9 @@
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Proxy;
+﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Integration.Hooks;
+namespace Gsag.Transactional.Tests.Integration.Hooks;
 
 public interface IAfterRollbackService
 {

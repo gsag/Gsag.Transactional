@@ -1,15 +1,15 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
 
-namespace Transactional.Core.Extensions;
+namespace Gsag.Transactional.Core.Extensions;
 
 /// <summary>
-/// Extension methods for registering Transactional.Core services with the .NET DI container.
+/// Extension methods for registering Gsag.Transactional.Core services with the .NET DI container.
 /// </summary>
 public static class TransactionalExtensions
 {
@@ -49,8 +49,8 @@ public static class TransactionalExtensions
             services.AddScoped(interfaceType, sp =>
             {
                 var instance = sp.GetRequiredService(serviceType);
-                var registeredObservers = sp.GetServices<ITransactionLifecycleObserver>().ToList();
-                ITransactionLifecycleObserver observer = registeredObservers.Count switch
+                var registeredObservers = sp.GetServices<ITransactionObserver>().ToList();
+                ITransactionObserver observer = registeredObservers.Count switch
                 {
                     0 => NullTransactionObserver.Instance,
                     1 => registeredObservers[0],
@@ -64,16 +64,19 @@ public static class TransactionalExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="LoggingTransactionObserver"/> as a transaction lifecycle observer.
-    /// All proxied services will emit structured log entries at DEBUG (BEGIN/COMMIT/COMPLETE)
-    /// and WARNING (ROLLBACK) level. Can be combined with other observers via
-    /// <see cref="AddTransactionalObserver{T}"/> — the proxy will dispatch to all in registration order.
+    /// Registers the built-in logging observer. All proxied services emit structured log entries
+    /// at DEBUG (BEGIN/COMMIT/COMPLETE) and WARNING (ROLLBACK) level under the category
+    /// <c>Gsag.Transactional.Core.Observability.ITransactionObserver</c>.
+    /// To filter or silence these entries, configure that category in appsettings.json.
+    /// To change the format, skip this method and register your own
+    /// <see cref="ITransactionObserver"/> via <see cref="AddTransactionalObserver{T}"/> instead.
+    /// Can be combined with other observers — the proxy dispatches to all in registration order.
     /// </summary>
     public static IServiceCollection AddTransactionalLogging(this IServiceCollection services) =>
         services.AddTransactionalObserver<LoggingTransactionObserver>();
 
     /// <summary>
-    /// Registers <typeparamref name="T"/> as an additional <see cref="ITransactionLifecycleObserver"/>.
+    /// Registers <typeparamref name="T"/> as an additional <see cref="ITransactionObserver"/>.
     /// When multiple observers are registered, the proxy wraps them in a
     /// <see cref="CompositeTransactionObserver"/> and calls each in registration order.
     /// <typeparamref name="T"/> is also registered as its concrete type so it can be injected
@@ -82,7 +85,7 @@ public static class TransactionalExtensions
     /// Observers must use Singleton or Transient lifetime — never Scoped.
     /// </summary>
     public static IServiceCollection AddTransactionalObserver<T>(this IServiceCollection services)
-        where T : class, ITransactionLifecycleObserver
+        where T : class, ITransactionObserver
     {
         // Guard type prevents duplicate forwarding when this method is called more than once
         // with the same T (e.g., AddTransactionalLogging() called twice).
@@ -92,15 +95,42 @@ public static class TransactionalExtensions
         }
         services.AddSingleton<ObserverRegistered<T>>();
         services.TryAddSingleton<T>();
-        // Forward ITransactionLifecycleObserver to the concrete singleton so the same
+        // Forward ITransactionObserver to the concrete singleton so the same
         // instance is used whether resolved via the interface or the concrete type.
-        services.AddSingleton<ITransactionLifecycleObserver>(sp => sp.GetRequiredService<T>());
+        services.AddSingleton<ITransactionObserver>(sp => sp.GetRequiredService<T>());
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a single transactional service pair without naming-convention constraints.
+    /// Use when the interface is in a different assembly, has a non-standard name, or when
+    /// explicit registration is preferred over assembly scanning.
+    /// </summary>
+    public static IServiceCollection AddTransactionalService<TInterface, TImplementation>(
+        this IServiceCollection services)
+        where TInterface : class
+        where TImplementation : class, TInterface
+    {
+        services.TryAddSingleton<ITransactionHooks, TransactionHooks>();
+        services.AddScoped<TImplementation>();
+        services.AddScoped<TInterface>(sp =>
+        {
+            var instance = sp.GetRequiredService<TImplementation>();
+            var registeredObservers = sp.GetServices<ITransactionObserver>().ToList();
+            ITransactionObserver observer = registeredObservers.Count switch
+            {
+                0 => NullTransactionObserver.Instance,
+                1 => registeredObservers[0],
+                _ => new CompositeTransactionObserver(registeredObservers)
+            };
+            return TransactionProxyFactory.Create<TInterface>(instance, observer);
+        });
         return services;
     }
 
     // Internal marker: one instance per observer type T, used to detect duplicate
     // AddTransactionalObserver<T>() calls and prevent double registration.
-    private sealed class ObserverRegistered<T> where T : class, ITransactionLifecycleObserver { }
+    private sealed class ObserverRegistered<T> where T : class, ITransactionObserver { }
 
     // BindingFlags.NonPublic is included to detect explicitly implemented interface methods,
     // which are Private from the declaring class's perspective.

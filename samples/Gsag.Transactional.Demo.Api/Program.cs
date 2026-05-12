@@ -1,11 +1,11 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Transactional.Core.Extensions;
-using Transactional.Core.Observability;
-using Transactional.Demo.Api.Data;
-using Transactional.Demo.Api.Infrastructure;
-using Transactional.Demo.Api.Services;
+using Gsag.Transactional.Core.Extensions;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Demo.Api.Data;
+using Gsag.Transactional.Demo.Api.Infrastructure;
+using Gsag.Transactional.Demo.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

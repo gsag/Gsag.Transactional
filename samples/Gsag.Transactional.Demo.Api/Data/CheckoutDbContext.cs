@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Transactional.Demo.Api.Entities;
+using Gsag.Transactional.Demo.Api.Entities;
 
-namespace Transactional.Demo.Api.Data;
+namespace Gsag.Transactional.Demo.Api.Data;
 
 public class CheckoutDbContext : DbContext
 {

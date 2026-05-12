@@ -1,27 +1,24 @@
-using System.Reflection;
-using Transactional.Core.Attributes;
-
-namespace Transactional.Core.Observability;
+﻿namespace Gsag.Transactional.Core.Observability;
 
 /// <summary>
 /// Receives notifications at each stage of a transaction managed by TransactionProxy.
 /// Register an implementation in DI (or pass directly to TransactionProxyFactory.Create)
-/// to observe transaction lifecycle events for logging, metrics, or testing.
+/// to observe transaction events for logging, metrics, or testing.
 /// </summary>
-public interface ITransactionLifecycleObserver
+public interface ITransactionObserver
 {
     /// <summary>Called immediately after the TransactionScope is opened.</summary>
-    void OnBegin(MethodInfo method, TransactionalAttribute attr);
+    void OnBegin(TransactionInfo info);
 
     /// <summary>Called when scope.Complete() is invoked (transaction will commit).</summary>
-    void OnCommit(MethodInfo method, TimeSpan elapsed);
+    void OnCommit(TransactionInfo info, TimeSpan elapsed);
 
     /// <summary>Called when the transaction is aborted due to an exception.</summary>
-    void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed);
+    void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed);
 
     /// <summary>
     /// Called after the transaction resolves — commit or rollback — regardless of outcome.
     /// Useful for recording execution time metrics without duplicating logic in OnCommit and OnRollback.
     /// </summary>
-    void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed);
+    void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed);
 }

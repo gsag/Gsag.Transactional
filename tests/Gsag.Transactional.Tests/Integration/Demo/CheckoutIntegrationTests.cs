@@ -1,32 +1,30 @@
-using System.Reflection;
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
-using Transactional.Demo.Api.Data;
-using Transactional.Demo.Api.Entities;
-using Transactional.Demo.Api.Exceptions;
-using Transactional.Demo.Api.Infrastructure;
-using Transactional.Demo.Api.Services;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
+using Gsag.Transactional.Demo.Api.Data;
+using Gsag.Transactional.Demo.Api.Entities;
+using Gsag.Transactional.Demo.Api.Exceptions;
+using Gsag.Transactional.Demo.Api.Infrastructure;
+using Gsag.Transactional.Demo.Api.Services;
 using Xunit;
 
-namespace Transactional.Tests.Integration.Demo;
+namespace Gsag.Transactional.Tests.Integration.Demo;
 
 // ---------------------------------------------------------------------------
 // Local observer — records COMMIT/ROLLBACK events for assertion
 // ---------------------------------------------------------------------------
 
-internal sealed class CheckoutRecordingObserver : ITransactionLifecycleObserver
+internal sealed class CheckoutRecordingObserver : ITransactionObserver
 {
     public List<string> Calls { get; } = [];
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) => Calls.Add($"COMMIT:{method.Name}");
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) => Calls.Add($"ROLLBACK:{method.Name}");
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnBegin(TransactionInfo info) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) => Calls.Add($"COMMIT:{info.MethodName}");
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) => Calls.Add($"ROLLBACK:{info.MethodName}");
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 // ---------------------------------------------------------------------------

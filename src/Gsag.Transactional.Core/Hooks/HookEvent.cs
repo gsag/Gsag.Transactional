@@ -1,4 +1,4 @@
-namespace Transactional.Core.Hooks;
+﻿namespace Gsag.Transactional.Core.Hooks;
 
 internal enum HookEvent
 {

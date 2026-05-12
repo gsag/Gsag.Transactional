@@ -1,4 +1,4 @@
-namespace Transactional.Demo.Api.Infrastructure;
+﻿namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
 public interface IEventBus
 {

@@ -1,16 +1,16 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
-using Transactional.Core.Observability;
+using Gsag.Transactional.Core.Observability;
 
-namespace Transactional.Core.Proxy;
+namespace Gsag.Transactional.Core.Proxy;
 
 /// <summary>
 /// Creates TransactionProxy instances.
 /// The generic overload is preferred; the non-generic one is used by the DI extension
 /// when the interface type is only known at runtime.
 /// </summary>
-public static class TransactionProxyFactory
+internal static class TransactionProxyFactory
 {
     // Cached once — pinned by generic arity and parameter count to survive future overloads.
     private static readonly MethodInfo _createMethod =
@@ -26,12 +26,12 @@ public static class TransactionProxyFactory
 
     // Compiled delegate cache — one entry per interface type seen at runtime.
     // Eliminates per-call MakeGenericMethod + object[] boxing on the DI hot path.
-    private static readonly ConcurrentDictionary<Type, Func<object, ITransactionLifecycleObserver?, object>> _createDelegates = new();
+    private static readonly ConcurrentDictionary<Type, Func<object, ITransactionObserver?, object>> _createDelegates = new();
 
     /// <summary>Wraps <paramref name="target"/> with a transaction-intercepting proxy.</summary>
     public static TInterface Create<TInterface>(
         TInterface target,
-        ITransactionLifecycleObserver? observer = null) where TInterface : class
+        ITransactionObserver? observer = null) where TInterface : class
         => TransactionProxy<TInterface>.Wrap(target, observer);
 
     /// <summary>
@@ -41,15 +41,15 @@ public static class TransactionProxyFactory
     public static object Create(
         Type interfaceType,
         object target,
-        ITransactionLifecycleObserver? observer = null)
+        ITransactionObserver? observer = null)
     {
         var del = _createDelegates.GetOrAdd(interfaceType, static t =>
         {
             var method = _createMethod.MakeGenericMethod(t);
             var pTarget   = Expression.Parameter(typeof(object), "target");
-            var pObserver = Expression.Parameter(typeof(ITransactionLifecycleObserver), "observer");
+            var pObserver = Expression.Parameter(typeof(ITransactionObserver), "observer");
             var call = Expression.Call(method, Expression.Convert(pTarget, t), pObserver);
-            return Expression.Lambda<Func<object, ITransactionLifecycleObserver?, object>>(
+            return Expression.Lambda<Func<object, ITransactionObserver?, object>>(
                 Expression.Convert(call, typeof(object)), pTarget, pObserver).Compile();
         });
         return del(target, observer);

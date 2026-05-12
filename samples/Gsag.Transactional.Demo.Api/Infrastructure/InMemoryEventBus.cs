@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
-namespace Transactional.Demo.Api.Infrastructure;
+namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
 public class InMemoryEventBus : IEventBus
 {

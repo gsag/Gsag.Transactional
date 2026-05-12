@@ -1,16 +1,16 @@
-using Transactional.Core.Proxy;
+﻿using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 // ValueTask services that throw before producing a ValueTask — exercises the
 // synchronous-preamble catch block in HandleValueTask / HandleValueTaskGeneric.
 public interface IValueTaskSyncThrowService
 {
-    [Transactional.Core.Attributes.Transactional]
+    [Gsag.Transactional.Core.Attributes.Transactional]
     System.Threading.Tasks.ValueTask RunAsync();
 
-    [Transactional.Core.Attributes.Transactional]
+    [Gsag.Transactional.Core.Attributes.Transactional]
     System.Threading.Tasks.ValueTask<string> RunGenericAsync();
 }
 

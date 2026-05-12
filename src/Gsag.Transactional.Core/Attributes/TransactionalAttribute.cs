@@ -1,6 +1,6 @@
-using System.Transactions;
+﻿using System.Transactions;
 
-namespace Transactional.Core.Attributes;
+namespace Gsag.Transactional.Core.Attributes;
 
 /// <summary>
 /// Marks a method as transactional. The dynamic proxy wraps the call in a
@@ -44,5 +44,4 @@ public sealed class TransactionalAttribute : Attribute
     /// Takes precedence over <see cref="RollbackFor"/> when a type appears in both arrays.
     /// </summary>
     public Type[] NoRollbackFor { get; init; } = [];
-
 }

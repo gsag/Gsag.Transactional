@@ -1,14 +1,13 @@
-using System.Reflection;
-using Microsoft.Extensions.Logging;
-using Transactional.Core.Attributes;
-using Transactional.Core.Observability;
+﻿using Microsoft.Extensions.Logging;
+using System.Transactions;
+using Gsag.Transactional.Core.Observability;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 public class LoggingObserverTests
 {
-    private sealed class FakeLogger : ILogger<LoggingTransactionObserver>
+    private sealed class FakeLogger : ILogger<ITransactionObserver>
     {
         public readonly List<(LogLevel Level, string Message, Exception? Exception)> Entries = [];
 
@@ -19,11 +18,13 @@ public class LoggingObserverTests
             => Entries.Add((logLevel, formatter(state, exception), exception));
     }
 
-    private static readonly MethodInfo _method =
-        typeof(LoggingObserverTests).GetMethod(nameof(Stub),
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-
-    private static void Stub() { }
+    private static readonly TransactionInfo _info = new TransactionInfo
+    {
+        MethodName    = "Stub",
+        DeclaringType = typeof(LoggingObserverTests),
+        IsolationLevel = IsolationLevel.ReadCommitted,
+        Propagation    = TransactionScopeOption.Required,
+    };
 
     [Fact]
     public void OnBegin_LogsAtDebug_WithMethodNameAndIsolationLevel()
@@ -31,12 +32,12 @@ public class LoggingObserverTests
         var logger = new FakeLogger();
         var observer = new LoggingTransactionObserver(logger);
 
-        observer.OnBegin(_method, new TransactionalAttribute());
+        observer.OnBegin(_info);
 
         var (level, message, _) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Debug, level);
         Assert.Contains("BEGIN", message);
-        Assert.Contains(_method.Name, message);
+        Assert.Contains(_info.MethodName, message);
     }
 
     [Fact]
@@ -45,12 +46,12 @@ public class LoggingObserverTests
         var logger = new FakeLogger();
         var observer = new LoggingTransactionObserver(logger);
 
-        observer.OnCommit(_method, TimeSpan.FromMilliseconds(42));
+        observer.OnCommit(_info, TimeSpan.FromMilliseconds(42));
 
         var (level, message, _) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Debug, level);
         Assert.Contains("COMMIT", message);
-        Assert.Contains(_method.Name, message);
+        Assert.Contains(_info.MethodName, message);
     }
 
     [Fact]
@@ -60,12 +61,12 @@ public class LoggingObserverTests
         var observer = new LoggingTransactionObserver(logger);
         var ex = new InvalidOperationException("boom");
 
-        observer.OnRollback(_method, ex, TimeSpan.FromMilliseconds(10));
+        observer.OnRollback(_info, ex, TimeSpan.FromMilliseconds(10));
 
         var (level, message, capturedException) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Warning, level);
         Assert.Contains("ROLLBACK", message);
-        Assert.Contains(_method.Name, message);
+        Assert.Contains(_info.MethodName, message);
         Assert.Same(ex, capturedException);
     }
 }

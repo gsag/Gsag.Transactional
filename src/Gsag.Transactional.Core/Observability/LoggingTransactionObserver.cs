@@ -1,43 +1,40 @@
-using System.Reflection;
-using Microsoft.Extensions.Logging;
-using Transactional.Core.Attributes;
+﻿using Microsoft.Extensions.Logging;
 
-namespace Transactional.Core.Observability;
+namespace Gsag.Transactional.Core.Observability;
 
 /// <summary>
-/// Default ITransactionLifecycleObserver that writes structured log entries.
-/// Register via AddTransactionalLogging() to enable it across all proxied services.
+/// Default ITransactionObserver that writes structured log entries.
+/// Register via AddTransactionalLogging() — do not reference this type directly.
 /// </summary>
-public sealed class LoggingTransactionObserver : ITransactionLifecycleObserver
+internal sealed class LoggingTransactionObserver : ITransactionObserver
 {
-    private readonly ILogger<LoggingTransactionObserver> _logger;
+    private readonly ILogger<ITransactionObserver> _logger;
 
-    /// <summary>Initializes the observer with the logger provided by the DI container.</summary>
-    public LoggingTransactionObserver(ILogger<LoggingTransactionObserver> logger)
+    public LoggingTransactionObserver(ILogger<ITransactionObserver> logger)
         => _logger = logger;
 
     /// <inheritdoc/>
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         _logger.LogDebug(
             "Transaction BEGIN  — {Method} (isolation={Isolation}, propagation={Propagation})",
-            method.Name, attr.IsolationLevel, attr.Propagation);
+            info.MethodName, info.IsolationLevel, info.Propagation);
 
     /// <inheritdoc/>
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) =>
         _logger.LogDebug(
             "Transaction COMMIT — {Method} ({Ms} ms)",
-            method.Name, (long)elapsed.TotalMilliseconds);
+            info.MethodName, (long)elapsed.TotalMilliseconds);
 
     /// <inheritdoc/>
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
         _logger.LogWarning(exception,
             "Transaction ROLLBACK — {Method} ({Ms} ms) [{ExceptionType}: {ExceptionMessage}]",
-            method.Name, (long)elapsed.TotalMilliseconds,
+            info.MethodName, (long)elapsed.TotalMilliseconds,
             exception.GetType().Name, exception.Message);
 
     /// <inheritdoc/>
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) =>
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) =>
         _logger.LogDebug(
             "Transaction COMPLETE — {Method} ({Ms} ms) committed={Committed}",
-            method.Name, (long)elapsed.TotalMilliseconds, committed);
+            info.MethodName, (long)elapsed.TotalMilliseconds, committed);
 }

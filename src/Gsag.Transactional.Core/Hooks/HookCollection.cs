@@ -1,4 +1,4 @@
-namespace Transactional.Core.Hooks;
+﻿namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Per-scope container for hooks, keyed by <see cref="HookEvent"/>.

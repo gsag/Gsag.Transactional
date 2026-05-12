@@ -1,10 +1,10 @@
-using System.Transactions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Proxy;
+﻿using System.Transactions;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Integration.Hooks;
+namespace Gsag.Transactional.Tests.Integration.Hooks;
 
 // ---------------------------------------------------------------------------
 // RequiresNew nesting doubles

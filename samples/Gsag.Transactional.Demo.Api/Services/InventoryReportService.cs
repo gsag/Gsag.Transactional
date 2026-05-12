@@ -1,10 +1,10 @@
-using System.Transactions;
+﻿using System.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Transactional.Core.Attributes;
-using Transactional.Demo.Api.Data;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Demo.Api.Data;
 
-namespace Transactional.Demo.Api.Services;
+namespace Gsag.Transactional.Demo.Api.Services;
 
 public class InventoryReportService : IInventoryReportService
 {

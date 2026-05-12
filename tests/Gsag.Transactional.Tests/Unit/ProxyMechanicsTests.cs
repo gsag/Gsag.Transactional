@@ -1,11 +1,10 @@
-using System.Reflection;
-using System.Threading;
-using Transactional.Core.Attributes;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
+﻿using System.Threading;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 public interface IBasicService
 {
@@ -53,18 +52,18 @@ public class ConcreteService
     public string Method() => "concrete";
 }
 
-public class ConcurrentRecordingObserver : ITransactionLifecycleObserver
+public class ConcurrentRecordingObserver : ITransactionObserver
 {
     private int _begins;
     private int _commits;
     public int Begins => _begins;
     public int Commits => _commits;
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         Interlocked.Increment(ref _begins);
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) =>
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) =>
         Interlocked.Increment(ref _commits);
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 public class ProxyMechanicsTests

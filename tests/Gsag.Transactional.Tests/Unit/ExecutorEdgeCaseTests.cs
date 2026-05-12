@@ -1,12 +1,11 @@
-using System.Reflection;
-using System.Transactions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
+﻿using System.Transactions;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Unit;
+namespace Gsag.Transactional.Tests.Unit;
 
 // Async services that vote to abort the ambient transaction then return normally.
 // scope.Complete() does not throw on the aborted transaction — scope.Dispose() does.
@@ -48,24 +47,24 @@ public class ForcedAbortAsyncService : IForcedAbortAsyncService
 
 // Observer that throws in OnBegin — exercises the OpenScope catch block that
 // disposes the already-created TransactionScope and clears the hook AsyncLocal.
-public class ThrowingOnBeginObserver : ITransactionLifecycleObserver
+public class ThrowingOnBeginObserver : ITransactionObserver
 {
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         throw new InvalidOperationException("begin-fail");
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) { }
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 // Observer that throws in OnRollback — exercises the double-fault path where
 // scope.Dispose() throws TransactionAbortedException AND the observer also throws.
-public class ThrowingOnRollbackObserver : ITransactionLifecycleObserver
+public class ThrowingOnRollbackObserver : ITransactionObserver
 {
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+    public void OnBegin(TransactionInfo info) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) { }
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
         throw new InvalidOperationException("observer-rollback-fail");
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 // Service that votes to abort the ambient transaction then returns normally.

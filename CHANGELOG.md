@@ -67,7 +67,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `TryDispose` in `TransactionScopeExecutor` — captures `Dispose` exceptions so hooks can run before the exception propagates.
 - E-commerce checkout demo (`Transactional.Demo.Api`) with eight scenario endpoints covering commit, rollback, `RequiresNew`, `Suppress`, `NoRollbackFor`, and hook ordering.
 - `Transactional.Core` packaged for NuGet: targets `net8.0;net9.0`, Source Link, symbol package.
-- `TransactionProxy<T>` made internal — `TransactionProxyFactory` is the sole public entry point.
+- `TransactionProxy<T>` and `TransactionProxyFactory` are internal — proxy creation is exposed only via the DI extensions.
 
 ### Fixed
 - Hooks silently dropped when `scope.Dispose()` throws `TransactionAbortedException` (e.g. `Transaction.Current.Rollback()` inside method).

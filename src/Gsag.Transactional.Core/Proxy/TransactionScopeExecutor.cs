@@ -1,14 +1,14 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Transactions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
 
-namespace Transactional.Core.Proxy;
+namespace Gsag.Transactional.Core.Proxy;
 
 /// <summary>
 /// Non-generic static class that owns all commit/rollback/dispose logic and async wrappers.
@@ -39,7 +39,7 @@ internal static class TransactionScopeExecutor
     // Scope factory
     // -------------------------------------------------------------------------
 
-    internal static TransactionContext OpenScope(MethodInfo method, TransactionalAttribute attr, ITransactionLifecycleObserver observer)
+    internal static TransactionContext OpenScope(MethodInfo method, TransactionalAttribute attr, ITransactionObserver observer)
     {
         var sw = Stopwatch.StartNew();
         var hooks = TransactionHooks.BeginScope(attr);
@@ -47,8 +47,9 @@ internal static class TransactionScopeExecutor
         try
         {
             scope = CreateScope(attr);          // scope exists before observer fires
-            observer.OnBegin(method, attr);
-            return new TransactionContext(method, scope, attr, sw, observer, hooks);
+            var ctx = new TransactionContext(method, scope, attr, sw, observer, hooks);
+            observer.OnBegin(ctx.Info);
+            return ctx;
         }
         catch
         {
@@ -93,7 +94,7 @@ internal static class TransactionScopeExecutor
             // and does not throw; this path is exercised by DTC timeout or IEnlistmentNotification
             // voting to abort during Prepare.
             ctx.Stopwatch.Stop();
-            ctx.Observer.OnRollback(ctx.Method, ex, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnRollback(ctx.Info, ex, ctx.Stopwatch.Elapsed);
             throw;
         }
         ctx.Stopwatch.Stop();
@@ -105,7 +106,7 @@ internal static class TransactionScopeExecutor
     internal static void Rollback(TransactionContext ctx, Exception ex)
     {
         ctx.Stopwatch.Stop();
-        ctx.Observer.OnRollback(ctx.Method, ex, ctx.Stopwatch.Elapsed);
+        ctx.Observer.OnRollback(ctx.Info, ex, ctx.Stopwatch.Elapsed);
     }
 
     /// <summary>
@@ -119,18 +120,18 @@ internal static class TransactionScopeExecutor
     {
         if (outcome == TransactionOutcome.RolledBack)
         {
-            ctx.Observer.OnComplete(ctx.Method, committed: false, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Stopwatch.Elapsed);
             return;
         }
         if (disposeEx is null)
         {
-            ctx.Observer.OnCommit(ctx.Method, ctx.Stopwatch.Elapsed);
-            ctx.Observer.OnComplete(ctx.Method, committed: true, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnCommit(ctx.Info, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: true, ctx.Stopwatch.Elapsed);
         }
         else
         {
-            ctx.Observer.OnRollback(ctx.Method, disposeEx, ctx.Stopwatch.Elapsed);
-            ctx.Observer.OnComplete(ctx.Method, committed: false, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnRollback(ctx.Info, disposeEx, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Stopwatch.Elapsed);
         }
     }
 

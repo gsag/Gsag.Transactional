@@ -1,4 +1,4 @@
-namespace Transactional.Demo.Api.Services;
+﻿namespace Gsag.Transactional.Demo.Api.Services;
 
 public record InventoryReport(int TotalReservations, string Note);
 

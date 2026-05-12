@@ -1,37 +1,59 @@
-# csharp-transactional-pattern
+# Gsag.Transactional
 
-[![CI](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/csharp-transactional-pattern/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-experimental-orange)
+[![CI](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![Status](https://img.shields.io/badge/status-pre--release-yellow)
 
 Lightweight declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
 
 Inspired by Spring Framework's `@Transactional`, this project brings the same declarative model to .NET. Instead of wrapping every method in `try/catch/TransactionScope.Complete()`, you annotate it once and let the proxy handle commit, rollback, and lifecycle hooks — keeping business logic free of transaction plumbing.
 
-> **⚠️ Experimental project** — built for learning and exploring patterns. Not recommended for production use.
+> **⚠️ In stabilization — the public API may change between releases. Not recommended for production use yet.**
+
+---
+
+## Contents
+
+- [How it works](#how-it-works)
+- [Quick Start](#quick-start)
+- [`[Transactional]` reference](#transactional-reference)
+- [Transaction Lifecycle Hooks](#transaction-lifecycle-hooks)
+- [Transaction Observer](#transaction-observer)
+- [Running locally](#running-locally)
+- [Known limitations](#known-limitations)
+- [Project structure](#project-structure)
+- [License](LICENSE)
 
 ---
 
 ## How it works
 
 ```
-Controller → IMyService (proxy) → TransactionProxy
-                                           │
-                                     [Transactional]?
-                                     YES → TransactionScope
-                                                │
-                                        MyService.Method()
-                                                │
-                                      ┌─────────┴─────────┐
-                                   success            exception
-                                      │                   │
-                                 Complete()          Dispose()
-                                  COMMIT             ROLLBACK
+      Controller
+           │
+           ▼
+   IMyService  (proxy)
+           │
+           ▼
+    [Transactional]
+           │
+           ▼
+    TransactionScope
+           │
+           ▼
+    MyService.Method()
+           │
+     ┌─────┴─────┐
+     │           │
+  success    exception
+     │           │
+ Complete()  Dispose()
+   COMMIT    ROLLBACK
 ```
 
 ---
 
 ## Quick Start
 
-**1. Reference `Transactional.Core`** in your project.
+**1. Reference `Gsag.Transactional.Core`** in your project.
 
 **2. Mark methods with `[Transactional]`:**
 
@@ -65,7 +87,7 @@ builder.Services.AddTransactionalServices(typeof(MyService).Assembly);
 ```csharp
 public class MyController : ControllerBase
 {
-    private readonly IMyService _service_;
+    private readonly IMyService _service;
 
     public MyController(IMyService service) => _service = service;
 
@@ -189,9 +211,9 @@ Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Asyn
 
 ---
 
-## Transaction Lifecycle Observer
+## Transaction Observer
 
-`ITransactionLifecycleObserver` lets infrastructure components (logging, metrics, tracing) observe every transaction without coupling to business logic. Register one or more implementations in DI — the proxy calls all of them in registration order.
+`ITransactionObserver` lets infrastructure components (logging, metrics, tracing) observe every transaction without coupling to business logic. Register one or more implementations in DI — the proxy calls all of them in registration order.
 
 | Method | When it fires | `committed` |
 |---|---|---|
@@ -225,19 +247,60 @@ public class MetricsController(MetricsObserver metrics) : ControllerBase { ... }
 
 ### Custom observer
 
+Implement `ITransactionObserver` for any cross-cutting concern — tracing, metrics, alerting:
+
 ```csharp
-public class TracingObserver : ITransactionLifecycleObserver
+public class TracingObserver : ITransactionObserver
 {
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr)
-        => Tracer.StartSpan(method.Name);
+    public void OnBegin(TransactionInfo info)
+        => Tracer.StartSpan(info.MethodName);
 
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) { }
 
-    public void OnRollback(MethodInfo method, Exception ex, TimeSpan elapsed)
+    public void OnRollback(TransactionInfo info, Exception ex, TimeSpan elapsed)
         => Tracer.SetError(ex);
 
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed)
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed)
         => Tracer.Finish(committed, elapsed);
+}
+```
+
+```csharp
+builder.Services.AddTransactionalObserver<TracingObserver>();
+```
+
+### Customizing the built-in logs
+
+`AddTransactionalLogging()` is an opinionated default. To filter or silence it, use the standard .NET logging configuration — the category name is `Gsag.Transactional.Core.Observability.ITransactionObserver`:
+
+```json
+"Logging": {
+  "LogLevel": {
+    "Gsag.Transactional.Core.Observability.ITransactionObserver": "Warning"
+  }
+}
+```
+
+To change the **format**, replace it with your own observer:
+
+```csharp
+// Instead of AddTransactionalLogging()
+builder.Services.AddTransactionalObserver<MyLoggingObserver>();
+```
+
+```csharp
+public class MyLoggingObserver : ITransactionObserver
+{
+    private readonly ILogger<MyLoggingObserver> _logger;
+    public MyLoggingObserver(ILogger<MyLoggingObserver> logger) => _logger = logger;
+
+    public void OnBegin(TransactionInfo info) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed)
+        => _logger.LogInformation("[TX] {Type}.{Method} committed in {Ms}ms",
+            info.DeclaringType.Name, info.MethodName, (long)elapsed.TotalMilliseconds);
+    public void OnRollback(TransactionInfo info, Exception ex, TimeSpan elapsed)
+        => _logger.LogError(ex, "[TX] {Type}.{Method} rolled back", info.DeclaringType.Name, info.MethodName);
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 ```
 
@@ -284,8 +347,19 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 
 ## Known limitations
 
-- **Self-invocation bypasses the proxy** — calling `this.Method()` inside the same class skips `DispatchProxy`. Always inject the interface so calls route through the proxy.
-- **SQLite has no ambient transaction support** — EF Core 9's SQLite provider does not enlist in `System.Transactions`. The proxy lifecycle works correctly; the database itself ignores the scope. Use SQL Server or PostgreSQL for real transactional guarantees.
+1. **`BeforeRollback` does not fire on `Transaction.Current.Rollback()`** — only exception-driven rollback triggers it. Programmatic rollback-vote (calling `Transaction.Current.Rollback()` then returning normally) disposes the scope without an exception, so `BeforeRollback` hooks are skipped.
+
+2. **`DispatchProxy` does not support `out`/`ref` parameters** — attempting to proxy a method with `out` or `ref` parameters throws `NotSupportedException` at proxy-creation time.
+
+3. **`DispatchProxy` does not support generic methods** — only generic interfaces are supported; the method itself must not have its own type parameters (e.g., `T Process<T>(...)` is not supported).
+
+4. **Sync-path async hooks throw `NotSupportedException`** — registering an async hook (`Func<Task>`) inside a synchronous `[Transactional]` method causes `NotSupportedException` to be thrown before any hook executes. Use sync hooks (`Action`) in sync methods.
+
+5. **Self-invocation bypasses the proxy** — calling `this.Method()` inside the same class skips `DispatchProxy`. Always inject the interface so calls route through the proxy.
+
+6. **SQLite does not enlist in `System.Transactions`** — EF Core 9's SQLite provider sets `SupportsAmbientTransactions = false`. The proxy lifecycle works correctly; the database itself ignores the scope. For real transactional integration tests, use SQL Server, PostgreSQL, or MySQL.
+
+7. **`CompositeTransactionObserver` is fail-fast** — if the first registered observer throws, subsequent observers are not called. This is by design but means observer registration order affects which observers receive events when one fails.
 
 ---
 
@@ -296,7 +370,7 @@ src/
   Gsag.Transactional.Core/     Pure library — no framework dependencies
     Attributes/                [Transactional] attribute
     Hooks/                     ITransactionHooks (BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion)
-    Observability/             ITransactionLifecycleObserver, NullTransactionObserver,
+    Observability/             ITransactionObserver, NullTransactionObserver,
                                LoggingTransactionObserver, CompositeTransactionObserver
     Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
     Extensions/                AddTransactionalServices(), AddTransactionalLogging(),
@@ -318,8 +392,3 @@ tests/
     Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
 ```
 
----
-
-## License
-
-MIT

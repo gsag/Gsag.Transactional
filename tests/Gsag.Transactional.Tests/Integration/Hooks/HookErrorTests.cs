@@ -1,12 +1,11 @@
-using System.Reflection;
-using System.Transactions;
-using Transactional.Core.Attributes;
-using Transactional.Core.Hooks;
-using Transactional.Core.Observability;
-using Transactional.Core.Proxy;
+﻿using System.Transactions;
+using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
+using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Proxy;
 using Xunit;
 
-namespace Transactional.Tests.Integration.Hooks;
+namespace Gsag.Transactional.Tests.Integration.Hooks;
 
 // ---------------------------------------------------------------------------
 // NoRollbackFor + hook masking
@@ -156,26 +155,26 @@ public class AbortWithHookService : IAbortWithHookService
 // Observer OnBegin throws
 // ---------------------------------------------------------------------------
 
-public class ThrowOnBeginObserver : ITransactionLifecycleObserver
+public class ThrowOnBeginObserver : ITransactionObserver
 {
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) =>
+    public void OnBegin(TransactionInfo info) =>
         throw new InvalidOperationException("observer refused");
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) { }
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) { }
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) { }
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 // ---------------------------------------------------------------------------
 // Observer OnRollback throws
 // ---------------------------------------------------------------------------
 
-public class ThrowOnRollbackObserver : ITransactionLifecycleObserver
+public class ThrowOnRollbackObserver : ITransactionObserver
 {
-    public void OnBegin(MethodInfo method, TransactionalAttribute attr) { }
-    public void OnCommit(MethodInfo method, TimeSpan elapsed) { }
-    public void OnRollback(MethodInfo method, Exception exception, TimeSpan elapsed) =>
+    public void OnBegin(TransactionInfo info) { }
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed) { }
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) =>
         throw new InvalidOperationException("observer rollback refused");
-    public void OnComplete(MethodInfo method, bool committed, TimeSpan elapsed) { }
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) { }
 }
 
 public interface IThrowSyncService
