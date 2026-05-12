@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
@@ -56,7 +56,7 @@ public class AfterCompletionTests
     }
 
     [Fact]
-    public async Task AfterCompletion_OnCommit_Fires()
+    public async Task AfterCompletion_WhenCommits_Fires()
     {
         var (proxy, svc) = Build();
 
@@ -66,7 +66,7 @@ public class AfterCompletionTests
     }
 
     [Fact]
-    public async Task AfterCompletion_OnRollback_Fires()
+    public async Task AfterCompletion_WhenRollsBack_Fires()
     {
         var (proxy, svc) = Build();
 
@@ -76,7 +76,7 @@ public class AfterCompletionTests
     }
 
     [Fact]
-    public async Task OnCommit_OnlyAfterCommitAndAfterCompletionFire()
+    public async Task WhenCommits_OnlyAfterCommitAndAfterCompletionFire()
     {
         var (proxy, svc) = Build();
 
@@ -86,7 +86,7 @@ public class AfterCompletionTests
     }
 
     [Fact]
-    public async Task OnRollback_OnlyAfterRollbackAndAfterCompletionFire()
+    public async Task WhenRollsBack_OnlyAfterRollbackAndAfterCompletionFire()
     {
         var (proxy, svc) = Build();
 
@@ -114,7 +114,7 @@ public class AfterCompletionTests
     /// Order guarantee: AfterCommit hooks must execute before AfterCompletion hooks.
     /// </summary>
     [Fact]
-    public async Task AfterCommit_ExecutesBeforeAfterCompletion_OnCommitPath()
+    public async Task AfterCommit_ExecutesBeforeAfterCompletion_WhenCommitPath()
     {
         var (proxy, svc) = Build();
 

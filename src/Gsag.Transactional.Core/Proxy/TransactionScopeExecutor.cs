@@ -65,8 +65,8 @@ internal static class TransactionScopeExecutor
             new TransactionOptions
             {
                 IsolationLevel = attr.IsolationLevel,
-                Timeout = attr.TimeoutSeconds.HasValue
-                    ? TimeSpan.FromSeconds(attr.TimeoutSeconds.Value)
+                Timeout = attr.TimeoutSeconds > 0
+                    ? TimeSpan.FromSeconds(attr.TimeoutSeconds)
                     : TransactionManager.DefaultTimeout
             },
             TransactionScopeAsyncFlowOption.Enabled);

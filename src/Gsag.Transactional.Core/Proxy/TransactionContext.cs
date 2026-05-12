@@ -37,6 +37,6 @@ internal sealed class TransactionContext(
         DeclaringType  = method.DeclaringType ?? typeof(object),
         IsolationLevel = attr.IsolationLevel,
         Propagation    = attr.Propagation,
-        TimeoutSeconds = attr.TimeoutSeconds,
+        TimeoutSeconds = attr.TimeoutSeconds > 0 ? attr.TimeoutSeconds : null,
     };
 }

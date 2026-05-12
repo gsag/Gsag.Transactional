@@ -87,7 +87,7 @@ public class ObserverTests
     }
 
     [Fact]
-    public void Observer_OnSuccessfulSync_ReceivesBeginAndCommit()
+    public void Observer_WhenSyncMethodSucceeds_ReceivesBeginAndCommit()
     {
         _proxy.CommitSync();
         Assert.Contains("BEGIN:CommitSync", _observer.Calls);
@@ -95,7 +95,7 @@ public class ObserverTests
     }
 
     [Fact]
-    public async Task Observer_OnSuccessfulAsync_ReceivesBeginAndCommit()
+    public async Task Observer_WhenAsyncMethodSucceeds_ReceivesBeginAndCommit()
     {
         await _proxy.CommitAsync();
         Assert.Contains("BEGIN:CommitAsync", _observer.Calls);
@@ -103,7 +103,7 @@ public class ObserverTests
     }
 
     [Fact]
-    public async Task Observer_OnException_ReceivesBeginAndRollback()
+    public async Task Observer_WhenExceptionThrown_ReceivesBeginAndRollback()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowAsync());
         Assert.Contains("BEGIN:ThrowAsync", _observer.Calls);

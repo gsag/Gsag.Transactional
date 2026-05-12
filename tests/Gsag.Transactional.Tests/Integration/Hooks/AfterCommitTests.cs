@@ -74,7 +74,7 @@ public class AfterCommitTests
     }
 
     [Fact]
-    public async Task AfterCommit_OnSuccess_AsyncHookFires()
+    public async Task AfterCommit_WhenSucceeds_AsyncHookFires()
     {
         var (proxy, svc) = Build();
 
@@ -84,7 +84,7 @@ public class AfterCommitTests
     }
 
     [Fact]
-    public async Task AfterCommit_OnRollback_HookNotFired()
+    public async Task AfterCommit_WhenRollsBack_HookDoesNotFire()
     {
         var (proxy, svc) = Build();
 

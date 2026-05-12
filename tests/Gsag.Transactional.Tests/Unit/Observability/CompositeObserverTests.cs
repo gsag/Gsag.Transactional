@@ -36,7 +36,7 @@ public class CompositeObserverTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void OnComplete_AfterCommit_ReportsCommittedTrue()
+    public void OnComplete_WhenCommits_ReportsCommittedTrue()
     {
         var observer = new RecordingObserver();
         var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
@@ -48,7 +48,7 @@ public class CompositeObserverTests
     }
 
     [Fact]
-    public void OnComplete_AfterRollback_ReportsCommittedFalse()
+    public void OnComplete_WhenRollsBack_ReportsCommittedFalse()
     {
         var observer = new RecordingObserver();
         var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
@@ -60,7 +60,7 @@ public class CompositeObserverTests
     }
 
     [Fact]
-    public void OnComplete_FiresAfterOnCommit()
+    public void OnComplete_FiresAfterCommit()
     {
         var observer = new RecordingObserver();
         var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
@@ -74,7 +74,7 @@ public class CompositeObserverTests
     }
 
     [Fact]
-    public void OnComplete_FiresAfterOnRollback()
+    public void OnComplete_FiresAfterRollback()
     {
         var observer = new RecordingObserver();
         var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
@@ -128,7 +128,7 @@ public class CompositeObserverTests
     }
 
     [Fact]
-    public void Composite_OnRollback_BothObserversReceiveRollbackAndComplete()
+    public void Composite_WhenRollsBack_BothObserversReceiveRollbackAndComplete()
     {
         var obs1 = new RecordingObserver();
         var obs2 = new RecordingObserver();

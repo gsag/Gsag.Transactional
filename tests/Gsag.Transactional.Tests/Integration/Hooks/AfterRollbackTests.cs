@@ -79,7 +79,7 @@ public class AfterRollbackTests
     }
 
     [Fact]
-    public async Task AfterRollback_OnCommit_DoesNotFire()
+    public async Task AfterRollback_WhenCommits_DoesNotFire()
     {
         var (proxy, svc) = Build();
 
@@ -89,7 +89,7 @@ public class AfterRollbackTests
     }
 
     [Fact]
-    public async Task AfterRollback_OnRollback_Fires()
+    public async Task AfterRollback_WhenRollsBack_Fires()
     {
         var (proxy, svc) = Build();
 
@@ -118,7 +118,7 @@ public class AfterRollbackTests
     /// when the method throws — verifying the ValueTask async wrapper uses the same hook path.
     /// </summary>
     [Fact]
-    public async Task AfterRollback_ValueTaskVoid_OnRollback_Fires()
+    public async Task AfterRollback_ValueTaskVoid_WhenRollsBack_Fires()
     {
         var (proxy, svc) = Build();
 

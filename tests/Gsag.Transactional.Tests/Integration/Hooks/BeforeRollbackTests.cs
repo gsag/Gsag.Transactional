@@ -99,7 +99,7 @@ public class BeforeRollbackTests
     }
 
     [Fact]
-    public async Task BeforeRollback_OnRollback_AsyncHookFires()
+    public async Task BeforeRollback_WhenRollsBack_AsyncHookFires()
     {
         var (proxy, svc) = Build();
 
@@ -112,7 +112,7 @@ public class BeforeRollbackTests
     }
 
     [Fact]
-    public async Task BeforeRollback_OnSuccess_DoesNotFire()
+    public async Task BeforeRollback_WhenSucceeds_DoesNotFire()
     {
         var (proxy, svc) = Build();
 
@@ -148,7 +148,7 @@ public class BeforeRollbackTests
     }
 
     [Fact]
-    public async Task BeforeRollback_OnNoRollbackFor_DoesNotFire()
+    public async Task BeforeRollback_WhenNoRollbackFor_DoesNotFire()
     {
         var (proxy, svc) = Build();
 
@@ -158,7 +158,7 @@ public class BeforeRollbackTests
     }
 
     [Fact]
-    public async Task BeforeRollback_ValueTask_OnRollback_AsyncHookFires()
+    public async Task BeforeRollback_ValueTask_WhenRollsBack_AsyncHookFires()
     {
         var (proxy, svc) = Build();
 

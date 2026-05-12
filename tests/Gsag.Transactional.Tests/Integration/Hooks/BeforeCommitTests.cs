@@ -104,7 +104,7 @@ public class BeforeCommitTests
     }
 
     [Fact]
-    public async Task BeforeCommit_OnSuccess_AsyncHookFires()
+    public async Task BeforeCommit_WhenSucceeds_AsyncHookFires()
     {
         var (proxy, svc) = Build();
 
@@ -117,7 +117,7 @@ public class BeforeCommitTests
     }
 
     [Fact]
-    public async Task BeforeCommit_OnRollback_DoesNotFire()
+    public async Task BeforeCommit_WhenRollsBack_DoesNotFire()
     {
         var (proxy, svc) = Build();
 
@@ -127,7 +127,7 @@ public class BeforeCommitTests
     }
 
     [Fact]
-    public async Task BeforeCommit_OnNoRollbackFor_Fires()
+    public async Task BeforeCommit_WhenNoRollbackFor_Fires()
     {
         var (proxy, svc) = Build();
 
@@ -138,7 +138,7 @@ public class BeforeCommitTests
     }
 
     [Fact]
-    public async Task BeforeCommit_OnNoRollbackFor_WhenHookThrows_ExceptionIsSuppressed()
+    public async Task BeforeCommit_WhenNoRollbackFor_AndHookThrows_ExceptionIsSuppressed()
     {
         var (proxy, svc) = Build();
 

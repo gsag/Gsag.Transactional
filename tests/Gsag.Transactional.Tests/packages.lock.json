@@ -349,7 +349,7 @@
       "gsag.transactional.demo.api": {
         "type": "Project",
         "dependencies": {
-          "Gsag.Transactional.Core": "[0.3.0-alpha, )",
+          "Gsag.Transactional.Core": "[1.0.0, )",
           "Microsoft.EntityFrameworkCore.Sqlite": "[9.0.4, )",
           "Swashbuckle.AspNetCore": "[6.9.0, )"
         }
