@@ -1,6 +1,6 @@
 # Gsag.Transactional
 
-[![CI](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![Status](https://img.shields.io/badge/status-pre--release-yellow)
+[![CI](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![Status](https://img.shields.io/badge/status-pre--release-yellow) [![Docs](https://img.shields.io/badge/docs-github--pages-blue)](https://gsag.github.io/Gsag.Transactional)
 
 Lightweight declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
 
