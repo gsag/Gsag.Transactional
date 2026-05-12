@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.4.0-alpha] — 2026-05-12
+## [0.4.1-alpha] — 2026-05-12
 
 ### Added
 - DocFX documentation site targeting GitHub Pages: 7 articles (installation, getting started, propagation modes, transaction hooks, rollback rules, limitations, architecture), API reference generated from XML comments, dark mode, search.
