@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1574: unresolved cref in internal XML docs — not consumer-facing -->
+    <NoWarn>$(NoWarn);1574</NoWarn>
+
+    <!-- Package identity -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Gsag.Transactional.Core</PackageId>
+    <Description>Lightweight declarative [Transactional] attribute for C# using only native .NET — DispatchProxy + TransactionScope. No AOP libraries required. Supports Required, RequiresNew, Suppress propagation modes, configurable rollback rules, and AfterCommit / AfterRollback / AfterCompletion hooks.</Description>
+    <PackageTags>transactions;transactional;dispatchproxy;system.transactions;aop;declarative</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- Include README.md in the package root so NuGet.org renders it -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Minimum version pinned to LTS floor (net8); net9 consumers unify upwards -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Gsag.Transactional.Tests" />
+  </ItemGroup>
+
+</Project>

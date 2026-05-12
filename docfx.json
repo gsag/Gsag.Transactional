@@ -1,0 +1,43 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["src/Gsag.Transactional.Core/Gsag.Transactional.Core.csproj"]
+        }
+      ],
+      "dest": "docs/_src/api"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["**.md", "**/toc.yml"],
+        "src": "docs/_src",
+        "dest": "."
+      },
+      {
+        "files": ["api/**.yml"],
+        "src": "docs/_src",
+        "dest": "."
+      }
+    ],
+    "resource": [
+      {
+        "files": ["images/**"],
+        "src": "docs/_src",
+        "dest": "."
+      }
+    ],
+    "output": "docs",
+    "template": ["default", "modern"],
+    "globalMetadata": {
+      "_appTitle": "Gsag.Transactional",
+      "_appFooter": "Gsag.Transactional — MIT License",
+      "_enableSearch": true,
+      "_enableDarkMode": true,
+      "_disableContribution": true
+    },
+    "markdownEngineName": "markdig"
+  }
+}
