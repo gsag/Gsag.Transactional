@@ -1,11 +1,11 @@
-﻿using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Diagnostics;
+using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
-using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +69,19 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
+
+if (app.Environment.IsDevelopment())
+{
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
+               ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
+        if (url is not null)
+        {
+            Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
+        }
+    });
+}
 
 app.MapControllers();
 app.Run();
