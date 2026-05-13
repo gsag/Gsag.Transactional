@@ -15,10 +15,13 @@ jobs:
         with:
           fetch-depth: 0  # MinVer needs full history to resolve version from tag
 
-      - name: Verify tag is on main
+      - name: Verify tag format and branch
         run: |
+          if [[ "${{ github.ref }}" != refs/tags/v* ]]; then
+            echo "Ref '${{ github.ref }}' does not start with 'refs/tags/v' — aborting."; exit 1
+          fi
           git fetch origin main
-          git merge-base --is-ancestor ${{ github.sha }} origin/main || { echo "Tag is not on main — aborting publish."; exit 1; }
+          git merge-base --is-ancestor ${{ github.sha }} origin/main || { echo "Tag is not on main — aborting."; exit 1; }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
