@@ -164,35 +164,6 @@ internal static class TransactionScopeExecutor
     }
 
     // -------------------------------------------------------------------------
-    // Rollback rules
-    // -------------------------------------------------------------------------
-
-    internal static bool ShouldRollback(TransactionContext ctx, Exception ex)
-    {
-        // Snapshot to guard against the attribute arrays being replaced concurrently.
-        var noRollbackFor = ctx.Attr.NoRollbackFor;
-        var rollbackFor   = ctx.Attr.RollbackFor;
-
-        // NoRollbackFor wins: matching exception type commits despite the exception.
-        if (noRollbackFor.Length > 0 && IsMatch(ex, noRollbackFor))
-        {
-            return false;
-        }
-
-        // RollbackFor: if specified, only rollback for these types.
-        if (rollbackFor.Length > 0)
-        {
-            return IsMatch(ex, rollbackFor);
-        }
-
-        // Default: rollback on any exception.
-        return true;
-    }
-
-    private static bool IsMatch(Exception ex, Type[] types) =>
-        types.Any(t => t.IsAssignableFrom(ex.GetType()));
-
-    // -------------------------------------------------------------------------
     // Compiled wrapper dispatch for generic async return types.
     // One compiled delegate per TResult — eliminates per-call MakeGenericMethod.Invoke
     // and object[] allocation on the hot async path.
@@ -281,7 +252,7 @@ internal static class TransactionScopeExecutor
             {
                 await task.ConfigureAwait(false);
             }
-            catch (Exception ex) when (ShouldRollback(ctx, ex))
+            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
                 await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
                 Rollback(ctx, ex);
@@ -428,7 +399,7 @@ internal static class TransactionScopeExecutor
             {
                 result = await vt.ConfigureAwait(false);
             }
-            catch (Exception ex) when (ShouldRollback(ctx, ex))
+            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
                 await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
                 Rollback(ctx, ex);

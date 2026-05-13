@@ -31,6 +31,8 @@ internal sealed class TransactionContext(
     internal ITransactionObserver Observer  { get; } = observer;
     internal HookCollection                Hooks     { get; } = hooks;
 
+    internal RollbackPolicy Policy { get; } = RollbackPolicy.From(attr);
+
     internal TransactionInfo Info { get; } = new TransactionInfo
     {
         MethodName     = method.Name,

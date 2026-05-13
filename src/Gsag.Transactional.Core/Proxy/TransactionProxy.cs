@@ -123,7 +123,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             {
                 result = InvokeTarget(method, args);
             }
-            catch (Exception ex) when (TransactionScopeExecutor.ShouldRollback(ctx, ex))
+            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
                 TransactionHooks.RunBeforeRollbackSyncHooks(ctx.Hooks);
                 TransactionScopeExecutor.Rollback(ctx, ex);
