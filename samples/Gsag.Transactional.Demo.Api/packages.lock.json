@@ -25,18 +25,18 @@
       },
       "Microsoft.EntityFrameworkCore.Sqlite": {
         "type": "Direct",
-        "requested": "[9.0.4, )",
-        "resolved": "9.0.4",
-        "contentHash": "YruNASPuiCjLOVxO09lpQT4e2OYvpsoD0e5NGEQKOcPCu143RDzWTNlpzcxhArBgAS0FPwQ+OEGZOWhwgWHvOA==",
+        "requested": "[9.0.16, )",
+        "resolved": "9.0.16",
+        "contentHash": "+F3TMtn/I6eqWVbzDc7/67ErmDzRixgH0OGt+HSMIoeJCDwVC1EUNIpcTOfTj8fN0t1orpOIwQ4Jzls6dwXyhA==",
         "dependencies": {
-          "Microsoft.EntityFrameworkCore.Sqlite.Core": "9.0.4",
-          "Microsoft.Extensions.Caching.Memory": "9.0.4",
-          "Microsoft.Extensions.Configuration.Abstractions": "9.0.4",
-          "Microsoft.Extensions.DependencyModel": "9.0.4",
-          "Microsoft.Extensions.Logging": "9.0.4",
+          "Microsoft.EntityFrameworkCore.Sqlite.Core": "9.0.16",
+          "Microsoft.Extensions.Caching.Memory": "9.0.16",
+          "Microsoft.Extensions.Configuration.Abstractions": "9.0.16",
+          "Microsoft.Extensions.DependencyModel": "9.0.16",
+          "Microsoft.Extensions.Logging": "9.0.16",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.10",
           "SQLitePCLRaw.core": "2.1.10",
-          "System.Text.Json": "9.0.4"
+          "System.Text.Json": "9.0.16"
         }
       },
       "Swashbuckle.AspNetCore": {
@@ -132,8 +132,8 @@
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
-        "resolved": "9.0.4",
-        "contentHash": "rnVGier1R0w9YEAzxOlUl8koFwq4QLwuYKiJN6NFqbCNCPrRLGW3f7x0OtL/Sp1KBMVhgffUIP6jWPppzhpa2Q==",
+        "resolved": "9.0.16",
+        "contentHash": "8/hctDxf/F1rVMFRz74rdaYZoFL+6zHjq5DEqcvJlyIr0RDSfBhoORkOK3Bnt9+wS0owl8MltFDp0Shc33S14Q==",
         "dependencies": {
           "SQLitePCLRaw.core": "2.1.10"
         }
@@ -172,17 +172,17 @@
       },
       "Microsoft.EntityFrameworkCore.Sqlite.Core": {
         "type": "Transitive",
-        "resolved": "9.0.4",
-        "contentHash": "96NFbmjcZsO9HkSdWAwh5tn/7LKIu7cLW+zubyGV1BR1w8xpcqPXZcTW4S/0eA0d9BxyFnH8tSDRjUerWGoU/Q==",
+        "resolved": "9.0.16",
+        "contentHash": "tMIucfABVbHyLP0Mx2rgZFlQ6ZpczVBIFhB09V//vvwRU+nASYoEzQW2Syh5M6b8JSoog85Mbi3avj4UueCDNQ==",
         "dependencies": {
-          "Microsoft.Data.Sqlite.Core": "9.0.4",
-          "Microsoft.EntityFrameworkCore.Relational": "9.0.4",
-          "Microsoft.Extensions.Caching.Memory": "9.0.4",
-          "Microsoft.Extensions.Configuration.Abstractions": "9.0.4",
-          "Microsoft.Extensions.DependencyModel": "9.0.4",
-          "Microsoft.Extensions.Logging": "9.0.4",
+          "Microsoft.Data.Sqlite.Core": "9.0.16",
+          "Microsoft.EntityFrameworkCore.Relational": "9.0.16",
+          "Microsoft.Extensions.Caching.Memory": "9.0.16",
+          "Microsoft.Extensions.Configuration.Abstractions": "9.0.16",
+          "Microsoft.Extensions.DependencyModel": "9.0.16",
+          "Microsoft.Extensions.Logging": "9.0.16",
           "SQLitePCLRaw.core": "2.1.10",
-          "System.Text.Json": "9.0.4"
+          "System.Text.Json": "9.0.16"
         }
       },
       "Microsoft.Extensions.ApiDescription.Server": {
