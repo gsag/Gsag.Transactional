@@ -463,8 +463,8 @@
         "type": "Project",
         "dependencies": {
           "Gsag.Transactional.Core": "[1.0.0, )",
-          "Swashbuckle.AspNetCore": "[10.1.7, )"
           "Microsoft.EntityFrameworkCore.Sqlite": "[9.0.16, )",
+          "Swashbuckle.AspNetCore": "[10.1.7, )"
         }
       }
     }
