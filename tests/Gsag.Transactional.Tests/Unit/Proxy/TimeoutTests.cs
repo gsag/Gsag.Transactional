@@ -18,7 +18,15 @@ public interface ITimedService
 public class TimedService : ITimedService
 {
     public Task FastAsync() => Task.CompletedTask;
-    public async Task SlowAsync() => await Task.Delay(1_500);
+
+    public async Task SlowAsync()
+    {
+        // Poll until the transaction is no longer active — avoids wall-clock races on loaded CI
+        while (Transaction.Current?.TransactionInformation.Status == TransactionStatus.Active)
+        {
+            await Task.Delay(50);
+        }
+    }
 }
 
 public class TimeoutTests
