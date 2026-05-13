@@ -21,8 +21,13 @@ public class TimedService : ITimedService
 
     public async Task SlowAsync()
     {
-        // Poll until the transaction is no longer active — avoids wall-clock races on loaded CI
-        while (Transaction.Current?.TransactionInformation.Status == TransactionStatus.Active)
+        // Poll until the transaction aborts, capped at 10 s.
+        // If the proxy ignores TimeoutSeconds = 1 and falls back to TransactionManager.DefaultTimeout
+        // (~60 s), the loop exits while the transaction is still Active and scope.Complete()
+        // succeeds — no exception thrown — making the test fail and catching the regression.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline &&
+               Transaction.Current?.TransactionInformation.Status == TransactionStatus.Active)
         {
             await Task.Delay(50);
         }
