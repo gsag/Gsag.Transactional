@@ -1,8 +1,7 @@
 name: Mutation Testing
 
 on:
-  pull_request:
-    branches: [main]
+  workflow_call:
 
 jobs:
   mutation:

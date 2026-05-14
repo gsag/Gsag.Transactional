@@ -14,3 +14,8 @@ jobs:
   quality-gate:
     needs: build-test
     uses: ./.github/workflows/_quality-gate.yml
+
+  mutation:
+    needs: build-test
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_mutation.yml
