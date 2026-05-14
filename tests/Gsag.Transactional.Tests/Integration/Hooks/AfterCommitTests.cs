@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
@@ -68,7 +68,7 @@ public class AfterCommitTests
     private static (IAfterCommitService proxy, AfterCommitService svc) Build()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AfterCommitService(hooks);
+        var svc = new AfterCommitService(hooks);
         var proxy = TransactionProxyFactory.Create<IAfterCommitService>(svc, observer: null);
         return (proxy, svc);
     }

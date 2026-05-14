@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Observability;
 
 namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
@@ -17,10 +17,10 @@ public sealed class InMemoryMetricsObserver : ITransactionObserver
     private long _totalElapsedMs;
 
     public long TotalTransactions => Interlocked.Read(ref _totalTransactions);
-    public long Committed         => Interlocked.Read(ref _committed);
-    public long RolledBack        => Interlocked.Read(ref _rolledBack);
-    public long CompletedCount    => Interlocked.Read(ref _completedCount);
-    public long TotalElapsedMs    => Interlocked.Read(ref _totalElapsedMs);
+    public long Committed => Interlocked.Read(ref _committed);
+    public long RolledBack => Interlocked.Read(ref _rolledBack);
+    public long CompletedCount => Interlocked.Read(ref _completedCount);
+    public long TotalElapsedMs => Interlocked.Read(ref _totalElapsedMs);
 
     public void OnBegin(TransactionInfo info) =>
         Interlocked.Increment(ref _totalTransactions);

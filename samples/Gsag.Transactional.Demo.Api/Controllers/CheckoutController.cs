@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Entities;
 using Gsag.Transactional.Demo.Api.Exceptions;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gsag.Transactional.Demo.Api.Controllers;
 
@@ -412,10 +412,10 @@ public class CheckoutController : ControllerBase
         var avgMs = completed > 0 ? (double)_metrics.TotalElapsedMs / completed : 0;
         return Ok(new MetricsResponse(
             TotalTransactions: _metrics.TotalTransactions,
-            Committed:         _metrics.Committed,
-            RolledBack:        _metrics.RolledBack,
-            TotalElapsedMs:    _metrics.TotalElapsedMs,
-            AvgElapsedMs:      Math.Round(avgMs, 2)));
+            Committed: _metrics.Committed,
+            RolledBack: _metrics.RolledBack,
+            TotalElapsedMs: _metrics.TotalElapsedMs,
+            AvgElapsedMs: Math.Round(avgMs, 2)));
     }
 
     /// <summary>Clears all data from every table. Use between demo runs to start with a clean state.</summary>

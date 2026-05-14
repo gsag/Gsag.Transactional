@@ -50,7 +50,7 @@ public class AfterCompletionTests
     private static (IAfterCompletionService proxy, AfterCompletionService svc) Build()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AfterCompletionService(hooks);
+        var svc = new AfterCompletionService(hooks);
         var proxy = TransactionProxyFactory.Create<IAfterCompletionService>(svc, observer: null);
         return (proxy, svc);
     }
@@ -120,7 +120,7 @@ public class AfterCompletionTests
 
         await proxy.CommitAsync();
 
-        var commitIdx     = svc.Fired.IndexOf("after-commit");
+        var commitIdx = svc.Fired.IndexOf("after-commit");
         var completionIdx = svc.Fired.IndexOf("after-completion");
         Assert.True(commitIdx < completionIdx, "AfterCommit must fire before AfterCompletion");
     }

@@ -1,7 +1,7 @@
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Proxy;
-using Xunit;
 using Gsag.Transactional.Tests.Unit;
+using Xunit;
 
 namespace Gsag.Transactional.Tests.Unit.Proxy;
 

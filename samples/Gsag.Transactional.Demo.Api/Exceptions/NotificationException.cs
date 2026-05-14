@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Demo.Api.Exceptions;
+namespace Gsag.Transactional.Demo.Api.Exceptions;
 
 public class NotificationException : Exception
 {

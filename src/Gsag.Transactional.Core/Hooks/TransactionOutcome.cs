@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Hooks;
+namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Represents the outcome of a transaction scope, used by <see cref="TransactionHooks.RunSyncHooks"/>

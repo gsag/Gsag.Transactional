@@ -1,4 +1,4 @@
-﻿using System.Transactions;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 
 namespace Gsag.Transactional.Core.Hooks;
@@ -15,19 +15,19 @@ internal sealed class TransactionHooks : ITransactionHooks
 {
     private static readonly AsyncLocal<HookCollection?> _current = new();
 
-    public void AfterCommit(Action action)     => _current.Value?.AddSync(HookEvent.AfterCommit, action);
+    public void AfterCommit(Action action) => _current.Value?.AddSync(HookEvent.AfterCommit, action);
     public void AfterCommit(Func<Task> action) => _current.Value?.AddAsync(HookEvent.AfterCommit, action);
 
-    public void AfterRollback(Action action)     => _current.Value?.AddSync(HookEvent.AfterRollback, action);
+    public void AfterRollback(Action action) => _current.Value?.AddSync(HookEvent.AfterRollback, action);
     public void AfterRollback(Func<Task> action) => _current.Value?.AddAsync(HookEvent.AfterRollback, action);
 
-    public void AfterCompletion(Action action)     => _current.Value?.AddSync(HookEvent.AfterCompletion, action);
+    public void AfterCompletion(Action action) => _current.Value?.AddSync(HookEvent.AfterCompletion, action);
     public void AfterCompletion(Func<Task> action) => _current.Value?.AddAsync(HookEvent.AfterCompletion, action);
 
-    public void BeforeCommit(Action action)     => _current.Value?.AddSync(HookEvent.BeforeCommit, action);
+    public void BeforeCommit(Action action) => _current.Value?.AddSync(HookEvent.BeforeCommit, action);
     public void BeforeCommit(Func<Task> action) => _current.Value?.AddAsync(HookEvent.BeforeCommit, action);
 
-    public void BeforeRollback(Action action)     => _current.Value?.AddSync(HookEvent.BeforeRollback, action);
+    public void BeforeRollback(Action action) => _current.Value?.AddSync(HookEvent.BeforeRollback, action);
     public void BeforeRollback(Func<Task> action) => _current.Value?.AddAsync(HookEvent.BeforeRollback, action);
 
     /// <summary>
@@ -246,12 +246,12 @@ internal sealed class TransactionHooks : ITransactionHooks
 
     private static string EventLabel(HookEvent evt) => evt switch
     {
-        HookEvent.BeforeCommit    => "before-commit",
-        HookEvent.AfterCommit     => "after-commit",
-        HookEvent.BeforeRollback  => "before-rollback",
-        HookEvent.AfterRollback   => "after-rollback",
+        HookEvent.BeforeCommit => "before-commit",
+        HookEvent.AfterCommit => "after-commit",
+        HookEvent.BeforeRollback => "before-rollback",
+        HookEvent.AfterRollback => "after-rollback",
         HookEvent.AfterCompletion => "after-completion",
-        _                         => evt.ToString()
+        _ => evt.ToString()
     };
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Observability;
+namespace Gsag.Transactional.Core.Observability;
 
 internal sealed class NullTransactionObserver : ITransactionObserver
 {

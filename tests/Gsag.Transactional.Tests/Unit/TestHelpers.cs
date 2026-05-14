@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Observability;
+using Gsag.Transactional.Core.Observability;
 
 namespace Gsag.Transactional.Tests.Unit;
 

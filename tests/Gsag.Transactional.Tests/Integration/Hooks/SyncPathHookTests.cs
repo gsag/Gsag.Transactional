@@ -1,4 +1,4 @@
-﻿using System.Transactions;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
@@ -96,7 +96,7 @@ public class SyncPathHookTests
     private static (ISyncHookService proxy, SyncHookService svc) Build()
     {
         var hooks = new TransactionHooks();
-        var svc   = new SyncHookService(hooks);
+        var svc = new SyncHookService(hooks);
         var proxy = TransactionProxyFactory.Create<ISyncHookService>(svc, observer: null);
         return (proxy, svc);
     }
@@ -169,7 +169,7 @@ public class SyncPathHookTests
     public void TransactionAborted_SyncMethod_WithAfterRollbackHook_HookStillFires()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AbortWithHookSyncService(hooks);
+        var svc = new AbortWithHookSyncService(hooks);
         var proxy = TransactionProxyFactory.Create<IAbortWithHookSyncService>(svc, observer: null);
 
         Assert.Throws<TransactionAbortedException>(() => proxy.Run());
@@ -181,7 +181,7 @@ public class SyncPathHookTests
     public void TransactionAborted_SyncMethod_WithAfterCompletionHook_HookStillFires()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AbortWithHookSyncService(hooks);
+        var svc = new AbortWithHookSyncService(hooks);
         var proxy = TransactionProxyFactory.Create<IAbortWithHookSyncService>(svc, observer: null);
 
         Assert.Throws<TransactionAbortedException>(() => proxy.Run());
