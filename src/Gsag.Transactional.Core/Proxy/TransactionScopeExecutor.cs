@@ -320,6 +320,9 @@ internal static class TransactionScopeExecutor
         finally
         {
             var disposeEx = TryDispose(ctx);
+            // effectiveOutcome drives hook dispatch — hooks must not fire AfterCommit if Dispose threw.
+            // NotifyCommitOutcome receives the pre-dispose `outcome` because it already handles
+            // disposeEx internally (calls OnRollback instead of OnCommit when disposeEx is not null).
             var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
             NotifyCommitOutcome(ctx, outcome, disposeEx);
             await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
@@ -373,6 +376,9 @@ internal static class TransactionScopeExecutor
         finally
         {
             var disposeEx = TryDispose(ctx);
+            // effectiveOutcome drives hook dispatch — hooks must not fire AfterCommit if Dispose threw.
+            // NotifyCommitOutcome receives the pre-dispose `outcome` because it already handles
+            // disposeEx internally (calls OnRollback instead of OnCommit when disposeEx is not null).
             var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
             NotifyCommitOutcome(ctx, outcome, disposeEx);
             await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
