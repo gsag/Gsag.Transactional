@@ -1,0 +1,61 @@
+name: Quality Gate
+
+on:
+  workflow_call:
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Restore
+        run: dotnet restore --locked-mode
+
+      - name: Check for vulnerable packages
+        run: dotnet list package --vulnerable --include-transitive
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Build (warnings as errors)
+        run: dotnet build --no-restore -c Release -warnaserror
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage
+
+      - name: Cache dotnet tools
+        id: cache-tools
+        uses: actions/cache@v5
+        with:
+          path: ~/.dotnet/tools
+          key: dotnet-tools-${{ runner.os }}-reportgenerator
+
+      - name: Install ReportGenerator
+        if: steps.cache-tools.outputs.cache-hit != 'true'
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+      - name: Coverage threshold
+        run: |
+          reportgenerator \
+            -reports:"coverage/**/coverage.cobertura.xml" \
+            -targetdir:"coverage/threshold" \
+            -reporttypes:"TextSummary" \
+            -minimumCoverageThresholds:"linecoverage=80"
