@@ -2,11 +2,15 @@ name: Build & Test
 
 on:
   workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
 
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: windows-latest
+    runs-on: ${{ inputs.os }}
 
     steps:
       - uses: actions/checkout@v5

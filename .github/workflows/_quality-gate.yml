@@ -2,11 +2,15 @@ name: Quality Gate
 
 on:
   workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
 
 jobs:
   quality-gate:
     name: Quality Gate
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.os }}
 
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +57,7 @@ jobs:
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Coverage threshold
+        shell: bash
         run: |
           reportgenerator \
             -reports:"coverage/**/coverage.cobertura.xml" \

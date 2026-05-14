@@ -2,11 +2,15 @@ name: Mutation Testing
 
 on:
   workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
 
 jobs:
   mutation:
     name: Mutation Testing
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.os }}
 
     steps:
       - uses: actions/checkout@v5
@@ -33,6 +37,7 @@ jobs:
         run: dotnet tool install -g dotnet-stryker
 
       - name: Run mutation testing
+        shell: bash
         working-directory: tests/Gsag.Transactional.Tests
         run: |
           dotnet stryker \
@@ -45,6 +50,7 @@ jobs:
 
       - name: Post mutation results to job summary
         if: always()
+        shell: bash
         run: |
           report=$(find . -path "*/StrykerOutput/*/reports/mutation-report.md" | sort | tail -1)
           if [ -n "$report" ]; then
