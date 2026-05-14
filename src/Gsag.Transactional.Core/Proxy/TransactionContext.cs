@@ -1,9 +1,9 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
-using System.Transactions;
 
 namespace Gsag.Transactional.Core.Proxy;
 
@@ -24,19 +24,21 @@ internal sealed class TransactionContext(
     ITransactionObserver observer,
     HookCollection hooks)
 {
-    internal MethodInfo                    Method    { get; } = method;
-    internal TransactionScope              Scope     { get; } = scope;
-    internal TransactionalAttribute        Attr      { get; } = attr;
-    internal Stopwatch                     Stopwatch { get; } = stopwatch;
-    internal ITransactionObserver Observer  { get; } = observer;
-    internal HookCollection                Hooks     { get; } = hooks;
+    internal MethodInfo Method { get; } = method;
+    internal TransactionScope Scope { get; } = scope;
+    internal TransactionalAttribute Attr { get; } = attr;
+    internal Stopwatch Stopwatch { get; } = stopwatch;
+    internal ITransactionObserver Observer { get; } = observer;
+    internal HookCollection Hooks { get; } = hooks;
+
+    internal RollbackPolicy Policy { get; } = RollbackPolicy.From(attr);
 
     internal TransactionInfo Info { get; } = new TransactionInfo
     {
-        MethodName     = method.Name,
-        DeclaringType  = method.DeclaringType ?? typeof(object),
+        MethodName = method.Name,
+        DeclaringType = method.DeclaringType ?? typeof(object),
         IsolationLevel = attr.IsolationLevel,
-        Propagation    = attr.Propagation,
+        Propagation = attr.Propagation,
         TimeoutSeconds = attr.TimeoutSeconds > 0 ? attr.TimeoutSeconds : null,
     };
 }

@@ -1,8 +1,8 @@
-﻿using System.IO;
+using System.IO;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Proxy;
-using Xunit;
 using Gsag.Transactional.Tests.Unit;
+using Xunit;
 
 namespace Gsag.Transactional.Tests.Unit.Proxy;
 
@@ -18,7 +18,7 @@ public interface IRollbackService
     Task NoRollbackForSubclassAsync();
 
     [Transactional(
-        RollbackFor   = [typeof(InvalidOperationException)],
+        RollbackFor = [typeof(InvalidOperationException)],
         NoRollbackFor = [typeof(InvalidOperationException)])]
     Task ConflictingRulesAsync();
 

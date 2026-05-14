@@ -1,11 +1,11 @@
-﻿using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
-using Xunit;
 using Gsag.Transactional.Tests.Unit;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 
 namespace Gsag.Transactional.Tests.Unit.Extensions;
 

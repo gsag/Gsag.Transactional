@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using Gsag.Transactional.Core.Observability;
@@ -46,7 +46,7 @@ internal static class TransactionProxyFactory
         var del = _createDelegates.GetOrAdd(interfaceType, static t =>
         {
             var method = _createMethod.MakeGenericMethod(t);
-            var pTarget   = Expression.Parameter(typeof(object), "target");
+            var pTarget = Expression.Parameter(typeof(object), "target");
             var pObserver = Expression.Parameter(typeof(ITransactionObserver), "observer");
             var call = Expression.Call(method, Expression.Convert(pTarget, t), pObserver);
             return Expression.Lambda<Func<object, ITransactionObserver?, object>>(

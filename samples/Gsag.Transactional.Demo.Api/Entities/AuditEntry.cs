@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Demo.Api.Entities;
+namespace Gsag.Transactional.Demo.Api.Entities;
 
 public class AuditEntry
 {

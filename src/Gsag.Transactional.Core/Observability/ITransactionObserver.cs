@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Observability;
+namespace Gsag.Transactional.Core.Observability;
 
 /// <summary>
 /// Receives notifications at each stage of a transaction managed by TransactionProxy.

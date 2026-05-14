@@ -1,4 +1,4 @@
-﻿using System.Transactions;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
@@ -219,7 +219,7 @@ public class HookErrorTests
     public async Task NoRollbackFor_WhenHookThrows_BusinessExceptionIsNotMasked()
     {
         var hooks = new TransactionHooks();
-        var svc   = new NoRollbackHookService(hooks);
+        var svc = new NoRollbackHookService(hooks);
         var proxy = TransactionProxyFactory.Create<INoRollbackHookService>(svc, observer: null);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.RunAsync());
@@ -235,14 +235,14 @@ public class HookErrorTests
     [Fact]
     public async Task TransactionAborted_WhenRollbackCalledInsideMethod_ExceptionPropagatesAndScopeIsClean()
     {
-        var hooks  = new TransactionHooks();
-        var svc    = new AbortBeforeCompleteService();
-        var proxy  = TransactionProxyFactory.Create<IAbortBeforeCompleteService>(svc, observer: null);
+        var hooks = new TransactionHooks();
+        var svc = new AbortBeforeCompleteService();
+        var proxy = TransactionProxyFactory.Create<IAbortBeforeCompleteService>(svc, observer: null);
 
         await Assert.ThrowsAsync<TransactionAbortedException>(() => proxy.RunAsync());
 
         // ClearScope must have run despite Dispose() throwing — subsequent call must succeed.
-        var hookSvc   = new SimpleAsyncHookService(hooks);
+        var hookSvc = new SimpleAsyncHookService(hooks);
         var hookProxy = TransactionProxyFactory.Create<ISimpleAsyncHookService>(hookSvc, observer: null);
         await hookProxy.RunAndCommitAsync();
         Assert.Equal(["async-hook"], hookSvc.Fired);
@@ -256,7 +256,7 @@ public class HookErrorTests
     public async Task ValueTaskT_NoRollbackFor_CommitsAndRunsHooks()
     {
         var hooks = new TransactionHooks();
-        var svc   = new ValueTaskNoRollbackService(hooks);
+        var svc = new ValueTaskNoRollbackService(hooks);
         var proxy = TransactionProxyFactory.Create<IValueTaskNoRollbackService>(svc, observer: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await proxy.RunAsync());
@@ -273,7 +273,7 @@ public class HookErrorTests
     public async Task TransactionAborted_WithAfterRollbackHook_HookStillFires()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AbortWithHookService(hooks);
+        var svc = new AbortWithHookService(hooks);
         var proxy = TransactionProxyFactory.Create<IAbortWithHookService>(svc, observer: null);
 
         await Assert.ThrowsAsync<TransactionAbortedException>(() => proxy.RunAsync());
@@ -285,7 +285,7 @@ public class HookErrorTests
     public async Task TransactionAborted_WithAfterCompletionHook_HookStillFires()
     {
         var hooks = new TransactionHooks();
-        var svc   = new AbortWithHookService(hooks);
+        var svc = new AbortWithHookService(hooks);
         var proxy = TransactionProxyFactory.Create<IAbortWithHookService>(svc, observer: null);
 
         await Assert.ThrowsAsync<TransactionAbortedException>(() => proxy.RunAsync());
@@ -300,8 +300,8 @@ public class HookErrorTests
     [Fact]
     public async Task OpenScope_WhenObserverOnBeginThrows_AsyncLocalRestoredAndExceptionPropagates()
     {
-        var hooks    = new TransactionHooks();
-        var svc      = new SimpleAsyncHookService(hooks);
+        var hooks = new TransactionHooks();
+        var svc = new SimpleAsyncHookService(hooks);
         var badProxy = TransactionProxyFactory.Create<ISimpleAsyncHookService>(svc, new ThrowOnBeginObserver());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => badProxy.RunAndCommitAsync());
@@ -321,15 +321,15 @@ public class HookErrorTests
     [Fact]
     public async Task HandleAsync_WhenObserverOnRollbackThrows_AsyncLocalRestoredAndExceptionPropagates()
     {
-        var hooks    = new TransactionHooks();
-        var svc      = new ThrowSyncService();
+        var hooks = new TransactionHooks();
+        var svc = new ThrowSyncService();
         var badProxy = TransactionProxyFactory.Create<IThrowSyncService>(svc, new ThrowOnRollbackObserver());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => badProxy.RunAsync());
         Assert.Equal("observer rollback refused", ex.Message);
 
         // AsyncLocal must be clean — a subsequent call on a normal proxy must succeed.
-        var hookSvc   = new SimpleAsyncHookService(hooks);
+        var hookSvc = new SimpleAsyncHookService(hooks);
         var goodProxy = TransactionProxyFactory.Create<ISimpleAsyncHookService>(hookSvc, observer: null);
         await goodProxy.RunAndCommitAsync();
         Assert.Equal(["async-hook"], hookSvc.Fired);
@@ -344,7 +344,7 @@ public class HookErrorTests
     public async Task NoRollbackFor_AfterRollbackHookDoesNotFire()
     {
         var hooks = new TransactionHooks();
-        var svc   = new NoRollbackWithAfterRollbackHookService(hooks);
+        var svc = new NoRollbackWithAfterRollbackHookService(hooks);
         var proxy = TransactionProxyFactory.Create<INoRollbackWithAfterRollbackHookService>(svc, observer: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.RunAsync());
@@ -361,15 +361,15 @@ public class HookErrorTests
     [Fact]
     public async Task WrapVoidTask_WhenObserverOnRollbackThrows_AsyncLocalRestoredAndExceptionPropagates()
     {
-        var hooks    = new TransactionHooks();
-        var svc      = new ThrowAsyncBodyService();
+        var hooks = new TransactionHooks();
+        var svc = new ThrowAsyncBodyService();
         var badProxy = TransactionProxyFactory.Create<IThrowAsyncBodyService>(svc, new ThrowOnRollbackObserver());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => badProxy.RunAsync());
         Assert.Equal("observer rollback refused", ex.Message);
 
         // AsyncLocal must be clean — a subsequent call on a normal proxy must succeed.
-        var hookSvc   = new SimpleAsyncHookService(hooks);
+        var hookSvc = new SimpleAsyncHookService(hooks);
         var goodProxy = TransactionProxyFactory.Create<ISimpleAsyncHookService>(hookSvc, observer: null);
         await goodProxy.RunAndCommitAsync();
         Assert.Equal(["async-hook"], hookSvc.Fired);

@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Hooks;
+namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Per-scope container for hooks, keyed by <see cref="HookEvent"/>.
@@ -30,11 +30,11 @@ internal sealed class HookCollection
     /// </summary>
     internal HookCollectionRole Role { get; init; }
 
-    private Dictionary<HookEvent, List<Action>>?     _sync;
+    private Dictionary<HookEvent, List<Action>>? _sync;
     private Dictionary<HookEvent, List<Func<Task>>>? _async;
 
     internal bool HasHooksFor(HookEvent evt) =>
-        (_sync  is not null && _sync.TryGetValue(evt,  out var s) && s.Count > 0) ||
+        (_sync is not null && _sync.TryGetValue(evt, out var s) && s.Count > 0) ||
         (_async is not null && _async.TryGetValue(evt, out var a) && a.Count > 0);
 
     internal void AddSync(HookEvent evt, Action action)
@@ -57,8 +57,8 @@ internal sealed class HookCollection
         list.Add(action);
     }
 
-    internal IReadOnlyList<Action>     SyncFor(HookEvent evt)  =>
-        _sync  is not null && _sync.TryGetValue(evt,  out var l) ? l : [];
+    internal IReadOnlyList<Action> SyncFor(HookEvent evt) =>
+        _sync is not null && _sync.TryGetValue(evt, out var l) ? l : [];
 
     internal IReadOnlyList<Func<Task>> AsyncFor(HookEvent evt) =>
         _async is not null && _async.TryGetValue(evt, out var l) ? l : [];
