@@ -299,7 +299,7 @@ internal static class TransactionScopeExecutor
             {
                 await vt.ConfigureAwait(false);
             }
-            catch (Exception ex) when (ShouldRollback(ctx, ex))
+            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
                 await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
                 Rollback(ctx, ex);
@@ -348,7 +348,7 @@ internal static class TransactionScopeExecutor
             {
                 result = await task.ConfigureAwait(false);
             }
-            catch (Exception ex) when (ShouldRollback(ctx, ex))
+            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
                 await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
                 Rollback(ctx, ex);
