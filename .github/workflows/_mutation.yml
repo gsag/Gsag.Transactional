@@ -45,6 +45,7 @@ jobs:
             --threshold-high 80 \
             --threshold-low 70 \
             --break-at 70 \
+            --coverage-analysis off \
             --reporter markdown \
             --reporter progress
 
