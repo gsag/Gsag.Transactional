@@ -118,7 +118,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         var outcome = TransactionOutcome.RolledBack;
         try
         {
-            object? result;
+            object? result = default;
             try
             {
                 result = InvokeTarget(method, args);

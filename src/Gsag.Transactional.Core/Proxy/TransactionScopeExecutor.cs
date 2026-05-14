@@ -315,7 +315,7 @@ internal static class TransactionScopeExecutor
     private static async ValueTask<TResult> WrapResultCoreAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
-        TResult result;
+        TResult result = default!;
         try
         {
             try
