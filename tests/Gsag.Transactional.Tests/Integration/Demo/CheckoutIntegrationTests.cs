@@ -1,7 +1,3 @@
-﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Logging.Abstractions;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Core.Proxy;
@@ -10,6 +6,10 @@ using Gsag.Transactional.Demo.Api.Entities;
 using Gsag.Transactional.Demo.Api.Exceptions;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Integration.Demo;
@@ -252,11 +252,11 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var collector = new HookOutputCollector();
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
-        var orderSvc     = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, NullLogger<OrderService>.Instance, collector));
+        var orderSvc = TransactionProxyFactory.Create<IOrderService>(new OrderService(_db, hooks, NullLogger<OrderService>.Instance, collector));
         var inventorySvc = TransactionProxyFactory.Create<IInventoryService>(new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, collector));
-        var paymentSvc   = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
-        var auditSvc     = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
-        var reportSvc    = TransactionProxyFactory.Create<IInventoryReportService>(new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
+        var paymentSvc = TransactionProxyFactory.Create<IPaymentService>(new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
+        var auditSvc = TransactionProxyFactory.Create<IAuditService>(new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
+        var reportSvc = TransactionProxyFactory.Create<IInventoryReportService>(new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
         var checkout = TransactionProxyFactory.Create<ICheckoutService>(
             new CheckoutService(orderSvc, inventorySvc, paymentSvc, auditSvc, reportSvc, hooks, collector, _db));
 

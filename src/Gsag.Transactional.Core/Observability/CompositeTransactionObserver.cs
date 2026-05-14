@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Observability;
+namespace Gsag.Transactional.Core.Observability;
 
 /// <summary>
 /// Composite implementation of <see cref="ITransactionObserver"/> that delegates to

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -19,10 +19,10 @@ namespace Gsag.Transactional.Core.Proxy;
 internal static class TransactionScopeExecutor
 {
     // Compiled delegate caches eliminate per-call MakeGenericMethod.Invoke with object[] boxing.
-    private static readonly ConcurrentDictionary<Type, Func<Task, TransactionContext, Task>>     _taskWrapperCache   = new();
-    private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache     = new();
-    private static readonly ConcurrentDictionary<Type, Func<Exception, Task>>                   _faultedTaskCache   = new();
-    private static readonly ConcurrentDictionary<Type, Func<Exception, object>>                 _faultedVtCache     = new();
+    private static readonly ConcurrentDictionary<Type, Func<Task, TransactionContext, Task>> _taskWrapperCache = new();
+    private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache = new();
+    private static readonly ConcurrentDictionary<Type, Func<Exception, Task>> _faultedTaskCache = new();
+    private static readonly ConcurrentDictionary<Type, Func<Exception, object>> _faultedVtCache = new();
 
     // MethodInfo looked up once on a non-generic type — no per-T duplication.
     private static readonly MethodInfo WrapGenericTaskAsyncMethod =
@@ -174,9 +174,9 @@ internal static class TransactionScopeExecutor
         var del = _taskWrapperCache.GetOrAdd(tResult, static t =>
         {
             var method = WrapGenericTaskAsyncMethod.MakeGenericMethod(t);
-            var pTask  = Expression.Parameter(typeof(Task), "task");
-            var pCtx   = Expression.Parameter(typeof(TransactionContext), "ctx");
-            var call   = Expression.Call(method, Expression.Convert(pTask, typeof(Task<>).MakeGenericType(t)), pCtx);
+            var pTask = Expression.Parameter(typeof(Task), "task");
+            var pCtx = Expression.Parameter(typeof(TransactionContext), "ctx");
+            var call = Expression.Call(method, Expression.Convert(pTask, typeof(Task<>).MakeGenericType(t)), pCtx);
             return Expression.Lambda<Func<Task, TransactionContext, Task>>(
                 Expression.Convert(call, typeof(Task)), pTask, pCtx).Compile();
         });
@@ -189,9 +189,9 @@ internal static class TransactionScopeExecutor
         {
             var method = WrapGenericValueTaskAsyncMethod.MakeGenericMethod(t);
             var vtType = typeof(ValueTask<>).MakeGenericType(t);
-            var pVt    = Expression.Parameter(typeof(object), "vt");
-            var pCtx   = Expression.Parameter(typeof(TransactionContext), "ctx");
-            var call   = Expression.Call(method, Expression.Convert(pVt, vtType), pCtx);
+            var pVt = Expression.Parameter(typeof(object), "vt");
+            var pCtx = Expression.Parameter(typeof(TransactionContext), "ctx");
+            var call = Expression.Call(method, Expression.Convert(pVt, vtType), pCtx);
             return Expression.Lambda<Func<object, TransactionContext, object>>(
                 Expression.Convert(call, typeof(object)), pVt, pCtx).Compile();
         });
@@ -211,7 +211,7 @@ internal static class TransactionScopeExecutor
         _faultedTaskCache.GetOrAdd(tResult, static t =>
         {
             var exParam = Expression.Parameter(typeof(Exception), "ex");
-            var fromEx  = Expression.Call(
+            var fromEx = Expression.Call(
                 typeof(Task).GetMethod(nameof(Task.FromException), 1, [typeof(Exception)])!.MakeGenericMethod(t),
                 exParam);
             return Expression.Lambda<Func<Exception, Task>>(fromEx, exParam).Compile();
@@ -223,10 +223,10 @@ internal static class TransactionScopeExecutor
         _faultedVtCache.GetOrAdd(tResult, static t =>
         {
             var exParam = Expression.Parameter(typeof(Exception), "ex");
-            var fromEx  = Expression.Call(
+            var fromEx = Expression.Call(
                 typeof(Task).GetMethod(nameof(Task.FromException), 1, [typeof(Exception)])!.MakeGenericMethod(t),
                 exParam);
-            var vtCtor  = typeof(ValueTask<>).MakeGenericType(t)
+            var vtCtor = typeof(ValueTask<>).MakeGenericType(t)
                 .GetConstructor([typeof(Task<>).MakeGenericType(t)])!;
             return Expression.Lambda<Func<Exception, object>>(
                 Expression.Convert(Expression.New(vtCtor, fromEx), typeof(object)),

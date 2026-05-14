@@ -1,4 +1,4 @@
-﻿using System.Transactions;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;

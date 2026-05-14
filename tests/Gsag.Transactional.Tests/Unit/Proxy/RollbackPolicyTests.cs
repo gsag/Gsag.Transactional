@@ -10,7 +10,7 @@ public class RollbackPolicyTests
         RollbackPolicy.From(new TransactionalAttribute
         {
             NoRollbackFor = noRollbackFor ?? [],
-            RollbackFor   = rollbackFor   ?? [],
+            RollbackFor = rollbackFor ?? [],
         });
 
     [Fact]
@@ -74,7 +74,7 @@ public class RollbackPolicyTests
     {
         var policy = Policy(
             noRollbackFor: [typeof(InvalidOperationException)],
-            rollbackFor:   [typeof(InvalidOperationException)]);
+            rollbackFor: [typeof(InvalidOperationException)]);
 
         Assert.False(policy.ShouldRollback(new InvalidOperationException()));
     }

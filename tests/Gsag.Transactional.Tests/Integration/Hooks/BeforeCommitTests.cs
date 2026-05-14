@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
@@ -98,7 +98,7 @@ public class BeforeCommitTests
     private static (IBeforeCommitService proxy, BeforeCommitService svc) Build()
     {
         var hooks = new TransactionHooks();
-        var svc   = new BeforeCommitService(hooks);
+        var svc = new BeforeCommitService(hooks);
         var proxy = TransactionProxyFactory.Create<IBeforeCommitService>(svc, observer: null);
         return (proxy, svc);
     }

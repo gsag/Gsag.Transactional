@@ -10,7 +10,7 @@ internal sealed class RollbackPolicy
     private RollbackPolicy(Type[] noRollbackFor, Type[] rollbackFor)
     {
         _noRollbackFor = noRollbackFor;
-        _rollbackFor   = rollbackFor;
+        _rollbackFor = rollbackFor;
     }
 
     internal static RollbackPolicy From(TransactionalAttribute attr) =>

@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
@@ -93,7 +93,7 @@ public class BeforeRollbackTests
     private static (IBeforeRollbackService proxy, BeforeRollbackService svc) Build()
     {
         var hooks = new TransactionHooks();
-        var svc   = new BeforeRollbackService(hooks);
+        var svc = new BeforeRollbackService(hooks);
         var proxy = TransactionProxyFactory.Create<IBeforeRollbackService>(svc, observer: null);
         return (proxy, svc);
     }

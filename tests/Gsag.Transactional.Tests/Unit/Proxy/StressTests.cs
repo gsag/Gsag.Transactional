@@ -30,7 +30,7 @@ public class StressTests
     public async Task Stress_WhenManyParallelInvocations_AllCommitWithoutError()
     {
         const int count = 200;
-        var svc   = new StressService();
+        var svc = new StressService();
         var proxy = TransactionProxyFactory.Create<IStressService>(svc);
 
         var tasks = Enumerable.Range(0, count).Select(_ => proxy.AddAsync(1)).ToArray();
@@ -44,7 +44,7 @@ public class StressTests
     public async Task Stress_WhenRapidSequentialInvocations_AllCommitWithoutError()
     {
         const int count = 500;
-        var svc   = new StressService();
+        var svc = new StressService();
         var proxy = TransactionProxyFactory.Create<IStressService>(svc);
 
         for (int i = 0; i < count; i++)

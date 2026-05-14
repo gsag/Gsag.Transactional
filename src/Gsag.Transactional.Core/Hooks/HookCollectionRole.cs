@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Hooks;
+namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Describes the role a <see cref="HookCollection"/> plays in the <see cref="System.Threading.AsyncLocal{T}"/> slot,

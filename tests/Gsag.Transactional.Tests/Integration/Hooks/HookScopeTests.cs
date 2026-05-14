@@ -1,4 +1,4 @@
-﻿using System.Transactions;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
@@ -331,10 +331,10 @@ public class HookScopeTests
     [Fact]
     public async Task RequiresNew_BothScopesRegisterHooks_BothHooksFire()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new HookInnerService(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new HookInnerService(hooks);
         var innerProxy = TransactionProxyFactory.Create<IHookInnerService>(innerSvc, observer: null);
-        var outerSvc   = new HookOuterService(hooks, innerProxy);
+        var outerSvc = new HookOuterService(hooks, innerProxy);
         var outerProxy = TransactionProxyFactory.Create<IHookOuterService>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();
@@ -353,10 +353,10 @@ public class HookScopeTests
     [Fact]
     public async Task Suppress_HooksInOuterScopeAroundSuppressedCall_AllOuterHooksFire()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new SuppressService(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new SuppressService(hooks);
         var innerProxy = TransactionProxyFactory.Create<ISuppressService>(innerSvc, observer: null);
-        var outerSvc   = new SuppressOuterService(hooks, innerProxy);
+        var outerSvc = new SuppressOuterService(hooks, innerProxy);
         var outerProxy = TransactionProxyFactory.Create<ISuppressOuterService>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();
@@ -375,10 +375,10 @@ public class HookScopeTests
     [Fact]
     public async Task Required_InsideSuppressScope_OpensOwnScopeAndHooksFire()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new RequiredInSuppressInner(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new RequiredInSuppressInner(hooks);
         var innerProxy = TransactionProxyFactory.Create<IRequiredInSuppressInner>(innerSvc, observer: null);
-        var outerSvc   = new RequiredInSuppressOuter(innerProxy);
+        var outerSvc = new RequiredInSuppressOuter(innerProxy);
         var outerProxy = TransactionProxyFactory.Create<IRequiredInSuppressOuter>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();
@@ -395,10 +395,10 @@ public class HookScopeTests
     [Fact]
     public async Task Required_JoiningAmbientScope_HooksAccumulateInOuterCollectionAndFireOnce()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new RequiredJoinInnerService(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new RequiredJoinInnerService(hooks);
         var innerProxy = TransactionProxyFactory.Create<IRequiredJoinInnerService>(innerSvc, observer: null);
-        var outerSvc   = new RequiredJoinOuterService(hooks, innerProxy);
+        var outerSvc = new RequiredJoinOuterService(hooks, innerProxy);
         var outerProxy = TransactionProxyFactory.Create<IRequiredJoinOuterService>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();
@@ -416,10 +416,10 @@ public class HookScopeTests
     [Fact]
     public async Task Required_JoiningScope_WhenInnerThrowsAndOuterCommits_HookOutcomeDrivenByOuterScope()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new RequiredJoinThrowingInnerService(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new RequiredJoinThrowingInnerService(hooks);
         var innerProxy = TransactionProxyFactory.Create<IRequiredJoinThrowingInnerService>(innerSvc, observer: null);
-        var outerSvc   = new RequiredJoinCatchingOuterService(hooks, innerProxy);
+        var outerSvc = new RequiredJoinCatchingOuterService(hooks, innerProxy);
         var outerProxy = TransactionProxyFactory.Create<IRequiredJoinCatchingOuterService>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();
@@ -436,12 +436,12 @@ public class HookScopeTests
     [Fact]
     public async Task Suppress_ContainingRequiresNew_OuterHooksStillFire()
     {
-        var hooks      = new TransactionHooks();
-        var innerSvc   = new RequiresNewInSuppressService(hooks);
+        var hooks = new TransactionHooks();
+        var innerSvc = new RequiresNewInSuppressService(hooks);
         var innerProxy = TransactionProxyFactory.Create<IRequiresNewInSuppressService>(innerSvc, observer: null);
-        var midSvc     = new SuppressWithRequiresNewService(innerProxy);
-        var midProxy   = TransactionProxyFactory.Create<ISuppressWithRequiresNewService>(midSvc, observer: null);
-        var outerSvc   = new OuterWithSuppressAndRequiresNewService(hooks, midProxy);
+        var midSvc = new SuppressWithRequiresNewService(innerProxy);
+        var midProxy = TransactionProxyFactory.Create<ISuppressWithRequiresNewService>(midSvc, observer: null);
+        var outerSvc = new OuterWithSuppressAndRequiresNewService(hooks, midProxy);
         var outerProxy = TransactionProxyFactory.Create<IOuterWithSuppressAndRequiresNewService>(outerSvc, observer: null);
 
         await outerProxy.RunAsync();

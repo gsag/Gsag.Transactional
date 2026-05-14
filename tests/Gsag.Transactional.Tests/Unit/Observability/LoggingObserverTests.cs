@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
 using System.Transactions;
 using Gsag.Transactional.Core.Observability;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Unit.Observability;
@@ -20,10 +20,10 @@ public class LoggingObserverTests
 
     private static readonly TransactionInfo _info = new TransactionInfo
     {
-        MethodName    = "Stub",
+        MethodName = "Stub",
         DeclaringType = typeof(LoggingObserverTests),
         IsolationLevel = IsolationLevel.ReadCommitted,
-        Propagation    = TransactionScopeOption.Required,
+        Propagation = TransactionScopeOption.Required,
     };
 
     [Fact]

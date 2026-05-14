@@ -1,4 +1,4 @@
-﻿using Gsag.Transactional.Demo.Api.Entities;
+using Gsag.Transactional.Demo.Api.Entities;
 
 namespace Gsag.Transactional.Demo.Api.Services;
 

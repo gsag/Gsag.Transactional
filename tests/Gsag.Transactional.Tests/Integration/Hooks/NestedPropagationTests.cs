@@ -224,16 +224,16 @@ public class NestedPropagationTests
     {
         var hooks = new TransactionHooks();
 
-        var l4Svc   = new DeepL4Service(hooks);
+        var l4Svc = new DeepL4Service(hooks);
         var l4Proxy = TransactionProxyFactory.Create<IDeepL4Service>(l4Svc, observer: null);
 
-        var l3Svc   = new DeepL3Service(hooks, l4Proxy);
+        var l3Svc = new DeepL3Service(hooks, l4Proxy);
         var l3Proxy = TransactionProxyFactory.Create<IDeepL3Service>(l3Svc, observer: null);
 
-        var l2Svc   = new DeepL2Service(hooks, l3Proxy);
+        var l2Svc = new DeepL2Service(hooks, l3Proxy);
         var l2Proxy = TransactionProxyFactory.Create<IDeepL2Service>(l2Svc, observer: null);
 
-        var l1Svc   = new DeepL1Service(hooks, l2Proxy);
+        var l1Svc = new DeepL1Service(hooks, l2Proxy);
         var l1Proxy = TransactionProxyFactory.Create<IDeepL1Service>(l1Svc, observer: null);
 
         await l1Proxy.RunAsync();
@@ -260,16 +260,16 @@ public class NestedPropagationTests
     {
         var hooks = new TransactionHooks();
 
-        var l4Svc   = new IndependentL4Service(hooks);
+        var l4Svc = new IndependentL4Service(hooks);
         var l4Proxy = TransactionProxyFactory.Create<IIndependentL4Service>(l4Svc, observer: null);
 
-        var l3Svc   = new IndependentL3Service(hooks, l4Proxy);
+        var l3Svc = new IndependentL3Service(hooks, l4Proxy);
         var l3Proxy = TransactionProxyFactory.Create<IIndependentL3Service>(l3Svc, observer: null);
 
-        var l2Svc   = new IndependentL2Service(hooks, l3Proxy);
+        var l2Svc = new IndependentL2Service(hooks, l3Proxy);
         var l2Proxy = TransactionProxyFactory.Create<IIndependentL2Service>(l2Svc, observer: null);
 
-        var l1Svc   = new IndependentL1Service(hooks, l2Proxy);
+        var l1Svc = new IndependentL1Service(hooks, l2Proxy);
         var l1Proxy = TransactionProxyFactory.Create<IIndependentL1Service>(l1Svc, observer: null);
 
         await l1Proxy.RunAsync();

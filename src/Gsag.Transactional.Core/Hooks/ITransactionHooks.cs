@@ -1,4 +1,4 @@
-﻿namespace Gsag.Transactional.Core.Hooks;
+namespace Gsag.Transactional.Core.Hooks;
 
 /// <summary>
 /// Schedules callbacks to run at transaction lifecycle points inside a [Transactional] scope.

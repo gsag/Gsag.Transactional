@@ -1,8 +1,8 @@
-﻿using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Core.Proxy;
-using Xunit;
 using Gsag.Transactional.Tests.Unit;
+using Xunit;
 
 namespace Gsag.Transactional.Tests.Unit.Observability;
 
@@ -68,7 +68,7 @@ public class CompositeObserverTests
 
         proxy.Commit();
 
-        var commitIndex  = observer.Calls.IndexOf("COMMIT:Commit");
+        var commitIndex = observer.Calls.IndexOf("COMMIT:Commit");
         var completeIndex = observer.Calls.IndexOf("COMPLETE:Commit:True");
         Assert.True(commitIndex < completeIndex, "OnComplete must fire after OnCommit");
     }
@@ -82,8 +82,8 @@ public class CompositeObserverTests
 
         Assert.Throws<InvalidOperationException>(() => proxy.Throw());
 
-        var rollbackIndex  = observer.Calls.IndexOf("ROLLBACK:Throw");
-        var completeIndex  = observer.Calls.IndexOf("COMPLETE:Throw:False");
+        var rollbackIndex = observer.Calls.IndexOf("ROLLBACK:Throw");
+        var completeIndex = observer.Calls.IndexOf("COMPLETE:Throw:False");
         Assert.True(rollbackIndex < completeIndex, "OnComplete must fire after OnRollback");
     }
 
@@ -104,9 +104,9 @@ public class CompositeObserverTests
 
         foreach (var obs in new[] { obs1, obs2 })
         {
-            Assert.Contains("BEGIN:Commit",          obs.Calls);
-            Assert.Contains("COMMIT:Commit",         obs.Calls);
-            Assert.Contains("COMPLETE:Commit:True",  obs.Calls);
+            Assert.Contains("BEGIN:Commit", obs.Calls);
+            Assert.Contains("COMMIT:Commit", obs.Calls);
+            Assert.Contains("COMPLETE:Commit:True", obs.Calls);
         }
     }
 
@@ -114,7 +114,7 @@ public class CompositeObserverTests
     public void Composite_TwoObservers_EventsDispatchedInRegistrationOrder()
     {
         var order = new List<string>();
-        var obs1 = new OrderTrackingObserver("first",  order);
+        var obs1 = new OrderTrackingObserver("first", order);
         var obs2 = new OrderTrackingObserver("second", order);
         var composite = new CompositeTransactionObserver([obs1, obs2]);
         var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
@@ -122,7 +122,7 @@ public class CompositeObserverTests
 
         proxy.Commit();
 
-        var commitFirst  = order.IndexOf("first:COMMIT");
+        var commitFirst = order.IndexOf("first:COMMIT");
         var commitSecond = order.IndexOf("second:COMMIT");
         Assert.True(commitFirst < commitSecond, "first observer must fire before second");
     }
@@ -140,9 +140,9 @@ public class CompositeObserverTests
 
         foreach (var obs in new[] { obs1, obs2 })
         {
-            Assert.Contains("ROLLBACK:Throw",        obs.Calls);
-            Assert.Contains("COMPLETE:Throw:False",  obs.Calls);
-            Assert.DoesNotContain("COMMIT:Throw",    obs.Calls);
+            Assert.Contains("ROLLBACK:Throw", obs.Calls);
+            Assert.Contains("COMPLETE:Throw:False", obs.Calls);
+            Assert.DoesNotContain("COMMIT:Throw", obs.Calls);
         }
     }
 
@@ -154,9 +154,9 @@ public class CompositeObserverTests
     public void Composite_WhenFirstObserverThrowsOnCommit_ExceptionPropagates()
     {
         var throwingObs = new ThrowingOnCommitObserver();
-        var second      = new RecordingObserver();
-        var composite   = new CompositeTransactionObserver([throwingObs, second]);
-        var proxy       = TransactionProxyFactory.Create<ICompositeObserverService>(
+        var second = new RecordingObserver();
+        var composite = new CompositeTransactionObserver([throwingObs, second]);
+        var proxy = TransactionProxyFactory.Create<ICompositeObserverService>(
             new CompositeObserverService(), composite);
 
         var ex = Assert.Throws<InvalidOperationException>(() => proxy.Commit());
@@ -178,7 +178,7 @@ file class OrderTrackingObserver : ITransactionObserver
 
     public OrderTrackingObserver(string name, List<string> order)
     {
-        _name  = name;
+        _name = name;
         _order = order;
     }
 
