@@ -38,8 +38,9 @@ jobs:
         run: |
           dotnet stryker \
             --project Gsag.Transactional.Core.csproj \
-            --threshold-break 70 \
-            --threshold-low 80 \
+            --threshold-high 80 \
+            --threshold-low 70 \
+            --break-at 70 \
             --reporter markdown \
             --reporter progress
 
