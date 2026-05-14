@@ -245,16 +245,19 @@ internal static class TransactionScopeExecutor
 
     // Thin adapters — convert the concrete awaitable to ValueTask / ValueTask<TResult>
     // (struct conversions, no allocation) and delegate to the core template methods below.
-    internal static Task WrapVoidTaskAsync(Task task, TransactionContext ctx) => WrapVoidCoreAsync(new ValueTask(task), ctx);
-    internal static ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx) => new ValueTask(WrapVoidCoreAsync(vt, ctx));
-    private static Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx) => WrapResultCoreAsync(new ValueTask<TResult>(task), ctx); // called via CallGenericTaskWrapper
-    private static ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx) => new ValueTask<TResult>(WrapResultCoreAsync(vt, ctx));  // called via CallGenericValueTaskWrapper
+    // Task-returning adapters call .AsTask() so callers that already hold a Task stay on that path.
+    // ValueTask-returning adapters delegate directly, preserving the synchronous fast path:
+    // when the awaitable completes synchronously, async ValueTask cores avoid a Task heap allocation.
+    internal static Task WrapVoidTaskAsync(Task task, TransactionContext ctx) => WrapVoidCoreAsync(new ValueTask(task), ctx).AsTask();
+    internal static ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx) => WrapVoidCoreAsync(vt, ctx);
+    private static Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx) => WrapResultCoreAsync(new ValueTask<TResult>(task), ctx).AsTask(); // called via CallGenericTaskWrapper
+    private static ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx) => WrapResultCoreAsync(vt, ctx);  // called via CallGenericValueTaskWrapper
 
     // -------------------------------------------------------------------------
     // Core template — owns the full transaction lifecycle for void async methods.
     // -------------------------------------------------------------------------
 
-    private static async Task WrapVoidCoreAsync(ValueTask vt, TransactionContext ctx)
+    private static async ValueTask WrapVoidCoreAsync(ValueTask vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
         try
@@ -309,7 +312,7 @@ internal static class TransactionScopeExecutor
     // Identical to WrapVoidCoreAsync except it captures and returns the awaited result.
     // -------------------------------------------------------------------------
 
-    private static async Task<TResult> WrapResultCoreAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
+    private static async ValueTask<TResult> WrapResultCoreAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
         TResult result;
