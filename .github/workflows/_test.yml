@@ -14,8 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0  # Source Link embeds commit hash — needs full history
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
