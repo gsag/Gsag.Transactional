@@ -2,7 +2,7 @@
   "stryker-config": {
     "solution": "../../Gsag.Transactional.sln",
     "project": "Gsag.Transactional.Core.csproj",
-    "test-filter": "FullyQualifiedName!~Integration.Demo",
+    "test-case-filter": "FullyQualifiedName!~Integration.Demo",
     "coverage-analysis": "off",
     "thresholds": {
       "high": 80,
