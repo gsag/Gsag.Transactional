@@ -107,9 +107,9 @@ public class ProxyFactoryTests
         proxy2.Ping();
 
         Assert.Contains("COMMIT:SyncReturn", obs1.Calls);
-        Assert.Empty(obs1.Calls.Where(c => c.Contains("Ping")));
+        Assert.DoesNotContain(obs1.Calls, c => c.Contains("Ping"));
         Assert.Contains("COMMIT:Ping", obs2.Calls);
-        Assert.Empty(obs2.Calls.Where(c => c.Contains("SyncReturn")));
+        Assert.DoesNotContain(obs2.Calls, c => c.Contains("SyncReturn"));
     }
 
     [Fact]
