@@ -27,16 +27,8 @@ jobs:
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      - name: Cache dotnet tools
-        id: cache-tools
-        uses: actions/cache@v5
-        with:
-          path: ~/.dotnet/tools
-          key: dotnet-tools-${{ runner.os }}-reportgenerator
-
-      - name: Install ReportGenerator
-        if: steps.cache-tools.outputs.cache-hit != 'true'
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+      - name: Restore tools
+        run: dotnet tool restore
 
       - name: Restore
         run: dotnet restore --locked-mode
@@ -48,7 +40,7 @@ jobs:
         run: dotnet test --no-build -c Release --filter "FullyQualifiedName!~Transactional.Tests.Integration.Demo" --collect:"XPlat Code Coverage" --results-directory ./coverage -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Gsag.Transactional.Core]*"
 
       - name: Generate coverage report
-        run: reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:"MarkdownSummaryGithub"
+        run: dotnet reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:"MarkdownSummaryGithub"
 
       - name: Post coverage to job summary
         shell: bash

@@ -25,16 +25,8 @@ jobs:
       - name: Restore
         run: dotnet restore --locked-mode
 
-      - name: Cache Stryker
-        id: cache-stryker
-        uses: actions/cache@v5
-        with:
-          path: ~/.dotnet/tools
-          key: dotnet-tools-${{ runner.os }}-stryker
-
-      - name: Install Stryker
-        if: steps.cache-stryker.outputs.cache-hit != 'true'
-        run: dotnet tool install -g dotnet-stryker
+      - name: Restore tools
+        run: dotnet tool restore
 
       - name: Run mutation testing
         working-directory: tests/Gsag.Transactional.Tests
