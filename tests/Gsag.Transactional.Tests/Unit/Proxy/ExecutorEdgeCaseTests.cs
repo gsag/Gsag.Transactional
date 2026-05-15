@@ -229,4 +229,57 @@ public class ExecutorEdgeCaseTests
         Assert.Contains("ROLLBACK:ThrowSynchronouslyBeforeTaskAsync", observer.Calls);
         Assert.Contains("COMPLETE:ThrowSynchronouslyBeforeTaskAsync:False", observer.Calls);
     }
+
+    // -------------------------------------------------------------------------
+    // Async forced-abort observer events — kill mutations on the effectiveOutcome
+    // ternary (`disposeEx is not null ? RolledBack : outcome`) and on
+    // NotifyCommitOutcome's `outcome == RolledBack` branch for async paths.
+    // The existing WrapGenericTask/VoidValueTask/GenericValueTask tests only check
+    // that TransactionAbortedException propagates; they do not verify observer state.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task WrapGenericTask_WhenTransactionAborted_ObserverReceivesRollbackNotCommit()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService(), observer);
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortGenericTaskAsync());
+
+        Assert.Contains("ROLLBACK:ForceAbortGenericTaskAsync", observer.Calls);
+        Assert.DoesNotContain("COMMIT:ForceAbortGenericTaskAsync", observer.Calls);
+        Assert.Contains("COMPLETE:ForceAbortGenericTaskAsync:False", observer.Calls);
+    }
+
+    [Fact]
+    public async Task WrapVoidValueTask_WhenTransactionAborted_ObserverReceivesRollbackNotCommit()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService(), observer);
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortValueTaskAsync().AsTask());
+
+        Assert.Contains("ROLLBACK:ForceAbortValueTaskAsync", observer.Calls);
+        Assert.DoesNotContain("COMMIT:ForceAbortValueTaskAsync", observer.Calls);
+        Assert.Contains("COMPLETE:ForceAbortValueTaskAsync:False", observer.Calls);
+    }
+
+    [Fact]
+    public async Task WrapGenericValueTask_WhenTransactionAborted_ObserverReceivesRollbackNotCommit()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IForcedAbortAsyncService>(
+            new ForcedAbortAsyncService(), observer);
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(
+            () => proxy.ForceAbortGenericValueTaskAsync().AsTask());
+
+        Assert.Contains("ROLLBACK:ForceAbortGenericValueTaskAsync", observer.Calls);
+        Assert.DoesNotContain("COMMIT:ForceAbortGenericValueTaskAsync", observer.Calls);
+        Assert.Contains("COMPLETE:ForceAbortGenericValueTaskAsync:False", observer.Calls);
+    }
 }

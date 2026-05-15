@@ -33,6 +33,12 @@ public interface IObserverService
 
     [Transactional]
     void ThrowSync();
+
+    [Transactional]
+    Task<string> ThrowGenericTaskAsync();
+
+    [Transactional]
+    ValueTask<string> ThrowGenericValueTaskAsync();
 }
 
 public class ObserverService : IObserverService
@@ -52,6 +58,8 @@ public class ObserverService : IObserverService
 #pragma warning restore CS0162
     }
     public void ThrowSync() => throw new InvalidOperationException("sync-boom");
+    public Task<string> ThrowGenericTaskAsync() => Task.FromException<string>(new InvalidOperationException("generic-task-boom"));
+    public ValueTask<string> ThrowGenericValueTaskAsync() => ValueTask.FromException<string>(new InvalidOperationException("generic-vt-boom"));
 }
 
 public interface IInterfaceAttributeService
@@ -234,5 +242,58 @@ public class ObserverTests
     {
         await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowVoidValueTask().AsTask());
         Assert.Contains("COMPLETE:ThrowVoidValueTask:False", _observer.Calls);
+    }
+
+    // -------------------------------------------------------------------------
+    // Task<T> rollback — verify outcome starts as RolledBack, not Committed.
+    // These kill mutations on `var outcome = TransactionOutcome.RolledBack` and
+    // on `if (outcome == TransactionOutcome.RolledBack)` in NotifyCommitOutcome
+    // for the WrapResultCoreAsync path.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GenericTask_WhenThrows_DoesNotRecordCommit()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericTaskAsync());
+        Assert.DoesNotContain("COMMIT:ThrowGenericTaskAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task GenericTask_WhenThrows_RecordsRollback()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericTaskAsync());
+        Assert.Contains("ROLLBACK:ThrowGenericTaskAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task GenericTask_WhenThrows_OnComplete_CommittedIsFalse()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericTaskAsync());
+        Assert.Contains("COMPLETE:ThrowGenericTaskAsync:False", _observer.Calls);
+    }
+
+    // -------------------------------------------------------------------------
+    // ValueTask<T> rollback — same gaps as Task<T> but in WrapGenericValueTaskAsync.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GenericValueTask_WhenThrows_DoesNotRecordCommit()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericValueTaskAsync().AsTask());
+        Assert.DoesNotContain("COMMIT:ThrowGenericValueTaskAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task GenericValueTask_WhenThrows_RecordsRollback()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericValueTaskAsync().AsTask());
+        Assert.Contains("ROLLBACK:ThrowGenericValueTaskAsync", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task GenericValueTask_WhenThrows_OnComplete_CommittedIsFalse()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowGenericValueTaskAsync().AsTask());
+        Assert.Contains("COMPLETE:ThrowGenericValueTaskAsync:False", _observer.Calls);
     }
 }
