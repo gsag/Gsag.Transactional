@@ -26,7 +26,6 @@ jobs:
     uses: ./.github/workflows/_mutation.yml
     with:
       os: windows-latest
-    continue-on-error: true  # informativo: score abaixo do break não falha o workflow
 
   report:
     name: Consolidated Report

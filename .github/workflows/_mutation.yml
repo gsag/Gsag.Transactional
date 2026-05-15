@@ -33,6 +33,7 @@ jobs:
       - name: Run mutation testing
         working-directory: tests/Gsag.Transactional.Tests
         run: dotnet stryker
+        continue-on-error: true
 
       - name: Stage and post mutation report
         if: always()
