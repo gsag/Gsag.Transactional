@@ -48,6 +48,7 @@ src/
       TransactionProxy.cs           ← routing, caching, return-type dispatch
       TransactionScopeExecutor.cs   ← all commit/rollback/dispose logic and async wrappers
       TransactionProxyFactory.cs
+      RollbackPolicy.cs             Encapsulates ShouldRollback logic (NoRollbackFor/RollbackFor/default precedence)
     Extensions/
       TransactionalExtensions.cs    AddTransactionalServices / AddTransactionalLogging / AddTransactionalObserver<T>
 samples/
@@ -84,6 +85,7 @@ tests/
     Unit/
       TestHelpers.cs                RecordingObserver + shared doubles
       CompositeObserverTests.cs     OnComplete, Composite multi-observer, fail-fast
+      CancellationTests.cs          CancellationToken + NoRollbackFor interaction
       ExecutorEdgeCaseTests.cs
       ExtensionsTests.cs            DI registration, AddTransactionalObserver idempotency
       LoggingObserverTests.cs
@@ -91,7 +93,10 @@ tests/
       PropagationTests.cs
       ProxyFactoryTests.cs
       ProxyMechanicsTests.cs
+      RollbackPolicyTests.cs        Unit tests for RollbackPolicy.ShouldRollback precedence rules
       RollbackRulesTests.cs
+      StressTests.cs                Concurrent proxy invocations — no data races
+      TimeoutTests.cs               TransactionScope timeout / TransactionAbortedException
     Integration/
       Demo/
         CheckoutIntegrationTests.cs ← real SQLite, full service graph
@@ -103,6 +108,7 @@ tests/
         BeforeRollbackTests.cs
         HookScopeTests.cs
         HookErrorTests.cs
+        NestedPropagationTests.cs   4-level deep nesting (Required → RequiresNew → Required → RequiresNew)
         SyncPathHookTests.cs
 ```
 
@@ -154,7 +160,7 @@ All async wrappers use a **nested try pattern**:
 - Success-path `Commit` is outside all catch blocks — prevents double `scope.Complete()` if the observer throws during `OnCommit`
 - Outer `finally` calls `TryDispose` (captures Dispose exceptions for deferred rethrow) then `NotifyCommitOutcome` then `RunAsyncHooksAsync`, then rethrows any captured Dispose exception via `ExceptionDispatchInfo`
 
-`ShouldRollback` implements the three-rule precedence: `NoRollbackFor` wins → `RollbackFor` restricts → default rolls back on any exception.
+Rollback decisions are delegated to `RollbackPolicy` (extracted from this class). `RollbackPolicy.From(attr)` captures the attribute's `NoRollbackFor`/`RollbackFor` arrays; `ShouldRollback(ex)` applies the three-rule precedence: `NoRollbackFor` wins → `RollbackFor` restricts → default rolls back on any exception.
 
 `TryDispose`: captures the Dispose exception and returns it, so `NotifyCommitOutcome` and hooks can still run before the exception is rethrown via `ExceptionDispatchInfo`. Used in every `finally` block and in the sync-throw-before-task `catch` blocks in `TransactionProxy`.
 

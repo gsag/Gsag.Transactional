@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -51,37 +52,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         ArgumentNullException.ThrowIfNull(targetMethod);
         args ??= [];
 
-        var attr = _attributeCache.GetOrAdd((targetMethod, _target.GetType()), static key =>
-        {
-            var (m, concreteType) = key;
-
-            // 1. Attribute on the interface method — checked first so interface-level
-            //    declarations take precedence (e.g. library contracts, test doubles).
-            var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: false);
-            if (a is not null)
-            {
-                return a;
-            }
-
-            // 2. Attribute on the concrete implementation method — DispatchProxy.Invoke
-            //    always passes the interface MethodInfo, so we must resolve the concrete
-            //    counterpart via the interface map.
-            if (m.DeclaringType is null)
-            {
-                return null;
-            }
-
-            var map = concreteType.GetInterfaceMap(m.DeclaringType);
-            for (var i = 0; i < map.InterfaceMethods.Length; i++)
-            {
-                if (map.InterfaceMethods[i] == m)
-                {
-                    return map.TargetMethods[i]
-                        .GetCustomAttribute<TransactionalAttribute>(inherit: false);
-                }
-            }
-            return null;
-        });
+        var attr = _attributeCache.GetOrAdd((targetMethod, _target.GetType()), FindAttribute);
 
         if (attr is null)
         {
@@ -118,7 +89,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         var outcome = TransactionOutcome.RolledBack;
         try
         {
-            object? result;
+            object? result = default;
             try
             {
                 result = InvokeTarget(method, args);
@@ -234,6 +205,39 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         }
         TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
         return TransactionScopeExecutor.CallGenericValueTaskWrapper(resultType, vt, ctx);
+    }
+
+    // IL2072: concreteType comes from _target.GetType() — its interface members are not tracked
+    // statically, but concreteType is always an instance of T (enforced by Wrap) and T is
+    // constrained to be an interface, so the interface map is guaranteed to resolve correctly.
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072",
+        Justification = "concreteType always implements the interface — verified at proxy creation by Wrap(). " +
+                        "Interface methods are preserved because T is a generic type parameter on TransactionProxy<T>.")]
+    private static TransactionalAttribute? FindAttribute((MethodInfo Method, Type Concrete) key)
+    {
+        var (m, concreteType) = key;
+
+        // 1. Attribute on the interface method — checked first so interface-level
+        //    declarations take precedence (e.g. library contracts, test doubles).
+        var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: false);
+        if (a is not null)
+        {
+            return a;
+        }
+
+        // 2. Attribute on the concrete implementation method — DispatchProxy.Invoke
+        //    always passes the interface MethodInfo, so we must resolve the concrete
+        //    counterpart via the interface map.
+        if (m.DeclaringType is null)
+        {
+            return null;
+        }
+
+        var map = concreteType.GetInterfaceMap(m.DeclaringType);
+        var idx = Array.FindIndex(map.InterfaceMethods, im => im == m);
+        return idx < 0
+            ? null
+            : map.TargetMethods[idx].GetCustomAttribute<TransactionalAttribute>(inherit: false);
     }
 
     private object? InvokeTarget(MethodInfo method, object?[] args)

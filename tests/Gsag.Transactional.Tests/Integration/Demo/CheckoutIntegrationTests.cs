@@ -47,7 +47,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     private IPaymentService _paymentService = null!;
     private IAuditService _auditService = null!;
 
-    public async ValueTask InitializeAsync()
+    public async Task InitializeAsync()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"tx_checkout_{Guid.NewGuid():N}.db");
         _db = BuildContext(_dbPath);
@@ -74,7 +74,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
                 _auditService, reportService, hooks, collector, _db));
     }
 
-    public async ValueTask DisposeAsync()
+    public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
         SqliteConnection.ClearAllPools();
@@ -91,7 +91,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ProcessSuccess_AllEntitiesPersistedInDatabase()
     {
-        var result = await _checkout.ProcessSuccessAsync(TestContext.Current.CancellationToken);
+        var result = await _checkout.ProcessSuccessAsync(CancellationToken.None);
 
         var orders = await QueryOrdersAsync();
         var reservations = await QueryReservationsAsync();
@@ -108,8 +108,8 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ProcessSuccess_TwoCalls_BothOrdersPersisted()
     {
-        await _checkout.ProcessSuccessAsync(TestContext.Current.CancellationToken);
-        await _checkout.ProcessSuccessAsync(TestContext.Current.CancellationToken);
+        await _checkout.ProcessSuccessAsync(CancellationToken.None);
+        await _checkout.ProcessSuccessAsync(CancellationToken.None);
 
         Assert.Equal(2, (await QueryOrdersAsync()).Count);
         Assert.Equal(2, (await QueryPaymentsAsync()).Count);
@@ -123,7 +123,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task ProcessWithPaymentFailure_RollsBack_NothingPersistedInDatabase()
     {
         await Assert.ThrowsAsync<PaymentDeclinedException>(
-            () => _checkout.ProcessWithPaymentFailureAsync(TestContext.Current.CancellationToken));
+            () => _checkout.ProcessWithPaymentFailureAsync(CancellationToken.None));
 
         Assert.Empty(await QueryOrdersAsync());
         Assert.Empty(await QueryPaymentsAsync());
@@ -137,7 +137,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task ProcessWithInventoryFailure_RollsBack_NothingPersistedInDatabase()
     {
         await Assert.ThrowsAsync<InventoryException>(
-            () => _checkout.ProcessWithInventoryFailureAsync(TestContext.Current.CancellationToken));
+            () => _checkout.ProcessWithInventoryFailureAsync(CancellationToken.None));
 
         Assert.Empty(await QueryOrdersAsync());
         Assert.Empty(await QueryReservationsAsync());
@@ -162,7 +162,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         // - AuditEntry always persists (RequiresNew committed independently).
         // - AfterRollback hook from the outer scope fires (proxy lifecycle is correct).
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _checkout.ProcessWithAuditRequiresNewAsync(TestContext.Current.CancellationToken));
+            () => _checkout.ProcessWithAuditRequiresNewAsync(CancellationToken.None));
 
         var audits = await QueryAuditAsync();
         Assert.Single(audits);
@@ -179,7 +179,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         // NotificationException matches NoRollbackFor — proxy calls scope.Complete().
         // Order and payment were saved before the throw.
         await Assert.ThrowsAsync<NotificationException>(
-            () => _checkout.ProcessWithNoRollbackForAsync(TestContext.Current.CancellationToken));
+            () => _checkout.ProcessWithNoRollbackForAsync(CancellationToken.None));
 
         Assert.Single(await QueryOrdersAsync());
         Assert.Single(await QueryPaymentsAsync());
@@ -197,7 +197,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var svc = TransactionProxyFactory.Create<IOrderService>(
             new OrderService(_db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()), observer);
 
-        await svc.CreateAsync("observer-commit", 10m, TestContext.Current.CancellationToken);
+        await svc.CreateAsync("observer-commit", 10m, CancellationToken.None);
 
         Assert.Contains("COMMIT:CreateAsync", observer.Calls);
         Assert.DoesNotContain("ROLLBACK:CreateAsync", observer.Calls);
@@ -213,7 +213,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, new HookOutputCollector()), observer);
 
         await Assert.ThrowsAsync<InventoryException>(
-            () => svc.FailOutOfStockAsync("PROD-001", TestContext.Current.CancellationToken));
+            () => svc.FailOutOfStockAsync("PROD-001", CancellationToken.None));
 
         Assert.Contains("ROLLBACK:FailOutOfStockAsync", observer.Calls);
         Assert.DoesNotContain("COMMIT:FailOutOfStockAsync", observer.Calls);
@@ -230,12 +230,12 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         var eventBus = new InMemoryEventBus();
 
         // Create a real order first so the PaymentRecord FK constraint is satisfied.
-        var order = await _orderService.CreateAsync("observer-payment", 99m, TestContext.Current.CancellationToken);
+        var order = await _orderService.CreateAsync("observer-payment", 99m, CancellationToken.None);
 
         var svc = TransactionProxyFactory.Create<IPaymentService>(
             new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, new HookOutputCollector()), observer);
 
-        var payment = await svc.ProcessAsync(order.Id, 99m, TestContext.Current.CancellationToken);
+        var payment = await svc.ProcessAsync(order.Id, 99m, CancellationToken.None);
         Assert.NotNull(payment);
 
         Assert.Contains("COMMIT:ProcessAsync", observer.Calls);
@@ -261,7 +261,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new CheckoutService(orderSvc, inventorySvc, paymentSvc, auditSvc, reportSvc, hooks, collector, _db));
 
         // ProcessWithPaymentFailureAsync registers AfterCompletion on the outer scope
-        await Assert.ThrowsAsync<PaymentDeclinedException>(() => checkout.ProcessWithPaymentFailureAsync(TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<PaymentDeclinedException>(() => checkout.ProcessWithPaymentFailureAsync(CancellationToken.None));
 
         // AfterCompletion must have fired — its message lands in the collector
         Assert.Contains(collector.Events, e => e.Contains("AfterCompletion"));

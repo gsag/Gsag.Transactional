@@ -111,7 +111,7 @@ Each `HookCollection` carries a `Previous` pointer forming a linked-list stack. 
 
 `TransactionScopeExecutor` is a **non-generic static class**. Keeping it non-generic means the reflection fields used for `MakeGenericMethod` calls (`WrapGenericTaskAsyncMethod`, `WrapGenericValueTaskAsyncMethod`) are computed **once per application**, not once per proxied interface type.
 
-`ShouldRollback` implements a three-rule precedence check:
+Rollback decisions are delegated to `RollbackPolicy` (internal). `RollbackPolicy.From(attr)` captures the attribute configuration at scope-open time; `ShouldRollback(ex)` implements a three-rule precedence check:
 1. If the exception type is in `NoRollbackFor` → **commit**
 2. If `RollbackFor` is non-empty and the type is not listed → **commit**
 3. Otherwise → **rollback**

@@ -11,6 +11,7 @@ public interface ISyncHookService
     string RunWithAsyncHook();
     string RunSuccess();
     string RunWithFailingFirstSyncHook();
+    string RunWithTwoFailingSyncHooks();
     string RunWithSyncCommitAndAsyncCompletionHook();
     string RunWithNoRollbackAndAsyncRollbackHook();
     string RunWithFailingAfterRollbackHook();
@@ -44,6 +45,14 @@ public class SyncHookService : ISyncHookService
         _hooks.AfterCommit((Action)(() => throw new InvalidOperationException("hook-1 failed")));
         _hooks.AfterCommit(() => Fired.Add("hook-2"));
         _hooks.AfterCommit(() => Fired.Add("hook-3"));
+        return "done";
+    }
+
+    [Transactional]
+    public string RunWithTwoFailingSyncHooks()
+    {
+        _hooks.AfterCommit((Action)(() => throw new InvalidOperationException("hook-1 failed")));
+        _hooks.AfterCommit((Action)(() => throw new InvalidOperationException("hook-2 failed")));
         return "done";
     }
 
@@ -215,5 +224,20 @@ public class SyncPathHookTests
             () => proxy.RunWithFailingAfterRollbackHook());
 
         Assert.Equal("business", ex.Message);
+    }
+
+    /// <summary>
+    /// When two sync AfterCommit hooks both fail, the AggregateException must contain both inner
+    /// exceptions. Verifies that the error list in TriggerSync uses ??= so earlier exceptions
+    /// are not overwritten by later ones.
+    /// </summary>
+    [Fact]
+    public void SyncMethod_WhenTwoSyncHooksFail_BothExceptionsInAggregateException()
+    {
+        var (proxy, _) = Build();
+
+        var ex = Assert.Throws<AggregateException>(() => proxy.RunWithTwoFailingSyncHooks());
+
+        Assert.Equal(2, ex.InnerExceptions.Count);
     }
 }
