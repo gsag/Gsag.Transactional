@@ -243,14 +243,28 @@ internal static class TransactionScopeExecutor
     // Dispose confirms no error. If Dispose throws, the observer receives OnRollback instead.
     // -------------------------------------------------------------------------
 
-    internal static async Task WrapVoidTaskAsync(Task task, TransactionContext ctx)
+    // Thin adapters — convert the concrete awaitable to ValueTask / ValueTask<TResult>
+    // (struct conversions, no allocation) and delegate to the core template methods below.
+    // Task-returning adapters call .AsTask() so callers that already hold a Task stay on that path.
+    // ValueTask-returning adapters delegate directly, preserving the synchronous fast path:
+    // when the awaitable completes synchronously, async ValueTask cores avoid a Task heap allocation.
+    internal static Task WrapVoidTaskAsync(Task task, TransactionContext ctx) => WrapVoidCoreAsync(new ValueTask(task), ctx).AsTask();
+    internal static ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx) => WrapVoidCoreAsync(vt, ctx);
+    private static Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx) => WrapResultCoreAsync(new ValueTask<TResult>(task), ctx).AsTask(); // called via CallGenericTaskWrapper
+    private static ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx) => WrapResultCoreAsync(vt, ctx);  // called via CallGenericValueTaskWrapper
+
+    // -------------------------------------------------------------------------
+    // Core template — owns the full transaction lifecycle for void async methods.
+    // -------------------------------------------------------------------------
+
+    private static async ValueTask WrapVoidCoreAsync(ValueTask vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
         try
         {
             try
             {
-                await task.ConfigureAwait(false);
+                await vt.ConfigureAwait(false);
             }
             catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
             {
@@ -280,6 +294,9 @@ internal static class TransactionScopeExecutor
         finally
         {
             var disposeEx = TryDispose(ctx);
+            // effectiveOutcome drives hook dispatch — hooks must not fire AfterCommit if Dispose threw.
+            // NotifyCommitOutcome receives the pre-dispose `outcome` because it already handles
+            // disposeEx internally (calls OnRollback instead of OnCommit when disposeEx is not null).
             var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
             NotifyCommitOutcome(ctx, outcome, disposeEx);
             await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
@@ -290,109 +307,15 @@ internal static class TransactionScopeExecutor
         }
     }
 
-    internal static async ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        try
-        {
-            try
-            {
-                await vt.ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
-            {
-                await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
-                Rollback(ctx, ex);
-                throw;
-            }
-            catch (Exception)
-            {
-                await TransactionHooks.RunBeforeCommitHooksAsync(ctx.Hooks, suppressExceptions: true).ConfigureAwait(false);
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            try
-            {
-                await TransactionHooks.RunBeforeCommitHooksAsync(ctx.Hooks, suppressExceptions: false).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Rollback(ctx, ex);
-                throw;
-            }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
-        }
-        finally
-        {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            NotifyCommitOutcome(ctx, outcome, disposeEx);
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-    }
+    // -------------------------------------------------------------------------
+    // Core template — owns the full transaction lifecycle for result-returning async methods.
+    // Identical to WrapVoidCoreAsync except it captures and returns the awaited result.
+    // -------------------------------------------------------------------------
 
-    // Called via compiled delegate (CallGenericTaskWrapper).
-    private static async Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx)
+    private static async ValueTask<TResult> WrapResultCoreAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
-        TResult result;
-        try
-        {
-            try
-            {
-                result = await task.ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
-            {
-                await TransactionHooks.RunBeforeRollbackHooksAsync(ctx.Hooks).ConfigureAwait(false);
-                Rollback(ctx, ex);
-                throw;
-            }
-            catch (Exception)
-            {
-                await TransactionHooks.RunBeforeCommitHooksAsync(ctx.Hooks, suppressExceptions: true).ConfigureAwait(false);
-                Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            try
-            {
-                await TransactionHooks.RunBeforeCommitHooksAsync(ctx.Hooks, suppressExceptions: false).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Rollback(ctx, ex);
-                throw;
-            }
-            Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
-        }
-        finally
-        {
-            var disposeEx = TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            NotifyCommitOutcome(ctx, outcome, disposeEx);
-            await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-        return result;
-    }
-
-    // Called via compiled delegate (CallGenericValueTaskWrapper). Awaits ValueTask<TResult>
-    // directly to avoid the AsTask() allocation on the already-completed fast path.
-    private static async ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
-    {
-        var outcome = TransactionOutcome.RolledBack;
-        TResult result;
+        TResult result = default!;
         try
         {
             try
@@ -427,6 +350,9 @@ internal static class TransactionScopeExecutor
         finally
         {
             var disposeEx = TryDispose(ctx);
+            // effectiveOutcome drives hook dispatch — hooks must not fire AfterCommit if Dispose threw.
+            // NotifyCommitOutcome receives the pre-dispose `outcome` because it already handles
+            // disposeEx internally (calls OnRollback instead of OnCommit when disposeEx is not null).
             var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
             NotifyCommitOutcome(ctx, outcome, disposeEx);
             await TransactionHooks.RunAsyncHooksAsync(ctx.Hooks, effectiveOutcome).ConfigureAwait(false);

@@ -11,6 +11,7 @@ public interface IAfterCommitService
     Task RunAndRollbackAsync();
     Task RunWithSyncHookAsync();
     Task RunWithFailingHookAsync();
+    Task RunWithTwoFailingHooksAsync();
 }
 
 public class AfterCommitService : IAfterCommitService
@@ -60,6 +61,18 @@ public class AfterCommitService : IAfterCommitService
             throw new InvalidOperationException("hook-2 failed");
         });
         _hooks.AfterCommit(() => Fired.Add("hook-3"));
+    }
+
+    [Transactional]
+    public async Task RunWithTwoFailingHooksAsync()
+    {
+        await Task.CompletedTask;
+        _hooks.AfterCommit((Action)(() => throw new InvalidOperationException("hook-1 failed")));
+        _hooks.AfterCommit(async () =>
+        {
+            await Task.CompletedTask;
+            throw new InvalidOperationException("hook-2 failed");
+        });
     }
 }
 
@@ -125,5 +138,20 @@ public class AfterCommitTests
         hooks.AfterCommit(async () => { await Task.CompletedTask; throw new Exception("should not fire"); });
 
         // No exception thrown — registrations outside a scope are silently dropped.
+    }
+
+    /// <summary>
+    /// When two hooks both fail, the AggregateException must contain both inner exceptions.
+    /// Verifies that the error list in TriggerAsync uses ??= (not =) so earlier exceptions
+    /// are not overwritten by later ones.
+    /// </summary>
+    [Fact]
+    public async Task AfterCommit_WhenTwoHooksFail_BothExceptionsInAggregateException()
+    {
+        var (proxy, _) = Build();
+
+        var ex = await Assert.ThrowsAsync<AggregateException>(() => proxy.RunWithTwoFailingHooksAsync());
+
+        Assert.Equal(2, ex.InnerExceptions.Count);
     }
 }

@@ -1,0 +1,57 @@
+name: Mutation Testing
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+
+jobs:
+  mutation:
+    name: Mutation Testing
+    runs-on: ${{ inputs.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Restore
+        run: dotnet restore --locked-mode
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run mutation testing
+        working-directory: tests/Gsag.Transactional.Tests
+        run: dotnet stryker
+        continue-on-error: true
+
+      - name: Stage and post mutation report
+        if: always()
+        shell: bash
+        run: |
+          report=$(find . -path "*/StrykerOutput/*/reports/mutation-report.md" | sort | tail -1)
+          if [ -n "$report" ]; then
+            cp "$report" mutation-report.md
+            cat mutation-report.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No mutation report found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: mutation-report.md
+          if-no-files-found: warn
+          retention-days: 7

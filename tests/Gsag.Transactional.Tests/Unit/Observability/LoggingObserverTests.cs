@@ -69,4 +69,32 @@ public class LoggingObserverTests
         Assert.Contains(_info.MethodName, message);
         Assert.Same(ex, capturedException);
     }
+
+    [Fact]
+    public void OnComplete_LogsAtDebug_WithMethodNameAndCommitted()
+    {
+        var logger = new FakeLogger();
+        var observer = new LoggingTransactionObserver(logger);
+
+        observer.OnComplete(_info, committed: true, TimeSpan.FromMilliseconds(55));
+
+        var (level, message, _) = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Debug, level);
+        Assert.Contains("COMPLETE", message);
+        Assert.Contains(_info.MethodName, message);
+    }
+
+    [Fact]
+    public void OnComplete_WhenRolledBack_LogsAtDebug_WithCommittedFalse()
+    {
+        var logger = new FakeLogger();
+        var observer = new LoggingTransactionObserver(logger);
+
+        observer.OnComplete(_info, committed: false, TimeSpan.FromMilliseconds(10));
+
+        var (level, message, _) = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Debug, level);
+        Assert.Contains("COMPLETE", message);
+        Assert.Contains("False", message);
+    }
 }

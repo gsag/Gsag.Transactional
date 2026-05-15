@@ -10,6 +10,7 @@ public interface IAfterRollbackService
     Task CommitAsync();
     Task RollbackAsync();
     Task RollbackWithFailingHookAsync();
+    Task RollbackWithTwoFailingHooksAsync();
     ValueTask RollbackValueTaskAsync();
     Task ThrowSyncBeforeTaskAsync();
 }
@@ -43,6 +44,24 @@ public class AfterRollbackService : IAfterRollbackService
         _hooks.AfterRollback((Action)(() => throw new InvalidOperationException("hook-1 failed")));
         _hooks.AfterRollback(() => Fired.Add("hook-2"));
         _hooks.AfterRollback(() => Fired.Add("hook-3"));
+        await Task.CompletedTask;
+        throw new InvalidOperationException("forced rollback");
+    }
+
+    [Transactional]
+    public async Task RollbackWithTwoFailingHooksAsync()
+    {
+        _hooks.AfterRollback((Action)(() =>
+        {
+            Fired.Add("hook-1-ran");
+            throw new InvalidOperationException("hook-1 failed");
+        }));
+        _hooks.AfterRollback(async () =>
+        {
+            Fired.Add("hook-2-ran");
+            await Task.CompletedTask;
+            throw new InvalidOperationException("hook-2 failed");
+        });
         await Task.CompletedTask;
         throw new InvalidOperationException("forced rollback");
     }
@@ -140,5 +159,22 @@ public class AfterRollbackTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => proxy.ThrowSyncBeforeTaskAsync());
 
         Assert.Contains("after-rollback-sync-throw", svc.Fired);
+    }
+
+    /// <summary>
+    /// When two AfterRollback hooks both fail, the AggregateException must contain both inner
+    /// exceptions. Verifies that the error list uses ??= so earlier exceptions are not lost.
+    /// Hook failures are suppressed on the rollback path — the original exception propagates.
+    /// </summary>
+    [Fact]
+    public async Task AfterRollback_WhenTwoHooksFail_BothExceptionsCollectedButSuppressed()
+    {
+        var (proxy, svc) = Build();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => proxy.RollbackWithTwoFailingHooksAsync());
+
+        Assert.Equal("forced rollback", ex.Message);
+        Assert.Equal(["hook-1-ran", "hook-2-ran"], svc.Fired);
     }
 }

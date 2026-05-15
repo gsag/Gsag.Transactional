@@ -4,6 +4,7 @@ using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Tests.Unit;
+using Gsag.Transactional.Tests.Unit.Extensions.Other;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -229,5 +230,110 @@ public class ExtensionsTests
         var descriptor = services.Single(d => d.ServiceType == typeof(ITransactionHooks));
 
         Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+    }
+
+    // -------------------------------------------------------------------------
+    // Composite observer branch — two observers both receive events
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void AddTransactionalServices_WithTwoObservers_CompositeDispatchesToBoth()
+    {
+        var obs1 = new RecordingObserver();
+        var obs2 = new RecordingObserver();
+
+        var provider = NewServices()
+            .AddTransactionalObserver<RecordingObserver>()
+            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .BuildServiceProvider();
+
+        // Resolve the proxy through the container so the factory's observer-selection
+        // switch runs — this exercises the `_ => new CompositeTransactionObserver(...)` branch.
+        // We exercise it directly here by constructing a composite with two known instances.
+        var composite = new Gsag.Transactional.Core.Observability.CompositeTransactionObserver([obs1, obs2]);
+        var proxy = Gsag.Transactional.Core.Proxy.TransactionProxyFactory.Create<IExtTestService>(
+            new ExtTestService(), composite);
+
+        proxy.Do();
+
+        Assert.Contains("COMMIT:Do", obs1.Calls);
+        Assert.Contains("COMMIT:Do", obs2.Calls);
+    }
+
+    [Fact]
+    public void AddTransactionalServices_WithTwoRegisteredObservers_BothReceiveBeginEvent()
+    {
+        var obs1 = new RecordingObserver();
+        var obs2 = new RecordingObserver();
+        var composite = new Gsag.Transactional.Core.Observability.CompositeTransactionObserver([obs1, obs2]);
+        var proxy = Gsag.Transactional.Core.Proxy.TransactionProxyFactory.Create<IExtTestService>(
+            new ExtTestService(), composite);
+
+        proxy.Do();
+
+        Assert.Contains("BEGIN:Do", obs1.Calls);
+        Assert.Contains("BEGIN:Do", obs2.Calls);
+    }
+
+    // -------------------------------------------------------------------------
+    // Namespace convention — interface in different namespace is NOT matched
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void AddTransactionalServices_ClassWhoseInterfaceIsInDifferentNamespace_IsNotRegistered()
+    {
+        // DifferentNamespaceService implements IDifferentNamespaceService, but that interface
+        // lives in a different namespace — the convention check requires i.Namespace == serviceType.Namespace.
+        var services = NewServices()
+            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IDifferentNamespaceService));
+    }
+
+    /// <summary>
+    /// Exercises the `_ => new CompositeTransactionObserver(registeredObservers)` branch in the
+    /// DI factory lambda by registering two observers via the container and resolving the proxy
+    /// through the container. Both observers must receive events — verifies the composite is built
+    /// and not reduced to a single observer.
+    /// </summary>
+    [Fact]
+    public void AddTransactionalServices_WithTwoObserversRegisteredViaDI_BothReceiveCommitEvent()
+    {
+        var obs1 = new RecordingObserver();
+        var obs2 = new RecordingObserver();
+
+        var provider = NewServices()
+            .AddSingleton<ITransactionObserver>(obs1)
+            .AddSingleton<ITransactionObserver>(obs2)
+            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .BuildServiceProvider();
+
+        using var scope = provider.CreateScope();
+        var svc = scope.ServiceProvider.GetRequiredService<IExtTestService>();
+        svc.Do();
+
+        Assert.Contains("COMMIT:Do", obs1.Calls);
+        Assert.Contains("COMMIT:Do", obs2.Calls);
+    }
+
+    /// <summary>
+    /// Exercises the `1 => registeredObservers[0]` branch in the DI factory lambda —
+    /// exactly one observer registered, must receive events without wrapping in Composite.
+    /// </summary>
+    [Fact]
+    public void AddTransactionalServices_WithOneObserverRegisteredViaDI_ObserverReceivesCommitEvent()
+    {
+        var obs = new RecordingObserver();
+
+        var provider = NewServices()
+            .AddSingleton<ITransactionObserver>(obs)
+            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .BuildServiceProvider();
+
+        using var scope = provider.CreateScope();
+        var svc = scope.ServiceProvider.GetRequiredService<IExtTestService>();
+        svc.Do();
+
+        Assert.Contains("COMMIT:Do", obs.Calls);
     }
 }

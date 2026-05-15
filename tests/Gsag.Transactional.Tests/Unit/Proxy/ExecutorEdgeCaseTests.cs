@@ -82,6 +82,26 @@ public class ForcedAbortService : IForcedAbortService
     public void ForceAbort() => Transaction.Current!.Rollback();
 }
 
+// Task<T>-returning method that throws synchronously before returning its task.
+// Exercises the returnType.IsGenericType branch in HandleAsync that creates a
+// properly-typed faulted Task<T> via CreateFaultedTask rather than Task.FromException.
+public interface IGenericTaskSyncThrowService
+{
+    [Transactional]
+    Task<string> ThrowSynchronouslyBeforeTaskAsync();
+}
+
+public class GenericTaskSyncThrowService : IGenericTaskSyncThrowService
+{
+    public Task<string> ThrowSynchronouslyBeforeTaskAsync()
+    {
+        throw new InvalidOperationException("generic-task-sync-throw");
+#pragma warning disable CS0162
+        return Task.FromResult("unreachable");
+#pragma warning restore CS0162
+    }
+}
+
 public class ExecutorEdgeCaseTests
 {
     [Fact]
@@ -170,5 +190,43 @@ public class ExecutorEdgeCaseTests
         var ex = Assert.Throws<InvalidOperationException>(() => proxy.ForceAbort());
 
         Assert.Equal("observer-rollback-fail", ex.Message);
+    }
+
+    [Fact]
+    public void ForceAbort_OnComplete_CommittedIsFalse()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IForcedAbortService>(
+            new ForcedAbortService(), observer);
+
+        Assert.Throws<TransactionAbortedException>(() => proxy.ForceAbort());
+
+        Assert.Contains("COMPLETE:ForceAbort:False", observer.Calls);
+    }
+
+    [Fact]
+    public async Task HandleAsync_GenericTask_WhenThrowsSynchronouslyBeforeTask_OriginalExceptionPropagates()
+    {
+        var proxy = TransactionProxyFactory.Create<IGenericTaskSyncThrowService>(
+            new GenericTaskSyncThrowService());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => proxy.ThrowSynchronouslyBeforeTaskAsync());
+
+        Assert.Equal("generic-task-sync-throw", ex.Message);
+    }
+
+    [Fact]
+    public async Task HandleAsync_GenericTask_WhenThrowsSynchronouslyBeforeTask_ObserverReceivesRollbackAndComplete()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IGenericTaskSyncThrowService>(
+            new GenericTaskSyncThrowService(), observer);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => proxy.ThrowSynchronouslyBeforeTaskAsync());
+
+        Assert.Contains("ROLLBACK:ThrowSynchronouslyBeforeTaskAsync", observer.Calls);
+        Assert.Contains("COMPLETE:ThrowSynchronouslyBeforeTaskAsync:False", observer.Calls);
     }
 }

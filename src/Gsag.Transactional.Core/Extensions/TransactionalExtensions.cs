@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
@@ -20,6 +21,9 @@ public static class TransactionalExtensions
     ///
     /// Convention: OrderService → IOrderService (interface must be in the same assembly).
     /// </summary>
+    [RequiresUnreferencedCode(
+        "Scans the assembly for [Transactional] methods using reflection. " +
+        "Ensure all service types and their interface members are preserved when publishing with trimming.")]
     public static IServiceCollection AddTransactionalServices(
         this IServiceCollection services, Assembly assembly)
     {
@@ -134,6 +138,7 @@ public static class TransactionalExtensions
 
     // BindingFlags.NonPublic is included to detect explicitly implemented interface methods,
     // which are Private from the declaring class's perspective.
+    [RequiresUnreferencedCode("Inspects arbitrary types for [Transactional] attributes via reflection.")]
     private static bool HasTransactionalMethod(Type type) =>
         type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
             .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: true))
