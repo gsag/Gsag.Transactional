@@ -18,10 +18,3 @@ jobs:
     uses: ./.github/workflows/_quality-gate.yml
     with:
       os: windows-latest
-
-  mutation:
-    needs: build-test
-    if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/_mutation.yml
-    with:
-      os: windows-latest

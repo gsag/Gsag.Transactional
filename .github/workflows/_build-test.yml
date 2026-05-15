@@ -68,3 +68,10 @@ jobs:
           name: coverage-xml
           path: coverage/**/coverage.cobertura.xml
           retention-days: 1
+
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: coverage/report/SummaryGithub.md
+          retention-days: 1

@@ -1,0 +1,14 @@
+{
+  "stryker-config": {
+    "solution": "../../Gsag.Transactional.sln",
+    "project": "Gsag.Transactional.Core.csproj",
+    "test-filter": "FullyQualifiedName!~Integration.Demo",
+    "coverage-analysis": "off",
+    "thresholds": {
+      "high": 80,
+      "low": 70,
+      "break": 70
+    },
+    "reporters": ["markdown", "progress", "html"]
+  }
+}

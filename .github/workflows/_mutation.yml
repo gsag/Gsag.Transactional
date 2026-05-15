@@ -37,25 +37,26 @@ jobs:
         run: dotnet tool install -g dotnet-stryker
 
       - name: Run mutation testing
-        shell: bash
         working-directory: tests/Gsag.Transactional.Tests
-        run: |
-          dotnet stryker \
-            --project Gsag.Transactional.Core.csproj \
-            --threshold-high 80 \
-            --threshold-low 70 \
-            --break-at 70 \
-            --coverage-analysis off \
-            --reporter markdown \
-            --reporter progress
+        run: dotnet stryker
 
-      - name: Post mutation results to job summary
+      - name: Stage and post mutation report
         if: always()
         shell: bash
         run: |
           report=$(find . -path "*/StrykerOutput/*/reports/mutation-report.md" | sort | tail -1)
           if [ -n "$report" ]; then
-            cat "$report" >> $GITHUB_STEP_SUMMARY
+            cp "$report" mutation-report.md
+            cat mutation-report.md >> $GITHUB_STEP_SUMMARY
           else
             echo "No mutation report found." >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: mutation-report.md
+          if-no-files-found: warn
+          retention-days: 7

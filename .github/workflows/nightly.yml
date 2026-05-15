@@ -1,0 +1,70 @@
+name: Nightly
+
+on:
+  push:
+    branches: [develop]
+  schedule:
+    - cron: '0 23 * * *'  # 23:00 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    uses: ./.github/workflows/_build-test.yml
+    with:
+      os: windows-latest
+    secrets: inherit
+
+  quality-gate:
+    needs: build-test
+    uses: ./.github/workflows/_quality-gate.yml
+    with:
+      os: windows-latest
+    secrets: inherit
+
+  mutation:
+    needs: build-test
+    uses: ./.github/workflows/_mutation.yml
+    with:
+      os: windows-latest
+    continue-on-error: true  # informativo: score abaixo do break não falha o workflow
+
+  report:
+    name: Consolidated Report
+    needs: [quality-gate, mutation]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-summary
+          path: coverage
+        continue-on-error: true
+
+      - name: Download mutation report
+        uses: actions/download-artifact@v4
+        with:
+          name: mutation-report
+          path: mutation
+        continue-on-error: true
+
+      - name: Build consolidated summary
+        shell: bash
+        run: |
+          {
+            echo "# Nightly Report — $(date -u +'%Y-%m-%d')"
+            echo ""
+            echo "## Test Coverage"
+            if [ -f coverage/SummaryGithub.md ]; then
+              cat coverage/SummaryGithub.md
+            else
+              echo "_Coverage data unavailable._"
+            fi
+            echo ""
+            echo "## Mutation Testing"
+            if [ -f mutation/mutation-report.md ]; then
+              cat mutation/mutation-report.md
+            else
+              echo "_Mutation report unavailable._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
