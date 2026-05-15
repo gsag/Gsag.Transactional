@@ -35,6 +35,10 @@ jobs:
         with:
           name: build-output
 
+      - name: Extract build output
+        shell: bash
+        run: tar -xzf build-output.tar.gz && rm build-output.tar.gz
+
       - name: Test
         run: dotnet test --no-build -c Release --filter "FullyQualifiedName!~Transactional.Tests.Integration.Demo" --collect:"XPlat Code Coverage" --results-directory ./coverage -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Gsag.Transactional.Core]*"
 

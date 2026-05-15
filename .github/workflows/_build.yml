@@ -35,9 +35,13 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
+      - name: Pack build output
+        shell: bash
+        run: find . -path './.git' -prune -o -path '*/bin/Release/*' -print | tar -czf build-output.tar.gz -T -
+
       - name: Upload build output
         uses: actions/upload-artifact@v7
         with:
           name: build-output
-          path: '**/bin/Release/**'
+          path: build-output.tar.gz
           retention-days: 1
