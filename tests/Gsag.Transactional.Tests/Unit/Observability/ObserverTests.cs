@@ -186,4 +186,53 @@ public class ObserverTests
         Assert.Contains("BEGIN:InterfaceAnnotatedMethod", observer.Calls);
         Assert.Contains("COMMIT:InterfaceAnnotatedMethod", observer.Calls);
     }
+
+    [Fact]
+    public void SyncCommit_OnComplete_CommittedIsTrue()
+    {
+        _proxy.CommitSync();
+        Assert.Contains("COMPLETE:CommitSync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task AsyncCommit_OnComplete_CommittedIsTrue()
+    {
+        await _proxy.CommitAsync();
+        Assert.Contains("COMPLETE:CommitAsync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public void VoidSyncCommit_OnComplete_CommittedIsTrue()
+    {
+        _proxy.CommitVoidSync();
+        Assert.Contains("COMPLETE:CommitVoidSync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task VoidValueTaskCommit_OnComplete_CommittedIsTrue()
+    {
+        await _proxy.CommitVoidValueTask();
+        Assert.Contains("COMPLETE:CommitVoidValueTask:True", _observer.Calls);
+    }
+
+    [Fact]
+    public void SyncRollback_OnComplete_CommittedIsFalse()
+    {
+        Assert.Throws<InvalidOperationException>(() => _proxy.ThrowSync());
+        Assert.Contains("COMPLETE:ThrowSync:False", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task AsyncRollback_OnComplete_CommittedIsFalse()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowAsync());
+        Assert.Contains("COMPLETE:ThrowAsync:False", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task VoidValueTaskRollback_OnComplete_CommittedIsFalse()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _proxy.ThrowVoidValueTask().AsTask());
+        Assert.Contains("COMPLETE:ThrowVoidValueTask:False", _observer.Calls);
+    }
 }

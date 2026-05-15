@@ -175,6 +175,31 @@ public class OuterWithSuppressAndRequiresNewService : IOuterWithSuppressAndRequi
 }
 
 // ---------------------------------------------------------------------------
+// Required joining ambient — outer rolls back after inner commits
+// Inner AfterCommit hook is in the outer collection (Joining); must NOT fire
+// because the outer scope rolls back. Distinguishes Joining from Owning:
+// with Owning the inner scope would commit independently and the hook would fire.
+// ---------------------------------------------------------------------------
+
+public interface IRequiredJoinRollbackOuterService
+{
+    Task RunAsync();
+}
+
+public class RequiredJoinRollbackOuterService : IRequiredJoinRollbackOuterService
+{
+    private readonly IRequiredJoinInnerService _inner;
+    public RequiredJoinRollbackOuterService(IRequiredJoinInnerService inner) => _inner = inner;
+
+    [Transactional]
+    public async Task RunAsync()
+    {
+        await _inner.RunAsync();
+        throw new InvalidOperationException("outer rollback");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Required inside Suppress — no ambient inside Suppress, so Required opens its own scope
 // ---------------------------------------------------------------------------
 
@@ -427,6 +452,28 @@ public class HookScopeTests
         // Inner hook flows into outer collection; all hooks fire on outer commit.
         Assert.Equal(["inner-hook"], innerSvc.Fired);
         Assert.Equal(["outer-hook-before", "outer-hook-after"], outerSvc.Fired);
+    }
+
+    /// <summary>
+    /// When the outer scope rolls back after the inner Required (Joining) scope has run,
+    /// AfterCommit hooks registered inside the inner scope flow into the outer collection and
+    /// must NOT fire — they are governed by the outer scope's outcome (rollback), not the
+    /// inner scope's wrapper outcome. This distinguishes the Joining role from Owning:
+    /// with Owning, the inner scope would commit independently and fire the hook.
+    /// </summary>
+    [Fact]
+    public async Task Required_JoiningScope_WhenOuterRollsBack_InnerAfterCommitHookDoesNotFire()
+    {
+        var hooks = new TransactionHooks();
+        var innerSvc = new RequiredJoinInnerService(hooks);
+        var innerProxy = TransactionProxyFactory.Create<IRequiredJoinInnerService>(innerSvc, observer: null);
+        var outerSvc = new RequiredJoinRollbackOuterService(innerProxy);
+        var outerProxy = TransactionProxyFactory.Create<IRequiredJoinRollbackOuterService>(outerSvc, observer: null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => outerProxy.RunAsync());
+
+        // Inner hook flowed into the outer collection; outer rolled back so no AfterCommit fires.
+        Assert.Empty(innerSvc.Fired);
     }
 
     /// <summary>

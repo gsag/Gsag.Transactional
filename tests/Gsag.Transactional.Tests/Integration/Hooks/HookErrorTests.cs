@@ -152,6 +152,34 @@ public class AbortWithHookService : IAbortWithHookService
 }
 
 // ---------------------------------------------------------------------------
+// Transaction.Current.Rollback() + AfterCommit hook registered
+// Verifies that effectiveOutcome = RolledBack when disposeEx is not null,
+// so AfterCommit hooks are NOT fired even though the method body completed normally.
+// ---------------------------------------------------------------------------
+
+public interface IAbortWithAfterCommitHookService
+{
+    Task RunAsync();
+}
+
+public class AbortWithAfterCommitHookService : IAbortWithAfterCommitHookService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Fired { get; } = [];
+    public AbortWithAfterCommitHookService(ITransactionHooks hooks) => _hooks = hooks;
+
+    [Transactional]
+    public async Task RunAsync()
+    {
+        _hooks.AfterCommit(() => Fired.Add("after-commit"));
+        _hooks.AfterRollback(() => Fired.Add("after-rollback"));
+        _hooks.AfterCompletion(() => Fired.Add("after-completion"));
+        await Task.CompletedTask;
+        Transaction.Current!.Rollback();
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Observer OnBegin throws
 // ---------------------------------------------------------------------------
 
@@ -373,5 +401,24 @@ public class HookErrorTests
         var goodProxy = TransactionProxyFactory.Create<ISimpleAsyncHookService>(hookSvc, observer: null);
         await goodProxy.RunAndCommitAsync();
         Assert.Equal(["async-hook"], hookSvc.Fired);
+    }
+
+    /// <summary>
+    /// When Rollback() is called inside a [Transactional] method, scope.Dispose() throws
+    /// TransactionAbortedException — effectiveOutcome must be set to RolledBack so that
+    /// AfterCommit hooks do NOT fire. AfterRollback and AfterCompletion hooks must still fire.
+    /// </summary>
+    [Fact]
+    public async Task TransactionAborted_AfterCommitHookDoesNotFire_AfterRollbackAndCompletionFire()
+    {
+        var hooksSvc = new TransactionHooks();
+        var svc = new AbortWithAfterCommitHookService(hooksSvc);
+        var proxy = TransactionProxyFactory.Create<IAbortWithAfterCommitHookService>(svc, observer: null);
+
+        await Assert.ThrowsAsync<TransactionAbortedException>(() => proxy.RunAsync());
+
+        Assert.DoesNotContain("after-commit", svc.Fired);
+        Assert.Contains("after-rollback", svc.Fired);
+        Assert.Contains("after-completion", svc.Fired);
     }
 }

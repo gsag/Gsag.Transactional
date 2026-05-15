@@ -24,6 +24,18 @@ public class ValueTaskSyncThrowService : IValueTaskSyncThrowService
         throw new InvalidOperationException("sync-vt-generic");
 }
 
+// Second distinct interface type for multi-type cache tests.
+public interface ISecondFactoryService
+{
+    [Gsag.Transactional.Core.Attributes.Transactional]
+    string Ping();
+}
+
+public class SecondFactoryService : ISecondFactoryService
+{
+    public string Ping() => "pong";
+}
+
 public class ProxyFactoryTests
 {
     // -------------------------------------------------------------------------
@@ -50,6 +62,89 @@ public class ProxyFactoryTests
 
         Assert.Contains("BEGIN:SyncReturn", observer.Calls);
         Assert.Contains("COMMIT:SyncReturn", observer.Calls);
+    }
+
+    [Fact]
+    public void Create_NonGeneric_CalledTwiceWithSameType_BothCallsWork()
+    {
+        var observer1 = new RecordingObserver();
+        var observer2 = new RecordingObserver();
+
+        var proxy1 = (IBasicService)TransactionProxyFactory.Create(
+            typeof(IBasicService), new BasicService(), observer1);
+        var proxy2 = (IBasicService)TransactionProxyFactory.Create(
+            typeof(IBasicService), new BasicService(), observer2);
+
+        proxy1.SyncReturn();
+        proxy2.SyncReturn();
+
+        Assert.Contains("COMMIT:SyncReturn", observer1.Calls);
+        Assert.Contains("COMMIT:SyncReturn", observer2.Calls);
+    }
+
+    [Fact]
+    public void Create_NonGeneric_WithDifferentInterfaceTypes_EachReturnsCorrectType()
+    {
+        var proxy1 = TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), null);
+        var proxy2 = TransactionProxyFactory.Create(typeof(ISecondFactoryService), new SecondFactoryService(), null);
+
+        Assert.IsAssignableFrom<IBasicService>(proxy1);
+        Assert.IsAssignableFrom<ISecondFactoryService>(proxy2);
+        Assert.IsNotType<BasicService>(proxy1);
+        Assert.IsNotType<SecondFactoryService>(proxy2);
+    }
+
+    [Fact]
+    public void Create_NonGeneric_WithDifferentInterfaceTypes_EachRoutesThroughCorrectProxy()
+    {
+        var obs1 = new RecordingObserver();
+        var obs2 = new RecordingObserver();
+
+        var proxy1 = (IBasicService)TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), obs1);
+        var proxy2 = (ISecondFactoryService)TransactionProxyFactory.Create(typeof(ISecondFactoryService), new SecondFactoryService(), obs2);
+
+        proxy1.SyncReturn();
+        proxy2.Ping();
+
+        Assert.Contains("COMMIT:SyncReturn", obs1.Calls);
+        Assert.Empty(obs1.Calls.Where(c => c.Contains("Ping")));
+        Assert.Contains("COMMIT:Ping", obs2.Calls);
+        Assert.Empty(obs2.Calls.Where(c => c.Contains("SyncReturn")));
+    }
+
+    [Fact]
+    public void Create_NonGeneric_NullObserver_DoesNotThrow()
+    {
+        var proxy = (IBasicService)TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), null);
+
+        var result = proxy.SyncReturn();
+
+        Assert.Equal("ok", result);
+    }
+
+    [Fact]
+    public void Create_NonGeneric_NullObserver_RecordsNoEvents()
+    {
+        var recordingProxy = (IBasicService)TransactionProxyFactory.Create(
+            typeof(IBasicService), new BasicService(), null);
+
+        // Calling with null observer must not throw and must still execute the method.
+        var result = recordingProxy.SyncReturn();
+
+        Assert.Equal("ok", result);
+    }
+
+    [Fact]
+    public void Create_NonGeneric_WithObserver_ObserverReceivesBeginAndComplete()
+    {
+        var observer = new RecordingObserver();
+        var proxy = (IBasicService)TransactionProxyFactory.Create(
+            typeof(IBasicService), new BasicService(), observer);
+
+        proxy.SyncReturn();
+
+        Assert.Contains("BEGIN:SyncReturn", observer.Calls);
+        Assert.Contains("COMPLETE:SyncReturn:True", observer.Calls);
     }
 
     // -------------------------------------------------------------------------

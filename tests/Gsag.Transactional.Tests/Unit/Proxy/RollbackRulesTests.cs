@@ -151,4 +151,34 @@ public class RollbackRulesTests
         Assert.Contains("COMMIT:NoRollbackForValueTaskGenericAsync", _observer.Calls);
         Assert.DoesNotContain("ROLLBACK:NoRollbackForValueTaskGenericAsync", _observer.Calls);
     }
+
+    [Fact]
+    public async Task NoRollbackFor_WhenMatchingException_OnComplete_CommittedIsTrue()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(() => _proxy.NoRollbackForCancelledAsync());
+        Assert.Contains("COMPLETE:NoRollbackForCancelledAsync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_TaskGeneric_OnComplete_CommittedIsTrue()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(() => _proxy.NoRollbackForTaskGenericAsync());
+        Assert.Contains("COMPLETE:NoRollbackForTaskGenericAsync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_ValueTask_OnComplete_CommittedIsTrue()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _proxy.NoRollbackForValueTaskAsync().AsTask());
+        Assert.Contains("COMPLETE:NoRollbackForValueTaskAsync:True", _observer.Calls);
+    }
+
+    [Fact]
+    public async Task NoRollbackFor_ValueTaskGeneric_OnComplete_CommittedIsTrue()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _proxy.NoRollbackForValueTaskGenericAsync().AsTask());
+        Assert.Contains("COMPLETE:NoRollbackForValueTaskGenericAsync:True", _observer.Calls);
+    }
 }
