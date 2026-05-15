@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.4.0/docs/_src/articles/architecture.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/docs/_src/articles/architecture.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -189,7 +189,7 @@ var scope = CreateScope(attr);       // too late
 <hr>
 <h2 id="transactionscopeexecutor--all-lifecycle-logic">TransactionScopeExecutor — all lifecycle logic</h2>
 <p><code>TransactionScopeExecutor</code> is a <strong>non-generic static class</strong>. Keeping it non-generic means the reflection fields used for <code>MakeGenericMethod</code> calls (<code>WrapGenericTaskAsyncMethod</code>, <code>WrapGenericValueTaskAsyncMethod</code>) are computed <strong>once per application</strong>, not once per proxied interface type.</p>
-<p><code>ShouldRollback</code> implements a three-rule precedence check:</p>
+<p>Rollback decisions are delegated to <code>RollbackPolicy</code> (internal). <code>RollbackPolicy.From(attr)</code> captures the attribute configuration at scope-open time; <code>ShouldRollback(ex)</code> implements a three-rule precedence check:</p>
 <ol>
 <li>If the exception type is in <code>NoRollbackFor</code> → <strong>commit</strong></li>
 <li>If <code>RollbackFor</code> is non-empty and the type is not listed → <strong>commit</strong></li>
