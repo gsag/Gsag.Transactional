@@ -234,15 +234,10 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         }
 
         var map = concreteType.GetInterfaceMap(m.DeclaringType);
-        for (var i = 0; i < map.InterfaceMethods.Length; i++)
-        {
-            if (map.InterfaceMethods[i] == m)
-            {
-                return map.TargetMethods[i]
-                    .GetCustomAttribute<TransactionalAttribute>(inherit: false);
-            }
-        }
-        return null;
+        var idx = Array.FindIndex(map.InterfaceMethods, im => im == m);
+        return idx < 0
+            ? null
+            : map.TargetMethods[idx].GetCustomAttribute<TransactionalAttribute>(inherit: false);
     }
 
     private object? InvokeTarget(MethodInfo method, object?[] args)
