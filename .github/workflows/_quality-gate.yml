@@ -110,4 +110,4 @@ jobs:
             -reports:"coverage/**/coverage.cobertura.xml" \
             -targetdir:"coverage/threshold" \
             -reporttypes:"TextSummary" \
-            -minimumCoverageThresholds:"linecoverage=90;branchcoverage=80"
+            -minimumCoverageThresholds:"linecoverage=90;branchcoverage=90"
