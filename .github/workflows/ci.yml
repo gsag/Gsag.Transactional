@@ -7,14 +7,22 @@ on:
     branches: [main, develop]
 
 jobs:
-  build-test:
-    uses: ./.github/workflows/_build-test.yml
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      os: windows-latest
+    secrets: inherit
+
+  test:
+    needs: build
+    uses: ./.github/workflows/_test.yml
     with:
       os: windows-latest
     secrets: inherit
 
   quality-gate:
-    needs: build-test
+    needs: test
     uses: ./.github/workflows/_quality-gate.yml
     with:
       os: windows-latest
+    secrets: inherit
