@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Threading;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Observability;
@@ -291,5 +293,25 @@ public class ProxyMechanicsTests
         proxy.DoWork();
 
         Assert.Contains("COMPLETE:DoWork:True", observer.Calls);
+    }
+
+    // -------------------------------------------------------------------------
+    // FindAttribute — defensive guard: null DeclaringType
+    //
+    // DynamicMethod.DeclaringType is null, exercising the guard that prevents
+    // GetInterfaceMap from being called with a null argument.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void FindAttribute_WhenDeclaringTypeIsNull_ReturnsNull()
+    {
+        var dm = new DynamicMethod("Orphan", typeof(void), Type.EmptyTypes);
+        var findAttribute = typeof(TransactionProxy<IBasicService>)
+            .GetMethod("FindAttribute", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        (MethodInfo Method, Type Concrete) key = (dm, typeof(BasicService));
+        var result = findAttribute.Invoke(null, [key]);
+
+        Assert.Null(result);
     }
 }
