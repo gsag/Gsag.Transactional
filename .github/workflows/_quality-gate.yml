@@ -25,7 +25,9 @@ jobs:
             9.0.x
             10.0.x
           cache: true
-          cache-dependency-path: "**/packages.lock.json"
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
 
       - name: Restore tools
         run: dotnet tool restore
