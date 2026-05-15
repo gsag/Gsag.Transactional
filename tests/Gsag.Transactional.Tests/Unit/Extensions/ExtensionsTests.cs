@@ -242,14 +242,6 @@ public class ExtensionsTests
         var obs1 = new RecordingObserver();
         var obs2 = new RecordingObserver();
 
-        var provider = NewServices()
-            .AddTransactionalObserver<RecordingObserver>()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
-            .BuildServiceProvider();
-
-        // Resolve the proxy through the container so the factory's observer-selection
-        // switch runs — this exercises the `_ => new CompositeTransactionObserver(...)` branch.
-        // We exercise it directly here by constructing a composite with two known instances.
         var composite = new Gsag.Transactional.Core.Observability.CompositeTransactionObserver([obs1, obs2]);
         var proxy = Gsag.Transactional.Core.Proxy.TransactionProxyFactory.Create<IExtTestService>(
             new ExtTestService(), composite);
