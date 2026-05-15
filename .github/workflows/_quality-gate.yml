@@ -106,5 +106,21 @@ jobs:
           dotnet reportgenerator \
             -reports:"coverage/**/coverage.cobertura.xml" \
             -targetdir:"coverage/threshold" \
-            -reporttypes:"TextSummary" \
-            -minimumCoverageThresholds:"linecoverage=90;branchcoverage=90"
+            -reporttypes:"TextSummary"
+
+          summary="coverage/threshold/Summary.txt"
+          cat "$summary"
+
+          line_cov=$(grep "Line coverage:" "$summary" | sed 's/.*: \([0-9.]*\)%.*/\1/')
+          branch_cov=$(grep "Branch coverage:" "$summary" | sed 's/.*: \([0-9.]*\)%.*/\1/')
+
+          failed=0
+          if awk "BEGIN{exit !($line_cov < 90)}"; then
+            echo "::error::Line coverage ${line_cov}% is below threshold 90%"
+            failed=1
+          fi
+          if awk "BEGIN{exit !($branch_cov < 90)}"; then
+            echo "::error::Branch coverage ${branch_cov}% is below threshold 90%"
+            failed=1
+          fi
+          exit $failed
