@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.0-alpha] — 2026-05-15
+
+### Added
+- `AddTransactionalService<T, I>()` explicit overload: registers a concrete type `T` paired with interface `I` without relying on the `I{ClassName}` naming convention.
+- `[RequiresUnreferencedCode]` on `AddTransactionalServices` for trim analysis safety; suppresses `IL2072` inside `TransactionProxy<T>` with `[UnconditionalSuppressMessage]` and a justification comment.
+- Stryker mutation testing integrated into the nightly CI pipeline; `stryker-config.json` with `test-case-filter` to exclude Demo integration tests from mutation runs.
+- Nightly CI workflow (`nightly.yml`): `build → test → quality-gate + mutation (parallel) → consolidated report`; triggered by schedule (23:00 UTC) and `workflow_dispatch`.
+- Quality gate expanded with trim compatibility analysis (`EnableTrimAnalyzer`) and API compatibility check (`EnablePackageValidation` against the latest published NuGet release).
+- `.config/dotnet-tools.json` tool manifest pinning `reportgenerator 5.5.10` and `dotnet-stryker 4.14.1`; all workflows use `dotnet tool restore` instead of ad-hoc global installs.
+- `codecov.yml` enforcing ≥ 90% coverage on both project and patch for every PR.
+
+### Changed
+- `RollbackPolicy` extracted from `TransactionScopeExecutor`: rollback decisions delegated to `RollbackPolicy.From(attr)` / `ShouldRollback(ex)`, applying the three-rule precedence (`NoRollbackFor` → `RollbackFor` → default rollback).
+- `TransactionScopeExecutor` async wrappers (`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`) refactored via Template Method pattern, eliminating duplication across all four paths.
+- `ValueTask` synchronous fast path restored in async cores.
+- `FindAttribute` for-loop replaced with `Array.FindIndex` + ternary, removing the compiler-required unreachable trailing `return null`.
+- CI restructured into granular reusable workflows: `_build.yml`, `_test.yml`, `_quality-gate.yml`, `_mutation.yml`.
+- Build and test split into separate pipeline stages; build output transferred between jobs as a tar archive to preserve project-relative paths.
+- All workflow runners standardised to `windows-latest`.
+- Coverage threshold raised to 90% (line and branch).
+- .NET SDK setup simplified from three versions (8/9/10) to a single `10.0.x`.
+- CI triggers extended: `ci.yml` now also runs on PRs targeting `develop`.
+
+### Fixed
+- Demo: Swagger browser now opens automatically on startup.
+- Timeout tests: resolved intermittent flakiness.
+- `FindAttribute`: added test using `DynamicMethod` (null `DeclaringType`) to cover the defensive guard preventing `GetInterfaceMap` from being called with a null argument.
+
+### Dependencies
+- `Microsoft.EntityFrameworkCore.Sqlite` and `Microsoft.EntityFrameworkCore.Design` bumped to 9.0.16.
+- `coverlet.collector` bumped to 10.0.0.
+- `Microsoft.NET.Test.Sdk` bumped to 18.5.1.
+- `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Logging.Abstractions` bumped to latest.
+- `codecov/codecov-action` bumped from v5 to v6.
+
+---
+
 ## [0.4.1-alpha] — 2026-05-12
 
 ### Added
