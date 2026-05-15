@@ -37,3 +37,10 @@ jobs:
 
       - name: Build
         run: dotnet build --no-restore -c Release
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-output
+          path: '**/bin/Release/**'
+          retention-days: 1
