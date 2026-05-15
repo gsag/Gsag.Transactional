@@ -83,6 +83,16 @@ jobs:
             exit 0
           fi
           echo "Validating API compatibility against v${latest}"
+          # PackageValidationBaselineVersion looks up the baseline in the global NuGet
+          # package cache. Download it explicitly so it is present before pack runs.
+          mkdir -p .baseline-restore
+          cat > .baseline-restore/baseline.csproj << PROJ
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup>
+            <ItemGroup><PackageDownload Include="Gsag.Transactional.Core" Version="[$latest]" /></ItemGroup>
+          </Project>
+          PROJ
+          dotnet restore .baseline-restore/baseline.csproj
           dotnet pack src/Gsag.Transactional.Core -c Release --no-build -o ./artifacts \
             -p:EnablePackageValidation=true \
             -p:PackageValidationBaselineVersion="${latest}"
