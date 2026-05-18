@@ -7,7 +7,7 @@ namespace Gsag.Transactional.Tests.Unit.Observability;
 
 public class LoggingObserverTests
 {
-    private sealed class FakeLogger : ILogger<ITransactionObserver>
+    private sealed class FakeLogger : ILogger<LoggingTransactionObserver>
     {
         public readonly List<(LogLevel Level, string Message, Exception? Exception)> Entries = [];
 

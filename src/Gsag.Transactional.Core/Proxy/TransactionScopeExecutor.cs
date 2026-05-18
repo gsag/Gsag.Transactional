@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -25,11 +26,13 @@ internal static class TransactionScopeExecutor
     private static readonly ConcurrentDictionary<Type, Func<Exception, object>> _faultedVtCache = new();
 
     // MethodInfo looked up once on a non-generic type — no per-T duplication.
+    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects private methods on this same class to build MakeGenericMethod delegates. The type is internal and the methods are implementation details, not an API boundary.")]
     private static readonly MethodInfo WrapGenericTaskAsyncMethod =
         typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException(
             $"TransactionScopeExecutor: required helper '{nameof(WrapGenericTaskAsync)}' not found.");
 
+    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects private methods on this same class to build MakeGenericMethod delegates. The type is internal and the methods are implementation details, not an API boundary.")]
     private static readonly MethodInfo WrapGenericValueTaskAsyncMethod =
         typeof(TransactionScopeExecutor).GetMethod(nameof(WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException(
@@ -257,6 +260,7 @@ internal static class TransactionScopeExecutor
     // Core template — owns the full transaction lifecycle for void async methods.
     // -------------------------------------------------------------------------
 
+    [SuppressMessage("Major Code Smell", "S1854", Justification = "outcome is read in the finally block; Sonar cannot track flow across a catch-then-throw boundary into finally.")]
     private static async ValueTask WrapVoidCoreAsync(ValueTask vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;
@@ -312,6 +316,7 @@ internal static class TransactionScopeExecutor
     // Identical to WrapVoidCoreAsync except it captures and returns the awaited result.
     // -------------------------------------------------------------------------
 
+    [SuppressMessage("Major Code Smell", "S1854", Justification = "outcome is read in the finally block; Sonar cannot track flow across a catch-then-throw boundary into finally.")]
     private static async ValueTask<TResult> WrapResultCoreAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx)
     {
         var outcome = TransactionOutcome.RolledBack;

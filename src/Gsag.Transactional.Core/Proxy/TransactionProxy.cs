@@ -22,12 +22,14 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     // Per-T caches — static fields on a generic type are intentionally per-T instantiation.
     // Key includes the concrete type so that different implementations of the same interface
     // each get their own attribute entries.
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<(MethodInfo method, Type concrete), TransactionalAttribute?> _attributeCache = new();
 
     // _delegateCache key is the interface MethodInfo — not the concrete method — because
     // the Expression.Convert(instanceParam, method.DeclaringType!) in BuildDelegate targets
     // the interface, and virtual dispatch carries the call to the correct concrete override.
     // Including the concrete type in the key is unnecessary and would fragment the cache.
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
     public static T Wrap(T target, ITransactionObserver? observer = null)
@@ -83,6 +85,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     // Sync path
     // -------------------------------------------------------------------------
 
+    [SuppressMessage("Major Code Smell", "S1854", Justification = "outcome is read in the finally block; Sonar cannot track flow across a catch-then-throw boundary into finally.")]
     private object? HandleSync(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
