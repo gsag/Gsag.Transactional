@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <!-- S2699: tests that verify no exception is thrown have no assertion by design -->
+    <NoWarn>$(NoWarn);S2699</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -134,10 +134,13 @@ public static class TransactionalExtensions
 
     // Internal marker: one instance per observer type T, used to detect duplicate
     // AddTransactionalObserver<T>() calls and prevent double registration.
+    [SuppressMessage("Major Code Smell", "S2094", Justification = "Intentional marker class — emptiness is the point; the type's existence in the DI container is the signal.")]
+    [SuppressMessage("Major Code Smell", "S2326", Justification = "T is the discriminator that makes each closed generic a unique DI marker; it is not used in the body by design.")]
     private sealed class ObserverRegistered<T> where T : class, ITransactionObserver { }
 
     // BindingFlags.NonPublic is included to detect explicitly implemented interface methods,
     // which are Private from the declaring class's perspective.
+    [SuppressMessage("Vulnerability", "S3011", Justification = "NonPublic is required to discover explicit interface implementations, which the CLR marks as Private. This reflects types from a user-supplied assembly, not a fixed internal target.")]
     [RequiresUnreferencedCode("Inspects arbitrary types for [Transactional] attributes via reflection.")]
     private static bool HasTransactionalMethod(Type type) =>
         type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)

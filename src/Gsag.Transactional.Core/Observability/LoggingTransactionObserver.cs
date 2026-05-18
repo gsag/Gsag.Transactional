@@ -8,9 +8,9 @@ namespace Gsag.Transactional.Core.Observability;
 /// </summary>
 internal sealed class LoggingTransactionObserver : ITransactionObserver
 {
-    private readonly ILogger<ITransactionObserver> _logger;
+    private readonly ILogger<LoggingTransactionObserver> _logger;
 
-    public LoggingTransactionObserver(ILogger<ITransactionObserver> logger)
+    public LoggingTransactionObserver(ILogger<LoggingTransactionObserver> logger)
         => _logger = logger;
 
     /// <inheritdoc/>

@@ -45,6 +45,7 @@ jobs:
         run: dotnet restore --locked-mode
 
       - name: SonarCloud — begin
+        if: secrets.SONAR_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -70,6 +71,7 @@ jobs:
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Gsag.Transactional.Core]*"
 
       - name: SonarCloud — end
+        if: secrets.SONAR_TOKEN != ''
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"

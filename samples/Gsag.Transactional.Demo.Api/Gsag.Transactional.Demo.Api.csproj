@@ -6,7 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- CS1591: Missing XML comment; CS1587: XML comment on positional record parameter (not a valid language element) -->
-    <NoWarn>$(NoWarn);1591;1587</NoWarn>
+    <!-- Sonar rules: reviewed in SonarCloud dashboard; samples is demo code excluded from quality gate -->
+    <NoWarn>$(NoWarn);1591;1587;S107;S125;S1118;S1192;S6960;S6966</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
