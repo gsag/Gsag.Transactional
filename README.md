@@ -1,6 +1,11 @@
 # Gsag.Transactional
 
-[![CI](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/gsag/Gsag.Transactional/branch/main/graph/badge.svg)](https://codecov.io/gh/gsag/Gsag.Transactional) [![NuGet](https://img.shields.io/nuget/v/Gsag.Transactional.Core.svg)](https://www.nuget.org/packages/Gsag.Transactional.Core) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![Status](https://img.shields.io/badge/status-pre--release-yellow) [![Docs](https://img.shields.io/badge/docs-github--pages-blue)](https://gsag.github.io/Gsag.Transactional)
+![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet)
+[![NuGet](https://img.shields.io/nuget/v/Gsag.Transactional.Core.svg)](https://www.nuget.org/packages/Gsag.Transactional.Core)
+[![ci](https://img.shields.io/github/actions/workflow/status/gsag/Gsag.Transactional/ci.yml?branch=main&label=CI&logo=github)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml)
+[![coverage](https://sonarcloud.io/api/project_badges/measure?project=gsag_Gsag.Transactional&metric=coverage)](https://sonarcloud.io/project/overview?id=gsag_Gsag.Transactional)
+[![docs](https://img.shields.io/badge/docs-github--pages-blue)](https://gsag.github.io/Gsag.Transactional)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Lightweight declarative `[Transactional]` attribute for C# using **only native .NET** — `DispatchProxy` + `TransactionScope`. No AOP libraries.
 
