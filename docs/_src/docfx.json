@@ -3,33 +3,34 @@
     {
       "src": [
         {
-          "files": ["src/Gsag.Transactional.Core/Gsag.Transactional.Core.csproj"]
+          "files": ["Gsag.Transactional.Core.csproj"],
+          "src": "../../src/Gsag.Transactional.Core"
         }
       ],
-      "dest": "docs/_src/api"
+      "dest": "api"
     }
   ],
   "build": {
     "content": [
       {
         "files": ["**.md", "**/toc.yml"],
-        "src": "docs/_src",
+        "src": ".",
         "dest": "."
       },
       {
         "files": ["api/**.yml"],
-        "src": "docs/_src",
+        "src": ".",
         "dest": "."
       }
     ],
     "resource": [
       {
         "files": ["images/**"],
-        "src": "docs/_src",
+        "src": ".",
         "dest": "."
       }
     ],
-    "output": "docs",
+    "output": "..",
     "template": ["default", "modern"],
     "globalMetadata": {
       "_appTitle": "Gsag.Transactional",
