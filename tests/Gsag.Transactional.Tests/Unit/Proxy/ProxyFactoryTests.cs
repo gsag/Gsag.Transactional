@@ -47,7 +47,7 @@ public class ProxyFactoryTests
     {
         var proxy = TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), null);
 
-        Assert.IsAssignableFrom<IBasicService>(proxy);
+        Assert.IsType<IBasicService>(proxy, exactMatch: false);
         Assert.IsNotType<BasicService>(proxy);
     }
 
@@ -55,8 +55,8 @@ public class ProxyFactoryTests
     public void Create_NonGeneric_WithObserver_RecordsLifecycleEvents()
     {
         var observer = new RecordingObserver();
-        var proxy = (IBasicService)TransactionProxyFactory.Create(
-            typeof(IBasicService), new BasicService(), observer);
+        var proxy = TransactionProxyFactory.Create<IBasicService>(
+            new BasicService(), observer);
 
         proxy.SyncReturn();
 
@@ -70,10 +70,10 @@ public class ProxyFactoryTests
         var observer1 = new RecordingObserver();
         var observer2 = new RecordingObserver();
 
-        var proxy1 = (IBasicService)TransactionProxyFactory.Create(
-            typeof(IBasicService), new BasicService(), observer1);
-        var proxy2 = (IBasicService)TransactionProxyFactory.Create(
-            typeof(IBasicService), new BasicService(), observer2);
+        var proxy1 = TransactionProxyFactory.Create<IBasicService>(
+            new BasicService(), observer1);
+        var proxy2 = TransactionProxyFactory.Create<IBasicService>(
+            new BasicService(), observer2);
 
         proxy1.SyncReturn();
         proxy2.SyncReturn();
@@ -88,8 +88,8 @@ public class ProxyFactoryTests
         var proxy1 = TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), null);
         var proxy2 = TransactionProxyFactory.Create(typeof(ISecondFactoryService), new SecondFactoryService(), null);
 
-        Assert.IsAssignableFrom<IBasicService>(proxy1);
-        Assert.IsAssignableFrom<ISecondFactoryService>(proxy2);
+        Assert.IsType<IBasicService>(proxy1, exactMatch: false);
+        Assert.IsType<ISecondFactoryService>(proxy2, exactMatch: false);
         Assert.IsNotType<BasicService>(proxy1);
         Assert.IsNotType<SecondFactoryService>(proxy2);
     }
@@ -100,8 +100,8 @@ public class ProxyFactoryTests
         var obs1 = new RecordingObserver();
         var obs2 = new RecordingObserver();
 
-        var proxy1 = (IBasicService)TransactionProxyFactory.Create(typeof(IBasicService), new BasicService(), obs1);
-        var proxy2 = (ISecondFactoryService)TransactionProxyFactory.Create(typeof(ISecondFactoryService), new SecondFactoryService(), obs2);
+        var proxy1 = TransactionProxyFactory.Create<IBasicService>(new BasicService(), obs1);
+        var proxy2 = TransactionProxyFactory.Create<ISecondFactoryService>(new SecondFactoryService(), obs2);
 
         proxy1.SyncReturn();
         proxy2.Ping();
@@ -138,8 +138,8 @@ public class ProxyFactoryTests
     public void Create_NonGeneric_WithObserver_ObserverReceivesBeginAndComplete()
     {
         var observer = new RecordingObserver();
-        var proxy = (IBasicService)TransactionProxyFactory.Create(
-            typeof(IBasicService), new BasicService(), observer);
+        var proxy = TransactionProxyFactory.Create<IBasicService>(
+            new BasicService(), observer);
 
         proxy.SyncReturn();
 

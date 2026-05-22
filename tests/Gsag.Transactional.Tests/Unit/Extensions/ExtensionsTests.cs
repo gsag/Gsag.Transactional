@@ -22,7 +22,7 @@ public class ExtTestService : IExtTestService
 public class ExtTestOrphan
 {
     [Transactional]
-    public void Run() { }
+    public static void Run() { }
 }
 
 // Service where [Transactional] is placed only on the interface, not the concrete class.
@@ -62,7 +62,7 @@ public class ExtensionsTests
 
         var svc = provider.GetRequiredService<IExtTestService>();
 
-        Assert.IsAssignableFrom<IExtTestService>(svc);
+        Assert.IsType<IExtTestService>(svc, exactMatch: false);
         Assert.IsNotType<ExtTestService>(svc); // must be proxy, not concrete
     }
 
@@ -177,7 +177,7 @@ public class ExtensionsTests
 
         var svc = provider.GetRequiredService<IInterfaceOnlyAttrService>();
 
-        Assert.IsAssignableFrom<IInterfaceOnlyAttrService>(svc);
+        Assert.IsType<IInterfaceOnlyAttrService>(svc, exactMatch: false);
         Assert.IsNotType<InterfaceOnlyAttrService>(svc); // must be a proxy
     }
 
@@ -206,7 +206,7 @@ public class ExtensionsTests
 
         var svc = provider.GetRequiredService<IManualService>();
 
-        Assert.IsAssignableFrom<IManualService>(svc);
+        Assert.IsType<IManualService>(svc, exactMatch: false);
         Assert.IsNotType<ManualServiceImpl>(svc);
     }
 

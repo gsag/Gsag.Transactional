@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.0] — 2026-05-22
+
+### Added
+- `.NET 10 support`: Core library now targets `.NET 8.0;net9.0;net10.0`; tests and demo upgraded to `.NET 10`; publish workflow validates package across all three versions.
+- `[SuppressMessage]` attributes across `TransactionProxy`, `TransactionScopeExecutor`, and `TransactionalExtensions` to document and suppress known static-analysis false positives for intended behaviors (per-T cache isolation, outcome tracking flow).
+- SonarCloud quality gate integration: standardized to ubuntu-latest runners, consolidated JSON report output.
+
+### Changed
+- **CI/Workflow Modernization**: Replaced Codecov with SonarCloud (org: `gsag`, project: `Gsag.Transactional`); coverage format changed from Cobertura to OpenCover.
+- CI workflows unified into two parallel jobs (`Build·Test·Analysis` and `Quality Gate`) on ubuntu-latest, eliminating cross-job artifact passing and reducing redundancy.
+- Nightly workflow refactored into three parallel jobs (`build-test-analysis`, `quality-gate`, `mutation`) with consolidated report output; all jobs now check out from `main` with full history for SonarCloud analysis.
+- `TransactionProxy.HandleAsync()` return type: `object` → `Task` (improves type safety and compiler optimizations on hot path).
+- `TransactionProxy.HandleValueTask()` return type: `object` → `ValueTask` (same rationale: type safety and async performance).
+- Test assertions: replaced `Assert.IsAssignableFrom<T>()` with `Assert.IsType<T>(obj, exactMatch: false)` for clarity (7 occurrences).
+- Test factory calls: converted non-generic `TransactionProxyFactory.Create(Type, object, observer)` to generic `Create<T>(instance, observer)` overload for type safety (5 occurrences in ProxyFactoryTests).
+
+### Fixed
+- Security hardening: moved secret expansion in `publish.yml` from inline run block to environment variable (via `env:` block) to prevent accidental exposure in logs.
+- SonarCloud analysis: made Sonar steps conditional on `SONAR_TOKEN` availability to prevent spurious failures when token is unavailable.
+- Test methods marked as `static` when they don't access instance data (`ExtensionsTests.Run`, `ProxyMechanicsTests.Method`).
+- Logging observer generic type: `LoggingTransactionObserver` now uses `ILogger<LoggingTransactionObserver>` instead of untyped logger, ensuring logs are categorized correctly in structured logging systems.
+- Documentation: revised `AGENTS.md` project guidelines; updated README for SonarCloud and removed obsolete Codecov references.
+- Build scripts: refactored `docs/_src/build.ps1` for improved UI/UX flow; organized top-level build scripts.
+
+### Dependencies
+- `dotnet-sonarscanner` added (11.2.1) to `.config/dotnet-tools.json` for CI SonarCloud integration.
+- `dotnet-stryker` bumped from 4.14.1 to 4.14.2.
+- `coverlet.collector` bumped from 10.0.0 to 10.0.1.
+- `xunit.runner.visualstudio` bumped from 3.0.0 to 3.1.5.
+
+---
+
 ## [0.5.0-alpha] — 2026-05-15
 
 ### Added

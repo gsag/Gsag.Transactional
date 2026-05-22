@@ -1,6 +1,6 @@
 # Gsag.Transactional
 
-![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4?logo=dotnet)
+![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)
 [![NuGet](https://img.shields.io/nuget/v/Gsag.Transactional.Core.svg)](https://www.nuget.org/packages/Gsag.Transactional.Core)
 [![ci](https://img.shields.io/github/actions/workflow/status/gsag/Gsag.Transactional/ci.yml?branch=main&label=CI&logo=github)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml)
 [![coverage](https://sonarcloud.io/api/project_badges/measure?project=gsag_Gsag.Transactional&metric=coverage)](https://sonarcloud.io/project/overview?id=gsag_Gsag.Transactional)

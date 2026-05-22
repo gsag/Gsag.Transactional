@@ -106,9 +106,13 @@ Always use braces for:
 - foreach
 - while
 
-All new code and refactors must strictly follow:
-- SOLID principles
-- Clean Code principles
+All new code and refactors must strictly follow this premises:
+- Always ask or clarify if the prompt is ambiguous; do not make decisions due to lack of clarity
+- Always create an execution plan before any action and review it with the user
+- Always be concise and avoid making unnecessarily complex decisions; simplify whenever possible
+- Always verify that the result meets the objective proposed in the task
+- Follow SOLID principles
+- Follow Clean Code guidelines
 
 Prefer:
 - small focused components
