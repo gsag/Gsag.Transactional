@@ -10,7 +10,7 @@ on:
         default: ''
 
 env:
-  DOTNET_VERSION: 9.0.x
+  DOTNET_VERSION: 10.0.x
   CORE_PROJECT: src/Gsag.Transactional.Core
 
 jobs:
@@ -21,13 +21,13 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           cache: true
@@ -89,7 +89,7 @@ jobs:
           mkdir -p .baseline-restore
           cat > .baseline-restore/baseline.csproj << PROJ
           <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup>
+            <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
             <ItemGroup><PackageDownload Include="Gsag.Transactional.Core" Version="[$latest]" /></ItemGroup>
           </Project>
           PROJ
