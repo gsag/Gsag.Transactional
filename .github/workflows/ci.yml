@@ -6,35 +6,49 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  # SonarCloud analysis requires write permission for PR decorations
+  pull-requests: read
+
 jobs:
   build-test:
     name: Build · Test · Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DOTNET_VERSION: 9.0.x
+      JAVA_VERSION: '21'
+      COVERAGE_DIR: ./coverage
+      COVERAGE_REPORT_DIR: coverage/report
+      COVERAGE_THRESHOLD: 90
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Source Link embeds commit hash — needs full history
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: microsoft
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
           cache: true
           cache-dependency-path: |
             **/packages.lock.json
             .config/dotnet-tools.json
 
       - name: Cache SonarCloud
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -47,9 +61,6 @@ jobs:
         run: dotnet restore --locked-mode
 
       - name: SonarCloud — begin
-        if: env.SONAR_TOKEN != ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           dotnet sonarscanner begin
           /k:"gsag_Gsag.Transactional"
@@ -57,130 +68,54 @@ jobs:
           /d:sonar.token="$SONAR_TOKEN"
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
-          /d:sonar.exclusions="samples/**,docs/**"
+          /d:sonar.exclusions="**/samples/**,**/docs/**"
 
       - name: Build
         run: dotnet build --no-restore -c Release -warnaserror
 
-      - name: Test
+      - name: Test (excluding demo integration tests)
         run: >
           dotnet test --no-build -c Release
           --filter "FullyQualifiedName!~Transactional.Tests.Integration.Demo"
           --collect:"XPlat Code Coverage"
-          --results-directory ./coverage
+          --results-directory ${{ env.COVERAGE_DIR }}
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Gsag.Transactional.Core]*"
 
       - name: SonarCloud — end
-        if: env.SONAR_TOKEN != ''
         run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
       - name: Generate coverage report
         run: >
           dotnet reportgenerator
-          -reports:"coverage/**/coverage.opencover.xml"
-          -targetdir:"coverage/report"
+          -reports:"${{ env.COVERAGE_DIR }}/**/coverage.opencover.xml"
+          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}"
           -reporttypes:"MarkdownSummaryGithub;TextSummary"
 
       - name: Post coverage to job summary
-        run: cat coverage/report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        run: cat ${{ env.COVERAGE_REPORT_DIR }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
 
       - name: Coverage threshold
         run: |
-          summary="coverage/report/Summary.txt"
+          summary="${{ env.COVERAGE_REPORT_DIR }}/Summary.txt"
           cat "$summary"
 
           line_cov=$(grep "Line coverage:" "$summary" | sed 's/.*: \([0-9.]*\)%.*/\1/')
           branch_cov=$(grep "Branch coverage:" "$summary" | sed 's/.*: \([0-9.]*\)%.*/\1/')
 
           failed=0
-          if awk "BEGIN{exit !($line_cov < 90)}"; then
-            echo "::error::Line coverage ${line_cov}% is below threshold 90%"
+          if awk "BEGIN{exit !($line_cov < ${{ env.COVERAGE_THRESHOLD }})}"; then
+            echo "::error::Line coverage ${line_cov}% is below threshold ${{ env.COVERAGE_THRESHOLD }}%"
             failed=1
           fi
-          if awk "BEGIN{exit !($branch_cov < 90)}"; then
-            echo "::error::Branch coverage ${branch_cov}% is below threshold 90%"
+          if awk "BEGIN{exit !($branch_cov < ${{ env.COVERAGE_THRESHOLD }})}"; then
+            echo "::error::Branch coverage ${branch_cov}% is below threshold ${{ env.COVERAGE_THRESHOLD }}%"
             failed=1
           fi
           exit $failed
 
   quality-gate:
     name: Quality Gate
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0  # Source Link embeds commit hash — needs full history
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 9.0.x
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            .config/dotnet-tools.json
-
-      - name: Restore tools
-        run: dotnet tool restore
-
-      - name: Restore
-        run: dotnet restore --locked-mode
-
-      # dotnet list package --vulnerable exits 0 even when vulnerabilities are found.
-      # Parse stdout: lines starting with "> " are vulnerable package entries.
-      - name: Check for vulnerable packages
-        run: |
-          output=$(dotnet list package --vulnerable --include-transitive 2>&1)
-          echo "$output"
-          if echo "$output" | grep -qE "^\s+> "; then
-            echo "::error::Vulnerable packages found. Review the output above."
-            exit 1
-          fi
-
-      - name: Format check
-        run: dotnet format --verify-no-changes --no-restore
-
-      - name: Trim compatibility analysis
-        run: |
-          dotnet build src/Gsag.Transactional.Core -c Release --no-restore \
-            -p:EnableTrimAnalyzer=true 2>&1 | tee trim.txt
-          count=$(grep -cE " warning IL" trim.txt || echo 0)
-          echo "### Trim Analysis" >> "$GITHUB_STEP_SUMMARY"
-          echo "IL warnings: **${count}**" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$count" -gt 0 ]; then
-            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
-            grep -E " warning IL" trim.txt >> "$GITHUB_STEP_SUMMARY"
-            printf '```\n' >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::${count} trim warning(s) found. Add [RequiresUnreferencedCode] or [UnconditionalSuppressMessage] to suppress intentional uses."
-            exit 1
-          fi
-
-      # Compares the packed nupkg against the latest published NuGet version via
-      # EnablePackageValidation. Fails if public API members are removed or changed
-      # in a breaking way. Skips gracefully when no prior release exists on NuGet.
-      # Relies on the build output produced by the trim analysis step above.
-      - name: Pack and check API compatibility
-        run: |
-          latest=$(curl -sf "https://api.nuget.org/v3-flatcontainer/gsag.transactional.core/index.json" \
-            | jq -r '.versions[-1] // empty')
-          if [ -z "$latest" ]; then
-            echo "No prior release on NuGet — running pack only."
-            dotnet pack src/Gsag.Transactional.Core -c Release --no-build -o ./artifacts
-            exit 0
-          fi
-          echo "Validating API compatibility against v${latest}"
-          # PackageValidationBaselineVersion looks up the baseline in the global NuGet
-          # package cache. Download it explicitly so it is present before pack runs.
-          mkdir -p .baseline-restore
-          cat > .baseline-restore/baseline.csproj << PROJ
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup>
-            <ItemGroup><PackageDownload Include="Gsag.Transactional.Core" Version="[$latest]" /></ItemGroup>
-          </Project>
-          PROJ
-          dotnet restore .baseline-restore/baseline.csproj
-          dotnet pack src/Gsag.Transactional.Core -c Release --no-build -o ./artifacts \
-            -p:EnablePackageValidation=true \
-            -p:PackageValidationBaselineVersion="${latest}"
+    uses: ./.github/workflows/quality-gate.yml
+    permissions:
+      contents: read

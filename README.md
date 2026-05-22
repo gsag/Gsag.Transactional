@@ -24,7 +24,6 @@ Inspired by Spring Framework's `@Transactional`, this project brings the same de
 - [Transaction Observer](#transaction-observer)
 - [Running locally](#running-locally)
 - [Known limitations](#known-limitations)
-- [Project structure](#project-structure)
 - [License](LICENSE)
 
 ---
@@ -365,47 +364,3 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 6. **SQLite does not enlist in `System.Transactions`** — EF Core 9's SQLite provider sets `SupportsAmbientTransactions = false`. The proxy lifecycle works correctly; the database itself ignores the scope. For real transactional integration tests, use SQL Server, PostgreSQL, or MySQL.
 
 7. **`CompositeTransactionObserver` is fail-fast** — if the first registered observer throws, subsequent observers are not called. This is by design but means observer registration order affects which observers receive events when one fails.
-
----
-
-## Project structure
-
-```
-src/
-  Gsag.Transactional.Core/     Pure library — no framework dependencies
-    Attributes/                [Transactional] attribute
-    Hooks/                     ITransactionHooks (BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion)
-    Observability/             ITransactionObserver, NullTransactionObserver,
-                               LoggingTransactionObserver, CompositeTransactionObserver
-    Proxy/                     TransactionProxy<T>, TransactionScopeExecutor, TransactionProxyFactory
-    Extensions/                AddTransactionalServices(), AddTransactionalLogging(),
-                               AddTransactionalObserver<T>() DI extensions
-samples/
-  Gsag.Transactional.Demo.Api/ ASP.NET Core + EF Core + SQLite — e-commerce checkout demo
-    Entities/                  CheckoutOrder, InventoryReservation, PaymentRecord, AuditEntry
-    Data/                      CheckoutDbContext
-    Exceptions/                PaymentDeclinedException, InventoryException, NotificationException
-    Infrastructure/            HookOutputCollector, InMemoryEventBus (Scoped per-request),
-                               InMemoryMetricsObserver (Singleton — Composite Observer demo)
-    Services/                  OrderService, InventoryService, PaymentService, AuditService,
-                               InventoryReportService, CheckoutService (8 scenario methods)
-    Controllers/               CheckoutController (8 POST + 5 GET/DELETE)
-tests/
-  Gsag.Transactional.Tests/
-    Unit/                      Proxy mechanics, propagation, rollback rules, observer, composite observer
-    Integration/               CheckoutIntegrationTests — real SQLite, full service graph
-    Integration/Hooks/         BeforeCommit, BeforeRollback, AfterCommit, AfterRollback, AfterCompletion, nested scopes
-```
-
-## Documentation
-
-The full documentation site (guides, Mermaid diagrams, API reference) is available at
-**https://gsag.github.io/Gsag.Transactional**.
-
-To build the docs locally:
-
-```bash
-dotnet tool install -g docfx
-docfx --serve    # builds and opens http://localhost:8080
-```
-

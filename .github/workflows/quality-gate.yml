@@ -1,0 +1,99 @@
+name: Quality Gate
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to checkout
+        required: false
+        type: string
+        default: ''
+
+env:
+  DOTNET_VERSION: 9.0.x
+  CORE_PROJECT: src/Gsag.Transactional.Core
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore --locked-mode
+
+      # dotnet list package --vulnerable exits 0 even when vulnerabilities are found.
+      # Parse stdout: lines starting with "> " are vulnerable package entries.
+      - name: Check for vulnerable packages
+        run: |
+          output=$(dotnet list package --vulnerable --include-transitive 2>&1)
+          echo "$output"
+          if echo "$output" | grep -qE "^\s+> "; then
+            echo "::error::Vulnerable packages found. Review the output above."
+            exit 1
+          fi
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Trim compatibility analysis
+        run: |
+          dotnet build ${{ env.CORE_PROJECT }} -c Release --no-restore \
+            -p:EnableTrimAnalyzer=true 2>&1 | tee trim.txt
+          count=$(grep -cE " warning IL" trim.txt || echo 0)
+          echo "### Trim Analysis" >> "$GITHUB_STEP_SUMMARY"
+          echo "IL warnings: **${count}**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -gt 0 ]; then
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+            grep -E " warning IL" trim.txt >> "$GITHUB_STEP_SUMMARY"
+            printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::${count} trim warning(s) found. Add [RequiresUnreferencedCode] or [UnconditionalSuppressMessage] to suppress intentional uses."
+            exit 1
+          fi
+
+      # Compares the packed nupkg against the latest published NuGet version via
+      # EnablePackageValidation. Fails if public API members are removed or changed
+      # in a breaking way. Skips gracefully when no prior release exists on NuGet.
+      # Relies on the build output produced by the trim analysis step above.
+      - name: Pack and check API compatibility
+        run: |
+          latest=$(curl -sf "https://api.nuget.org/v3-flatcontainer/gsag.transactional.core/index.json" \
+            | jq -r '.versions[-1] // empty')
+          if [ -z "$latest" ]; then
+            echo "No prior release on NuGet — running pack only."
+            dotnet pack ${{ env.CORE_PROJECT }} -c Release --no-build -o ./artifacts
+            exit 0
+          fi
+          echo "Validating API compatibility against v${latest}"
+          # PackageValidationBaselineVersion looks up the baseline in the global NuGet
+          # package cache. Download it explicitly so it is present before pack runs.
+          mkdir -p .baseline-restore
+          cat > .baseline-restore/baseline.csproj << PROJ
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup>
+            <ItemGroup><PackageDownload Include="Gsag.Transactional.Core" Version="[$latest]" /></ItemGroup>
+          </Project>
+          PROJ
+          dotnet restore .baseline-restore/baseline.csproj
+          dotnet pack ${{ env.CORE_PROJECT }} -c Release --no-build -o ./artifacts \
+            -p:EnablePackageValidation=true \
+            -p:PackageValidationBaselineVersion="${latest}"
