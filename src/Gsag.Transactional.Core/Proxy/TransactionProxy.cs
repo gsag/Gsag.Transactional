@@ -152,7 +152,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     // value only in the wrapper's own context, not in the outer async state machine's context.
     // -------------------------------------------------------------------------
 
-    private object HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
+    private Task HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         Task task;
@@ -177,7 +177,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
     }
 
-    private object HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
+    private ValueTask HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
         ValueTask vt;

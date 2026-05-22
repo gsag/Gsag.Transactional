@@ -60,7 +60,7 @@ public class OutParamService : IOutParamService
 
 public class ConcreteService
 {
-    public string Method() => "concrete";
+    public static string Method() => "concrete";
 }
 
 public class ConcurrentRecordingObserver : ITransactionObserver
@@ -98,7 +98,7 @@ public class ProxyMechanicsTests
 
     [Fact]
     public void ProxyFactory_ReturnsImplementationOfInterface()
-        => Assert.IsAssignableFrom<IBasicService>(_proxy);
+        => Assert.IsType<IBasicService>(_proxy, exactMatch: false);
 
     [Fact]
     public void Method_WithoutAttribute_PassesThrough()
