@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.5.0] — 2026-05-22
 
 ### Added
+- `.NET 10 support`: Core library now targets `.NET 8.0;net9.0;net10.0`; tests and demo upgraded to `.NET 10`; publish workflow validates package across all three versions.
 - `[SuppressMessage]` attributes across `TransactionProxy`, `TransactionScopeExecutor`, and `TransactionalExtensions` to document and suppress known static-analysis false positives for intended behaviors (per-T cache isolation, outcome tracking flow).
 - SonarCloud quality gate integration: standardized to ubuntu-latest runners, consolidated JSON report output.
 
