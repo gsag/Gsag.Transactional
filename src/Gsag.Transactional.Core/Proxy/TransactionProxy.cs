@@ -177,6 +177,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
     }
 
+    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to WrapVoidValueTaskAsync as an argument; the try-catch wrapper is necessary to preserve rollback semantics when InvokeTarget throws before returning the task.")]
     private ValueTask HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
@@ -193,6 +194,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         return TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx);
     }
 
+    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to CallGenericValueTaskWrapper as an argument; the try-catch wrapper is necessary to preserve rollback semantics when InvokeTarget throws before returning the task.")]
     private object HandleValueTaskGeneric(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
     {
         var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
