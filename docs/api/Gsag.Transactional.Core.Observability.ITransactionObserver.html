@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/fix/ci-artifact-paths-and-coverage/apiSpec/new?filename=Gsag_Transactional_Core_Observability_ITransactionObserver.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Observability.ITransactionObserver%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/docs/update-readme/apiSpec/new?filename=Gsag_Transactional_Core_Observability_ITransactionObserver.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Observability.ITransactionObserver%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -89,7 +89,7 @@
 
 
   <h1 id="Gsag_Transactional_Core_Observability_ITransactionObserver" data-uid="Gsag.Transactional.Core.Observability.ITransactionObserver" class="text-break">
-Interface ITransactionObserver  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L8"><i class="bi bi-code-slash"></i></a>
+Interface ITransactionObserver  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L8"><i class="bi bi-code-slash"></i></a>
   </h1>
 
   <div class="facts text-secondary">
@@ -127,7 +127,7 @@ to observe transaction events for logging, metrics, or testing.</p>
 
   <h3 id="Gsag_Transactional_Core_Observability_ITransactionObserver_OnBegin_Gsag_Transactional_Core_Observability_TransactionInfo_" data-uid="Gsag.Transactional.Core.Observability.ITransactionObserver.OnBegin(Gsag.Transactional.Core.Observability.TransactionInfo)">
   OnBegin(TransactionInfo)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L11"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Called immediately after the TransactionScope is opened.</p>
@@ -159,7 +159,7 @@ to observe transaction events for logging, metrics, or testing.</p>
 
   <h3 id="Gsag_Transactional_Core_Observability_ITransactionObserver_OnCommit_Gsag_Transactional_Core_Observability_TransactionInfo_System_TimeSpan_" data-uid="Gsag.Transactional.Core.Observability.ITransactionObserver.OnCommit(Gsag.Transactional.Core.Observability.TransactionInfo,System.TimeSpan)">
   OnCommit(TransactionInfo, TimeSpan)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L14"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Called when scope.Complete() is invoked (transaction will commit).</p>
@@ -193,7 +193,7 @@ to observe transaction events for logging, metrics, or testing.</p>
 
   <h3 id="Gsag_Transactional_Core_Observability_ITransactionObserver_OnComplete_Gsag_Transactional_Core_Observability_TransactionInfo_System_Boolean_System_TimeSpan_" data-uid="Gsag.Transactional.Core.Observability.ITransactionObserver.OnComplete(Gsag.Transactional.Core.Observability.TransactionInfo,System.Boolean,System.TimeSpan)">
   OnComplete(TransactionInfo, bool, TimeSpan)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L40"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L40"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Called after the transaction resolves — commit or rollback — regardless of outcome.
@@ -241,7 +241,7 @@ Any exception thrown by this method propagates to the caller of the transactiona
 
   <h3 id="Gsag_Transactional_Core_Observability_ITransactionObserver_OnRollback_Gsag_Transactional_Core_Observability_TransactionInfo_System_Exception_System_TimeSpan_" data-uid="Gsag.Transactional.Core.Observability.ITransactionObserver.OnRollback(Gsag.Transactional.Core.Observability.TransactionInfo,System.Exception,System.TimeSpan)">
   OnRollback(TransactionInfo, Exception, TimeSpan)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/fix/ci-artifact-paths-and-coverage/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Observability/ITransactionObserver.cs/#L21"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Called when the transaction is aborted due to an exception.
