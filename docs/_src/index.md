@@ -8,9 +8,8 @@ Lightweight declarative `[Transactional]` attribute for C# using only native .NE
 
 Wraps any interface method in a `System.Transactions.TransactionScope` using `DispatchProxy`, giving you Spring-style transaction management without PostSharp, Castle DynamicProxy, or any other weaving tool.
 
-[![CI](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml/badge.svg)](https://github.com/gsag/Gsag.Transactional/actions/workflows/ci.yml)
+![.NET](https://img.shields.io/badge/.NET-8+-512BD4)
 [![NuGet](https://img.shields.io/nuget/v/Gsag.Transactional.Core.svg)](https://www.nuget.org/packages/Gsag.Transactional.Core)
-![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-512BD4)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gsag/Gsag.Transactional/blob/main/LICENSE)
 
 ## Install
