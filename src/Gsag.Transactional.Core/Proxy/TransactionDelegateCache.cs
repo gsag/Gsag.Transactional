@@ -15,23 +15,33 @@ internal static class TransactionDelegateCache
     private static readonly ConcurrentDictionary<Type, Func<Exception, object>> _faultedVtCache = new();
 
     // MethodInfo looked up once — no per-call reflection overhead.
-    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects internal methods on TransactionAsyncRunner, an internal type in the same assembly, to build compiled MakeGenericMethod delegates.")]
-    private static readonly MethodInfo WrapGenericTaskAsyncMethod =
-        typeof(TransactionAsyncRunner).GetMethod(nameof(TransactionAsyncRunner.WrapGenericTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+    // SingleOrDefault with parameter-type filter is required because ExecuteAsync is overloaded;
+    // GetMethod(name) would throw AmbiguousMatchException with multiple overloads of the same name.
+    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects internal methods on TransactionAsyncExecutor, an internal type in the same assembly, to build compiled MakeGenericMethod delegates.")]
+    private static readonly MethodInfo ExecuteAsyncTaskMethod =
+        typeof(TransactionAsyncExecutor)
+            .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .SingleOrDefault(m => m.Name == "ExecuteAsync"
+                               && m.IsGenericMethodDefinition
+                               && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(Task<>))
         ?? throw new InvalidOperationException(
-            $"TransactionDelegateCache: required helper '{nameof(TransactionAsyncRunner.WrapGenericTaskAsync)}' not found on TransactionAsyncRunner.");
+            "TransactionDelegateCache: generic Task<TResult> overload of 'ExecuteAsync' not found on TransactionAsyncExecutor.");
 
-    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects internal methods on TransactionAsyncRunner, an internal type in the same assembly, to build compiled MakeGenericMethod delegates.")]
-    private static readonly MethodInfo WrapGenericValueTaskAsyncMethod =
-        typeof(TransactionAsyncRunner).GetMethod(nameof(TransactionAsyncRunner.WrapGenericValueTaskAsync), BindingFlags.NonPublic | BindingFlags.Static)
+    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects internal methods on TransactionAsyncExecutor, an internal type in the same assembly, to build compiled MakeGenericMethod delegates.")]
+    private static readonly MethodInfo ExecuteAsyncValueTaskMethod =
+        typeof(TransactionAsyncExecutor)
+            .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .SingleOrDefault(m => m.Name == "ExecuteAsync"
+                               && m.IsGenericMethodDefinition
+                               && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ValueTask<>))
         ?? throw new InvalidOperationException(
-            $"TransactionDelegateCache: required helper '{nameof(TransactionAsyncRunner.WrapGenericValueTaskAsync)}' not found on TransactionAsyncRunner.");
+            "TransactionDelegateCache: generic ValueTask<TResult> overload of 'ExecuteAsync' not found on TransactionAsyncExecutor.");
 
     internal static Task CallGenericTaskWrapper(Type tResult, Task task, TransactionContext ctx)
     {
         var del = _taskWrapperCache.GetOrAdd(tResult, static t =>
         {
-            var method = WrapGenericTaskAsyncMethod.MakeGenericMethod(t);
+            var method = ExecuteAsyncTaskMethod.MakeGenericMethod(t);
             var pTask = Expression.Parameter(typeof(Task), "task");
             var pCtx = Expression.Parameter(typeof(TransactionContext), "ctx");
             var call = Expression.Call(method, Expression.Convert(pTask, typeof(Task<>).MakeGenericType(t)), pCtx);
@@ -45,7 +55,7 @@ internal static class TransactionDelegateCache
     {
         var del = _vtWrapperCache.GetOrAdd(tResult, static t =>
         {
-            var method = WrapGenericValueTaskAsyncMethod.MakeGenericMethod(t);
+            var method = ExecuteAsyncValueTaskMethod.MakeGenericMethod(t);
             var vtType = typeof(ValueTask<>).MakeGenericType(t);
             var pVt = Expression.Parameter(typeof(object), "vt");
             var pCtx = Expression.Parameter(typeof(TransactionContext), "ctx");

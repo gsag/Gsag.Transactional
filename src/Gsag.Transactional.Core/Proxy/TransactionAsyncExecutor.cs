@@ -4,7 +4,7 @@ using Gsag.Transactional.Core.Hooks;
 
 namespace Gsag.Transactional.Core.Proxy;
 
-internal static class TransactionAsyncRunner
+internal static class TransactionAsyncExecutor
 {
     // Sentinel type — allows void and result-returning paths to share WrapCoreAsync<TResult>.
     // VoidAdapter converts ValueTask → ValueTask<VoidResult> so both paths enter the same template.
@@ -15,18 +15,18 @@ internal static class TransactionAsyncRunner
     // Task-returning adapters call .AsTask() so callers that hold a Task stay on that path.
     // -------------------------------------------------------------------------
 
-    internal static Task WrapVoidTaskAsync(Task task, TransactionContext ctx) =>
+    internal static Task ExecuteAsync(Task task, TransactionContext ctx) =>
         WrapCoreAsync(VoidAdapter(new ValueTask(task)), ctx).AsTask();
 
-    internal static async ValueTask WrapVoidValueTaskAsync(ValueTask vt, TransactionContext ctx)
+    internal static async ValueTask ExecuteAsync(ValueTask vt, TransactionContext ctx)
     {
         await WrapCoreAsync(VoidAdapter(vt), ctx).ConfigureAwait(false);
     }
 
-    internal static Task<TResult> WrapGenericTaskAsync<TResult>(Task<TResult> task, TransactionContext ctx) =>
+    internal static Task<TResult> ExecuteAsync<TResult>(Task<TResult> task, TransactionContext ctx) =>
         WrapCoreAsync(new ValueTask<TResult>(task), ctx).AsTask(); // called via TransactionDelegateCache
 
-    internal static ValueTask<TResult> WrapGenericValueTaskAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx) =>
+    internal static ValueTask<TResult> ExecuteAsync<TResult>(ValueTask<TResult> vt, TransactionContext ctx) =>
         WrapCoreAsync(vt, ctx); // called via TransactionDelegateCache
 
     private static async ValueTask<VoidResult> VoidAdapter(ValueTask vt)

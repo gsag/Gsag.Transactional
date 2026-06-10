@@ -45,10 +45,10 @@ internal static class AsyncHandler
         {
             return TransactionDelegateCache.CallGenericTaskWrapper(returnType.GetGenericArguments()[0], task, ctx);
         }
-        return TransactionAsyncRunner.WrapVoidTaskAsync(task, ctx);
+        return TransactionAsyncExecutor.ExecuteAsync(task, ctx);
     }
 
-    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to WrapVoidValueTaskAsync as an argument; the try-catch wrapper is necessary to preserve rollback semantics when invokeTarget throws before returning the task.")]
+    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to ExecuteAsync as an argument; the try-catch wrapper is necessary to preserve rollback semantics when invokeTarget throws before returning the task.")]
     internal static ValueTask ExecuteValueTask(
         MethodInfo method,
         object?[] args,
@@ -67,7 +67,7 @@ internal static class AsyncHandler
             vt = ValueTask.FromException(ex);
         }
         TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-        return TransactionAsyncRunner.WrapVoidValueTaskAsync(vt, ctx);
+        return TransactionAsyncExecutor.ExecuteAsync(vt, ctx);
     }
 
     [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to CallGenericValueTaskWrapper as an argument; the try-catch wrapper is necessary to preserve rollback semantics when invokeTarget throws before returning the task.")]

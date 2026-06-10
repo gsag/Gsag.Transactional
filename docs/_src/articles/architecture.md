@@ -115,10 +115,10 @@ The lifecycle logic is split across four focused classes, each with a single res
 |---|---|
 | `TransactionScopeFactory` | Creates and initialises the `TransactionScope`; sets up the `AsyncLocal` hook slot via `BeginScope`; notifies the observer via `OnBegin` |
 | `TransactionLifecycle` | `Commit`, `Rollback`, `TryDispose`, `NotifyCommitOutcome` — drives `scope.Complete()` / `scope.Dispose()` and all observer callbacks |
-| `TransactionAsyncRunner` | Async wrappers for `Task`, `ValueTask`, `Task<T>`, and `ValueTask<T>`; hosts the single `WrapCoreAsync<TResult>` template that owns the full async lifecycle |
+| `TransactionAsyncExecutor` | Async wrappers for `Task`, `ValueTask`, `Task<T>`, and `ValueTask<T>`; hosts the single `WrapCoreAsync<TResult>` template that owns the full async lifecycle |
 | `TransactionDelegateCache` | Compiled-delegate caches for `MakeGenericMethod` calls; computed once per result type to avoid per-call reflection overhead |
 
-`TransactionAsyncRunner` unifies the void and result-returning async paths through a `WrapCoreAsync<TResult>` template method. A zero-byte `VoidResult` sentinel struct lets the void path share the same generic template without extra allocation.
+`TransactionAsyncExecutor` unifies the void and result-returning async paths through a `WrapCoreAsync<TResult>` template method. A zero-byte `VoidResult` sentinel struct lets the void path share the same generic template without extra allocation.
 
 `SyncHandler` and `AsyncHandler` are static classes that implement the sync and async execution paths respectively. Both classes open the scope via `TransactionScopeFactory`, delegate lifecycle transitions to `TransactionLifecycle`, and run hooks via `TransactionHooks`.
 

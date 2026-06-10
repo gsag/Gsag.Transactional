@@ -164,8 +164,8 @@ public class ExecutorEdgeCaseTests
 
     // The three tests below are async analogues of Dispose_WhenTransactionAbortedAfterComplete.
     // Each covers the disposeEx is not null branches in a different async wrapper:
-    // WrapGenericTaskAsync, WrapVoidValueTaskAsync, WrapGenericValueTaskAsync.
-    // WrapVoidTaskAsync is already covered by HookErrorTests.
+    // ExecuteAsync<T>(Task<T>), ExecuteAsync(ValueTask), ExecuteAsync<T>(ValueTask<T>).
+    // ExecuteAsync(Task) is already covered by HookErrorTests.
 
     [Fact]
     public async Task WrapGenericTask_WhenTransactionAbortedAfterComplete_PropagatesAbortedException()
