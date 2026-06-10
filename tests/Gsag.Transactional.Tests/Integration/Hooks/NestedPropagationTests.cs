@@ -108,6 +108,109 @@ public class DeepL1Service : IDeepL1Service
 }
 
 // ---------------------------------------------------------------------------
+// ClearScope restoration — ValueTask and ValueTask<T> inner scopes (AsyncHandler lines 69, 93)
+// ---------------------------------------------------------------------------
+
+// Inner service returning ValueTask from a RequiresNew scope.
+// Exercises ExecuteValueTask, which must call ClearScope synchronously so the outer
+// execution context sees the outer hook collection when it resumes after the await.
+public interface IInnerValueTaskService
+{
+    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
+    ValueTask RunAsync();
+}
+
+public class InnerValueTaskService : IInnerValueTaskService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Fired { get; } = [];
+    public InnerValueTaskService(ITransactionHooks hooks) => _hooks = hooks;
+
+    public async ValueTask RunAsync()
+    {
+        await Task.CompletedTask;
+        _hooks.AfterCommit(() => Fired.Add("inner-hook"));
+    }
+}
+
+// Outer service returning Task. After awaiting the inner ValueTask call, it registers
+// a hook that must land in the outer scope — not in the inner's now-dead collection.
+public interface IOuterCallingValueTaskService
+{
+    [Transactional]
+    Task RunAsync();
+}
+
+public class OuterCallingValueTaskService : IOuterCallingValueTaskService
+{
+    private readonly ITransactionHooks _hooks;
+    private readonly IInnerValueTaskService _inner;
+    public List<string> Fired { get; } = [];
+
+    public OuterCallingValueTaskService(ITransactionHooks hooks, IInnerValueTaskService inner)
+    {
+        _hooks = hooks;
+        _inner = inner;
+    }
+
+    public async Task RunAsync()
+    {
+        await _inner.RunAsync();
+        // Registered after the inner RequiresNew scope completes. If ClearScope was not called
+        // synchronously in ExecuteValueTask, _current would still point to the inner's dead
+        // hook collection and this hook would be lost at outer commit.
+        _hooks.AfterCommit(() => Fired.Add("outer-hook-after-inner"));
+    }
+}
+
+// Inner service returning ValueTask<int> from a RequiresNew scope.
+// Exercises ExecuteValueTaskGeneric, which must also call ClearScope synchronously.
+public interface IInnerValueTaskGenericService
+{
+    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
+    ValueTask<int> RunAsync();
+}
+
+public class InnerValueTaskGenericService : IInnerValueTaskGenericService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Fired { get; } = [];
+    public InnerValueTaskGenericService(ITransactionHooks hooks) => _hooks = hooks;
+
+    public async ValueTask<int> RunAsync()
+    {
+        await Task.CompletedTask;
+        _hooks.AfterCommit(() => Fired.Add("inner-hook"));
+        return 42;
+    }
+}
+
+public interface IOuterCallingValueTaskGenericService
+{
+    [Transactional]
+    Task RunAsync();
+}
+
+public class OuterCallingValueTaskGenericService : IOuterCallingValueTaskGenericService
+{
+    private readonly ITransactionHooks _hooks;
+    private readonly IInnerValueTaskGenericService _inner;
+    public List<string> Fired { get; } = [];
+
+    public OuterCallingValueTaskGenericService(ITransactionHooks hooks, IInnerValueTaskGenericService inner)
+    {
+        _hooks = hooks;
+        _inner = inner;
+    }
+
+    public async Task RunAsync()
+    {
+        await _inner.RunAsync();
+        _hooks.AfterCommit(() => Fired.Add("outer-hook-after-inner"));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 4-level independent scopes: Required (L1) → RequiresNew (L2) → RequiresNew (L3) → RequiresNew (L4)
 // ---------------------------------------------------------------------------
 
@@ -247,6 +350,50 @@ public class NestedPropagationTests
         // L1 hooks fire when L1 commits — after the entire L2 subtree has resolved.
         // l1-hook-after would be lost if the RequiresNew stack corrupted the AsyncLocal at L1.
         Assert.Equal(["l1-hook-before", "l1-hook-after"], l1Svc.Fired);
+    }
+
+    /// <summary>
+    /// Verifies that <c>ClearScope</c> is called synchronously in <c>ExecuteValueTask</c>
+    /// so the caller's execution context is restored before it resumes after the await.
+    /// If <c>ClearScope</c> is skipped, the hook registered by the outer method after the inner call
+    /// would be added to the inner's now-dead collection and would not fire at outer commit.
+    /// </summary>
+    [Fact]
+    public async Task ClearScope_AfterValueTask_RestoredInCallerContext()
+    {
+        var hooks = new TransactionHooks();
+
+        var innerSvc = new InnerValueTaskService(hooks);
+        var innerProxy = TransactionProxyFactory.Create<IInnerValueTaskService>(innerSvc, observer: null);
+
+        var outerSvc = new OuterCallingValueTaskService(hooks, innerProxy);
+        var outerProxy = TransactionProxyFactory.Create<IOuterCallingValueTaskService>(outerSvc, observer: null);
+
+        await outerProxy.RunAsync();
+
+        Assert.Contains("inner-hook", innerSvc.Fired);
+        Assert.Contains("outer-hook-after-inner", outerSvc.Fired);
+    }
+
+    /// <summary>
+    /// Verifies that <c>ClearScope</c> is called synchronously in <c>ExecuteValueTaskGeneric</c>
+    /// so the caller's execution context is restored before it resumes after the await.
+    /// </summary>
+    [Fact]
+    public async Task ClearScope_AfterValueTaskGeneric_RestoredInCallerContext()
+    {
+        var hooks = new TransactionHooks();
+
+        var innerSvc = new InnerValueTaskGenericService(hooks);
+        var innerProxy = TransactionProxyFactory.Create<IInnerValueTaskGenericService>(innerSvc, observer: null);
+
+        var outerSvc = new OuterCallingValueTaskGenericService(hooks, innerProxy);
+        var outerProxy = TransactionProxyFactory.Create<IOuterCallingValueTaskGenericService>(outerSvc, observer: null);
+
+        await outerProxy.RunAsync();
+
+        Assert.Contains("inner-hook", innerSvc.Fired);
+        Assert.Contains("outer-hook-after-inner", outerSvc.Fired);
     }
 
     /// <summary>

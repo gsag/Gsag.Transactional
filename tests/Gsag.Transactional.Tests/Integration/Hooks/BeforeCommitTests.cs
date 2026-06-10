@@ -1,6 +1,7 @@
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Proxy;
+using Gsag.Transactional.Tests.Unit;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Integration.Hooks;
@@ -15,6 +16,8 @@ public interface IBeforeCommitService
     void RunSyncAndCommit();
     void RunSyncWithFailingBeforeCommitHook();
     void RunSyncWithAsyncBeforeCommitHook();
+    void RunSyncWithNoRollbackFor();
+    void RunSyncWithNoRollbackForAndFailingHook();
 }
 
 public class BeforeCommitService : IBeforeCommitService
@@ -91,6 +94,23 @@ public class BeforeCommitService : IBeforeCommitService
     {
         _hooks.BeforeCommit(async () => { await Task.CompletedTask; Fired.Add("async-hook"); });
     }
+
+    [Transactional(NoRollbackFor = [typeof(InvalidOperationException)])]
+    public void RunSyncWithNoRollbackFor()
+    {
+        _hooks.BeforeCommit(() => Fired.Add("before-commit"));
+        _hooks.AfterCommit(() => Fired.Add("after-commit"));
+        throw new InvalidOperationException("no-rollback exception");
+    }
+
+    [Transactional(NoRollbackFor = [typeof(InvalidOperationException)])]
+    public void RunSyncWithNoRollbackForAndFailingHook()
+    {
+        Action hookThatThrows = () => throw new Exception("hook failure");
+        _hooks.BeforeCommit(hookThatThrows);
+        _hooks.AfterCommit(() => Fired.Add("after-commit"));
+        throw new InvalidOperationException("no-rollback exception");
+    }
 }
 
 public class BeforeCommitTests
@@ -101,6 +121,15 @@ public class BeforeCommitTests
         var svc = new BeforeCommitService(hooks);
         var proxy = TransactionProxyFactory.Create<IBeforeCommitService>(svc, observer: null);
         return (proxy, svc);
+    }
+
+    private static (IBeforeCommitService proxy, BeforeCommitService svc, RecordingObserver observer) BuildWithObserver()
+    {
+        var hooks = new TransactionHooks();
+        var svc = new BeforeCommitService(hooks);
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IBeforeCommitService>(svc, observer);
+        return (proxy, svc, observer);
     }
 
     [Fact]
@@ -194,5 +223,43 @@ public class BeforeCommitTests
         var (proxy, _) = Build();
 
         Assert.Throws<NotSupportedException>(() => proxy.RunSyncWithAsyncBeforeCommitHook());
+    }
+
+    // Sync NoRollbackFor path — BeforeCommit hooks run with suppressExceptions: true (SyncHandler lines 37-40)
+
+    [Fact]
+    public void BeforeCommit_SyncPath_WhenNoRollbackFor_Fires()
+    {
+        var (proxy, svc) = Build();
+
+        Assert.Throws<InvalidOperationException>(() => proxy.RunSyncWithNoRollbackFor());
+
+        Assert.Contains("before-commit", svc.Fired);
+        Assert.Contains("after-commit", svc.Fired);
+    }
+
+    [Fact]
+    public void BeforeCommit_SyncPath_WhenNoRollbackFor_AndHookThrows_ExceptionIsSuppressed()
+    {
+        var (proxy, svc) = Build();
+
+        // Hook failure is suppressed (suppressExceptions: true); original NoRollbackFor exception propagates.
+        var ex = Assert.Throws<InvalidOperationException>(() => proxy.RunSyncWithNoRollbackForAndFailingHook());
+
+        Assert.Equal("no-rollback exception", ex.Message);
+        Assert.Contains("after-commit", svc.Fired); // transaction still committed
+    }
+
+    // Observer notification when sync BeforeCommit hook fails (SyncHandler line 48)
+
+    [Fact]
+    public void BeforeCommit_SyncPath_WhenHookThrows_ObserverReceivesRollback()
+    {
+        var (proxy, _, observer) = BuildWithObserver();
+
+        Assert.Throws<AggregateException>(() => proxy.RunSyncWithFailingBeforeCommitHook());
+
+        Assert.Contains("ROLLBACK:RunSyncWithFailingBeforeCommitHook", observer.Calls);
+        Assert.DoesNotContain("COMMIT:RunSyncWithFailingBeforeCommitHook", observer.Calls);
     }
 }

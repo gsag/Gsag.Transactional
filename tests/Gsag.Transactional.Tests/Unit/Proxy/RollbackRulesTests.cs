@@ -9,6 +9,9 @@ namespace Gsag.Transactional.Tests.Unit.Proxy;
 public interface IRollbackService
 {
     [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
+    void NoRollbackForSync();
+
+    [Transactional(NoRollbackFor = [typeof(OperationCanceledException)])]
     Task NoRollbackForCancelledAsync();
 
     [Transactional(RollbackFor = [typeof(InvalidOperationException)])]
@@ -38,6 +41,8 @@ public interface IRollbackService
 
 public class RollbackService : IRollbackService
 {
+    public void NoRollbackForSync() => throw new OperationCanceledException();
+
     public Task NoRollbackForCancelledAsync() =>
         Task.FromException(new OperationCanceledException());
 
@@ -180,5 +185,22 @@ public class RollbackRulesTests
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => _proxy.NoRollbackForValueTaskGenericAsync().AsTask());
         Assert.Contains("COMPLETE:NoRollbackForValueTaskGenericAsync:True", _observer.Calls);
+    }
+
+    // Sync path — NoRollbackFor exception must commit and propagate (SyncHandler lines 37-40)
+
+    [Fact]
+    public void NoRollbackFor_Sync_CommitsAndPropagates()
+    {
+        Assert.Throws<OperationCanceledException>(() => _proxy.NoRollbackForSync());
+        Assert.Contains("COMMIT:NoRollbackForSync", _observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:NoRollbackForSync", _observer.Calls);
+    }
+
+    [Fact]
+    public void NoRollbackFor_Sync_OnComplete_CommittedIsTrue()
+    {
+        Assert.Throws<OperationCanceledException>(() => _proxy.NoRollbackForSync());
+        Assert.Contains("COMPLETE:NoRollbackForSync:True", _observer.Calls);
     }
 }
