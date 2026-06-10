@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
@@ -11,13 +10,12 @@ internal static class TransactionScopeFactory
 {
     internal static TransactionContext OpenScope(MethodInfo method, TransactionalAttribute attr, ITransactionObserver observer)
     {
-        var sw = Stopwatch.StartNew();
         var hooks = TransactionHooks.BeginScope(attr);
         TransactionScope? scope = null;
         try
         {
             scope = CreateScope(attr); // scope exists before observer fires
-            var ctx = new TransactionContext(method, scope, attr, sw, observer, hooks);
+            var ctx = new TransactionContext(method, scope, attr, observer, hooks);
             observer.OnBegin(ctx.Info);
             return ctx;
         }

@@ -9,7 +9,7 @@ internal static class TransactionLifecycle
     internal static void Commit(TransactionContext ctx)
     {
         CompleteScope(ctx);
-        ctx.Stopwatch.Stop();
+        ctx.StopTiming();
         // OnCommit is deferred to NotifyCommitOutcome, called after TryDispose confirms
         // scope.Dispose() did not throw. If Dispose throws TransactionAbortedException,
         // the observer receives OnRollback instead of OnCommit.
@@ -28,16 +28,16 @@ internal static class TransactionLifecycle
         }
         catch (Exception ex)
         {
-            ctx.Stopwatch.Stop();
-            ctx.Observer.OnRollback(ctx.Info, ex, ctx.Stopwatch.Elapsed);
+            ctx.StopTiming();
+            ctx.Observer.OnRollback(ctx.Info, ex, ctx.Elapsed);
             throw;
         }
     }
 
     internal static void Rollback(TransactionContext ctx, Exception ex)
     {
-        ctx.Stopwatch.Stop();
-        ctx.Observer.OnRollback(ctx.Info, ex, ctx.Stopwatch.Elapsed);
+        ctx.StopTiming();
+        ctx.Observer.OnRollback(ctx.Info, ex, ctx.Elapsed);
     }
 
     /// <summary>
@@ -51,18 +51,18 @@ internal static class TransactionLifecycle
     {
         if (outcome == TransactionOutcome.RolledBack)
         {
-            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Elapsed);
             return;
         }
         if (disposeEx is null)
         {
-            ctx.Observer.OnCommit(ctx.Info, ctx.Stopwatch.Elapsed);
-            ctx.Observer.OnComplete(ctx.Info, committed: true, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnCommit(ctx.Info, ctx.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: true, ctx.Elapsed);
         }
         else
         {
-            ctx.Observer.OnRollback(ctx.Info, disposeEx, ctx.Stopwatch.Elapsed);
-            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Stopwatch.Elapsed);
+            ctx.Observer.OnRollback(ctx.Info, disposeEx, ctx.Elapsed);
+            ctx.Observer.OnComplete(ctx.Info, committed: false, ctx.Elapsed);
         }
     }
 

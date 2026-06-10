@@ -20,18 +20,22 @@ internal sealed class TransactionContext(
     MethodInfo method,
     TransactionScope scope,
     TransactionalAttribute attr,
-    Stopwatch stopwatch,
     ITransactionObserver observer,
     HookCollection hooks)
 {
+    private long _endTimestamp;
+
     internal MethodInfo Method { get; } = method;
     internal TransactionScope Scope { get; } = scope;
     internal TransactionalAttribute Attr { get; } = attr;
-    internal Stopwatch Stopwatch { get; } = stopwatch;
     internal ITransactionObserver Observer { get; } = observer;
     internal HookCollection Hooks { get; } = hooks;
 
-    internal RollbackPolicy Policy { get; } = RollbackPolicy.From(attr);
+    internal long StartTimestamp { get; } = Stopwatch.GetTimestamp();
+    internal TimeSpan Elapsed => Stopwatch.GetElapsedTime(StartTimestamp, _endTimestamp);
+    internal void StopTiming() => _endTimestamp = Stopwatch.GetTimestamp();
+
+    internal RollbackPolicy Policy { get; } = TransactionDelegateCache.GetOrCreatePolicy(method, attr);
 
     internal TransactionInfo Info { get; } = new TransactionInfo
     {

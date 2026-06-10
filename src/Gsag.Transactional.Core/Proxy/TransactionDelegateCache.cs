@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using Gsag.Transactional.Core.Attributes;
 
 namespace Gsag.Transactional.Core.Proxy;
 
@@ -13,6 +14,12 @@ internal static class TransactionDelegateCache
     private static readonly ConcurrentDictionary<Type, Func<object, TransactionContext, object>> _vtWrapperCache = new();
     private static readonly ConcurrentDictionary<Type, Func<Exception, Task>> _faultedTaskCache = new();
     private static readonly ConcurrentDictionary<Type, Func<Exception, object>> _faultedVtCache = new();
+    private static readonly ConcurrentDictionary<MethodInfo, RollbackPolicy> _policyCache = new();
+
+    // RollbackPolicy is constant per method (derived from an immutable attribute).
+    // Caching it avoids one object allocation per transaction invocation.
+    internal static RollbackPolicy GetOrCreatePolicy(MethodInfo method, TransactionalAttribute attr) =>
+        _policyCache.GetOrAdd(method, static (_, a) => RollbackPolicy.From(a), attr);
 
     // MethodInfo looked up once — no per-call reflection overhead.
     // SingleOrDefault with parameter-type filter is required because ExecuteAsync is overloaded;
