@@ -57,7 +57,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_RegistersInterfaceAsProxy()
     {
         var provider = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
             .BuildServiceProvider();
 
         var svc = provider.GetRequiredService<IExtTestService>();
@@ -70,7 +70,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_ProxiedService_IsScoped()
     {
         var services = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
 
         var descriptor = services.Single(d => d.ServiceType == typeof(IExtTestService));
 
@@ -81,7 +81,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_RegistersITransactionHooksAsSingleton()
     {
         var services = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
 
         var descriptor = services.Single(d => d.ServiceType == typeof(ITransactionHooks));
 
@@ -92,7 +92,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_ITransactionHooks_ReturnsSameInstance()
     {
         var provider = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
             .BuildServiceProvider();
 
         var h1 = provider.GetRequiredService<ITransactionHooks>();
@@ -105,8 +105,8 @@ public class ExtensionsTests
     public void AddTransactionalServices_CalledTwice_DoesNotDuplicateHooksRegistration()
     {
         var services = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
-            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
 
         var count = services.Count(d => d.ServiceType == typeof(ITransactionHooks));
 
@@ -117,7 +117,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_ClassWithoutMatchingInterface_NotRegistered()
     {
         var services = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(ExtTestOrphan));
     }
@@ -130,7 +130,7 @@ public class ExtensionsTests
     public void AddTransactionalLogging_RegistersLoggingObserverAsSingleton()
     {
         var services = NewServices()
-            .AddTransactionalLogging();
+            .AddTransactional(b => b.AddLogging());
 
         // ITransactionObserver is registered via factory (forwarding to LoggingTransactionObserver).
         var descriptor = services.Single(d => d.ServiceType == typeof(ITransactionObserver));
@@ -144,8 +144,8 @@ public class ExtensionsTests
     public void AddTransactionalLogging_CalledTwice_RegistersOnlyOnce()
     {
         var services = NewServices()
-            .AddTransactionalLogging()
-            .AddTransactionalLogging();
+            .AddTransactional(b => b.AddLogging())
+            .AddTransactional(b => b.AddLogging());
 
         var count = services.Count(d => d.ServiceType == typeof(ITransactionObserver));
 
@@ -156,8 +156,7 @@ public class ExtensionsTests
     public void AddTransactionalObserver_TwoDistinctTypes_RegistersBoth()
     {
         var services = NewServices()
-            .AddTransactionalLogging()
-            .AddTransactionalObserver<RecordingObserver>();
+            .AddTransactional(b => b.AddLogging().AddObserver<RecordingObserver>());
 
         var count = services.Count(d => d.ServiceType == typeof(ITransactionObserver));
 
@@ -172,7 +171,7 @@ public class ExtensionsTests
     public void AddTransactionalServices_AttributeOnInterfaceOnly_StillRegistersProxy()
     {
         var provider = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
             .BuildServiceProvider();
 
         var svc = provider.GetRequiredService<IInterfaceOnlyAttrService>();
@@ -201,7 +200,7 @@ public class ExtensionsTests
     public void AddTransactionalService_RegistersInterfaceAsProxy()
     {
         var provider = NewServices()
-            .AddTransactionalService<IManualService, ManualServiceImpl>()
+            .AddTransactional(b => b.AddService<IManualService, ManualServiceImpl>())
             .BuildServiceProvider();
 
         var svc = provider.GetRequiredService<IManualService>();
@@ -214,7 +213,7 @@ public class ExtensionsTests
     public void AddTransactionalService_ProxiedService_IsScoped()
     {
         var services = NewServices()
-            .AddTransactionalService<IManualService, ManualServiceImpl>();
+            .AddTransactional(b => b.AddService<IManualService, ManualServiceImpl>());
 
         var descriptor = services.Single(d => d.ServiceType == typeof(IManualService));
 
@@ -225,7 +224,7 @@ public class ExtensionsTests
     public void AddTransactionalService_RegistersITransactionHooksAsSingleton()
     {
         var services = NewServices()
-            .AddTransactionalService<IManualService, ManualServiceImpl>();
+            .AddTransactional(b => b.AddService<IManualService, ManualServiceImpl>());
 
         var descriptor = services.Single(d => d.ServiceType == typeof(ITransactionHooks));
 
@@ -277,7 +276,7 @@ public class ExtensionsTests
         // DifferentNamespaceService implements IDifferentNamespaceService, but that interface
         // lives in a different namespace — the convention check requires i.Namespace == serviceType.Namespace.
         var services = NewServices()
-            .AddTransactionalServices(Assembly.GetExecutingAssembly());
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IDifferentNamespaceService));
     }
@@ -297,7 +296,7 @@ public class ExtensionsTests
         var provider = NewServices()
             .AddSingleton<ITransactionObserver>(obs1)
             .AddSingleton<ITransactionObserver>(obs2)
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
             .BuildServiceProvider();
 
         using var scope = provider.CreateScope();
@@ -319,7 +318,7 @@ public class ExtensionsTests
 
         var provider = NewServices()
             .AddSingleton<ITransactionObserver>(obs)
-            .AddTransactionalServices(Assembly.GetExecutingAssembly())
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
             .BuildServiceProvider();
 
         using var scope = provider.CreateScope();
