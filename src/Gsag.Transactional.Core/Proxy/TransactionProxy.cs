@@ -65,9 +65,9 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         {
             // ValueTask is boxed as object because DispatchProxy.Invoke must return object?.
             // The caller's generated code unboxes and awaits correctly.
-            [SuppressMessage("Usage", "S3415", Justification = "DispatchProxy.Invoke is constrained to return object?; ValueTask must be boxed here and unboxed by caller's generated proxy method.")]
-            object? result = AsyncHandler.ExecuteValueTask(targetMethod, args, attr, _observer, InvokeTarget);
-            return result;
+#pragma warning disable S3415 // ValueTask must be boxed here due to DispatchProxy.Invoke signature constraint
+            return AsyncHandler.ExecuteValueTask(targetMethod, args, attr, _observer, InvokeTarget);
+#pragma warning restore S3415
         }
 
         if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
