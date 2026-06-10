@@ -230,7 +230,7 @@ var table = new Table()
     .AddColumn(new TableColumn("[cyan]Transações[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Duração[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]TPS[/]").RightAligned())
-    .AddColumn(new TableColumn("[cyan]Avg µs/tx[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]Avg latency[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Peak heap[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Total alloc[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]GC0[/]").RightAligned())
@@ -245,7 +245,7 @@ foreach (var r in results)
     string peak = FormatBytes(r.PeakBytes);
     string alloc = FormatBytes(r.AllocatedBytes);
     table.AddRow(label, $"{r.Transactions:N0}", $"{r.Elapsed.TotalMilliseconds:F0} ms",
-        $"{r.Tps:N0}", $"{avgUs:F1}", peak, alloc, $"{r.GcGen0}", status);
+        $"{r.Tps:N0}", $"{avgUs:F1} µs", peak, alloc, $"{r.GcGen0}", status);
 }
 
 AnsiConsole.Write(table);
