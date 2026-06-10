@@ -5,10 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.5.1] — 2026-06-10
+
+### Added
+- **Fluent builder pattern for transactional configuration**: New `ITransactionalBuilder` interface and `AddTransactional()` entry point consolidate four extension methods into a chainable API. Improves discoverability and groups configuration concerns. See [Installation](docs/_src/articles/installation.md) for examples.
+- **Load/stress testing framework**: `load-test.bat` and translated `load-test.ps1` for concurrent throughput validation; measures latency, allocation, GC pressure, and heap sampling under high load (1000+ concurrent tasks).
+- **Package validation baseline suppressions**: Explicit `PackageValidationBaselineSuppressions.xml` documents intentional breaking changes during 0.x.x pre-release development; allows API consolidation without quality-gate failure.
+- **Enhanced test coverage**: New tests for `SyncHandler` dispose path edge cases and `NoRollbackFor` behavior under concurrent execution.
 
 ### Changed
-- **API Consolidation**: Replaced four public extension methods (`AddTransactionalServices`, `AddTransactionalLogging`, `AddTransactionalObserver<T>`, `AddTransactionalService<TInterface, TImplementation>`) with a single fluent builder entry point `AddTransactional(Action<ITransactionalBuilder>)`. Old methods removed; new builder API provides same functionality with improved discoverability and ergonomics. See [Installation](docs/_src/articles/installation.md) for migration examples.
+- **API Consolidation** (breaking for 0.x.x): Consolidated `AddTransactionalServices()`, `AddTransactionalLogging()`, `AddTransactionalObserver<T>()`, and `AddTransactionalService<TI, TImpl>()` into fluent builder `AddTransactional()`. All functionality preserved; see [Unreleased migration guide](docs/_src/articles/installation.md). Suppressed via package validation baseline.
+- **Proxy performance**: Use `Array.Empty` for null arguments instead of allocating new arrays in `TransactionProxy.Invoke()`.
+- **Cache RollbackPolicy**: Extracted `RollbackPolicy` from `TransactionScopeExecutor` and cached per method to avoid re-parsing attributes on every invocation.
+- **Renamed async executor**: `TransactionAsyncRunner` → `TransactionAsyncExecutor` for clarity and consistency with sync counterpart `SyncHandler`.
+- **SRP refactoring**: Split `TransactionScopeExecutor` into focused classes (`SyncHandler`, `AsyncHandler`) with clear responsibilities; extracted `TransactionLifecycle` for commit/rollback orchestration.
+- **Test project reorganization**: Restructured into `Core/` (unit, integration) and `Demo/` (checkout scenario) top-level folders for improved navigation and maintenance.
+- **Build documentation**: Rebuild static site after architecture and proxy refactoring; updated architecture.md and TransactionAsyncExecutor references.
+- **Load-test localization**: Translated `load-test.ps1` script to English; moved to dedicated `scripts/load-test/` folder with Windows batch shortcut for accessibility.
+
+### Fixed
+- **Build-docs execution**: Fixed DocFX initialization by running from repo root instead of subdirectory; ensures `docfx.json` discovery.
+- **Documentation consistency**: Updated all examples (README, articles, CHANGELOG) to reflect new `AddTransactional()` builder pattern.
+
+### Performance
+- Array allocation overhead eliminated in proxy hot path via `Array.Empty` reuse.
+- Per-method `RollbackPolicy` caching reduces reflection overhead on repeated invocations (significant under high concurrency).
+- Load-test metrics added: GC count, allocation size, peak heap; validates throughput, latency, and memory efficiency under 1000+ concurrent tasks.
 
 ---
 
