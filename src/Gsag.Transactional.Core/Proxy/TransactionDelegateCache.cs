@@ -24,6 +24,7 @@ internal static class TransactionDelegateCache
     // MethodInfo looked up once — no per-call reflection overhead.
     // SingleOrDefault with parameter-type filter is required because ExecuteAsync is overloaded;
     // GetMethod(name) would throw AmbiguousMatchException with multiple overloads of the same name.
+    [SuppressMessage("CodeSmell", "S125", Justification = "Multi-line comment documenting why SingleOrDefault with parameter-type filter is required — not commented-out code.")]
     [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects internal methods on TransactionAsyncExecutor, an internal type in the same assembly, to build compiled MakeGenericMethod delegates.")]
     private static readonly MethodInfo ExecuteAsyncTaskMethod =
         typeof(TransactionAsyncExecutor)

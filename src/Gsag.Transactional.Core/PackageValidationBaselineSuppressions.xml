@@ -12,28 +12,28 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Reflection.Assembly)</Target>
-    <IsBaselineVersion>false</IsBaselineVersion>
+    <IsBaselineVersion>true</IsBaselineVersion>
     <Justification>Consolidated into AddTransactional() fluent builder for cleaner API. Breaking change acceptable in pre-release 0.x.x version.</Justification>
   </Suppression>
 
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
-    <IsBaselineVersion>false</IsBaselineVersion>
+    <IsBaselineVersion>true</IsBaselineVersion>
     <Justification>Consolidated into AddTransactional().AddLogging() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
   </Suppression>
 
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
-    <IsBaselineVersion>false</IsBaselineVersion>
+    <IsBaselineVersion>true</IsBaselineVersion>
     <Justification>Consolidated into AddTransactional().AddObserver&lt;T&gt;() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
   </Suppression>
 
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
-    <IsBaselineVersion>false</IsBaselineVersion>
+    <IsBaselineVersion>true</IsBaselineVersion>
     <Justification>Consolidated into AddTransactional().AddService&lt;TInterface, TImplementation&gt;() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
   </Suppression>
 </Suppressions>
