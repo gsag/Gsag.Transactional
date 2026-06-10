@@ -9,11 +9,11 @@ using Spectre.Console;
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const int ThroughputTasks = 1_000;
-const int ThroughputIterationsPerTask = 5;
-const int RollbackTasks = 1_000;        // 500 commit + 500 rollback
-const int IsolationTasks = 500;
-const int NestedTasks = 200;
+const int ThroughputTasks = 5_000;
+const int ThroughputIterationsPerTask = 20;
+const int RollbackTasks = 10_000;       // 5 000 commit + 5 000 rollback
+const int IsolationTasks = 5_000;
+const int NestedTasks = 2_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
