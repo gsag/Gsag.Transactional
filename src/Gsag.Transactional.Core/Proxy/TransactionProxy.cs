@@ -2,9 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using Gsag.Transactional.Core.Attributes;
-using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 
 namespace Gsag.Transactional.Core.Proxy;
@@ -65,151 +63,20 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
 
         if (returnType == typeof(ValueTask))
         {
-            return HandleValueTask(targetMethod, args, attr);
+            return AsyncHandler.ExecuteValueTask(targetMethod, args, attr, _observer, InvokeTarget);
         }
 
         if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
         {
-            return HandleValueTaskGeneric(targetMethod, args, attr, returnType);
+            return AsyncHandler.ExecuteValueTaskGeneric(targetMethod, args, attr, returnType, _observer, InvokeTarget);
         }
 
         if (typeof(Task).IsAssignableFrom(returnType))
         {
-            return HandleAsync(targetMethod, args, attr, returnType);
+            return AsyncHandler.ExecuteTask(targetMethod, args, attr, returnType, _observer, InvokeTarget);
         }
 
-        return HandleSync(targetMethod, args, attr);
-    }
-
-    // -------------------------------------------------------------------------
-    // Sync path
-    // -------------------------------------------------------------------------
-
-    [SuppressMessage("Major Code Smell", "S1854", Justification = "outcome is read in the finally block; Sonar cannot track flow across a catch-then-throw boundary into finally.")]
-    private object? HandleSync(MethodInfo method, object?[] args, TransactionalAttribute attr)
-    {
-        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
-        var outcome = TransactionOutcome.RolledBack;
-        try
-        {
-            object? result = default;
-            try
-            {
-                result = InvokeTarget(method, args);
-            }
-            catch (Exception ex) when (ctx.Policy.ShouldRollback(ex))
-            {
-                TransactionHooks.RunBeforeRollbackSyncHooks(ctx.Hooks);
-                TransactionScopeExecutor.Rollback(ctx, ex);
-                throw;
-            }
-            catch (Exception)
-            {
-                TransactionHooks.RunBeforeCommitSyncHooks(ctx.Hooks, suppressExceptions: true);
-                TransactionScopeExecutor.Commit(ctx); // NoRollbackFor path — commit despite exception
-                outcome = TransactionOutcome.CommittedWithException;
-                throw;
-            }
-            try
-            {
-                TransactionHooks.RunBeforeCommitSyncHooks(ctx.Hooks, suppressExceptions: false);
-            }
-            catch (Exception ex)
-            {
-                TransactionScopeExecutor.Rollback(ctx, ex); // BeforeCommit failed — notify observer
-                throw;
-            }
-            TransactionScopeExecutor.Commit(ctx); // success path — outside catch scope, no risk of double Complete()
-            outcome = TransactionOutcome.Committed;
-            return result;
-        }
-        finally
-        {
-            var disposeEx = TransactionScopeExecutor.TryDispose(ctx);
-            var effectiveOutcome = disposeEx is not null ? TransactionOutcome.RolledBack : outcome;
-            // NotifyCommitOutcome is called after Dispose so the observer only receives OnCommit
-            // when scope.Dispose() confirms the transaction committed without error.
-            TransactionScopeExecutor.NotifyCommitOutcome(ctx, outcome, disposeEx);
-            TransactionHooks.RunSyncHooks(ctx.Hooks, effectiveOutcome);
-            if (disposeEx is not null)
-            {
-                ExceptionDispatchInfo.Capture(disposeEx).Throw();
-            }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Async paths
-    //
-    // IMPORTANT: TransactionScope is created BEFORE InvokeTarget so it is ambient
-    // when EF Core opens its connection and enlists. The scope is then owned by
-    // the async wrapper, which calls Complete() or Dispose() after the await.
-    //
-    // ClearScope is called synchronously after InvokeTarget returns so that the caller's
-    // ExecutionContext sees the previous AsyncLocal value when it resumes after awaiting the
-    // returned task. AsyncLocal changes inside async methods propagate downward (child copies)
-    // but not upward — calling ClearScope from inside the wrapper's finally would restore the
-    // value only in the wrapper's own context, not in the outer async state machine's context.
-    // -------------------------------------------------------------------------
-
-    private Task HandleAsync(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
-    {
-        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
-        Task task;
-        try
-        {
-            task = (Task)InvokeTarget(method, args)!;
-        }
-        catch (Exception ex)
-        {
-            // InvokeTarget threw before returning its task — convert to a pre-faulted task so
-            // the normal async wrapper runs the full rollback lifecycle (BeforeRollback hooks,
-            // observer notifications, AfterRollback/AfterCompletion hooks) without duplication.
-            task = returnType.IsGenericType
-                ? TransactionScopeExecutor.CreateFaultedTask(returnType.GetGenericArguments()[0], ex)
-                : Task.FromException(ex);
-        }
-        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-        if (returnType.IsGenericType)
-        {
-            return TransactionScopeExecutor.CallGenericTaskWrapper(returnType.GetGenericArguments()[0], task, ctx);
-        }
-        return TransactionScopeExecutor.WrapVoidTaskAsync(task, ctx);
-    }
-
-    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to WrapVoidValueTaskAsync as an argument; the try-catch wrapper is necessary to preserve rollback semantics when InvokeTarget throws before returning the task.")]
-    private ValueTask HandleValueTask(MethodInfo method, object?[] args, TransactionalAttribute attr)
-    {
-        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
-        ValueTask vt;
-        try
-        {
-            vt = (ValueTask)InvokeTarget(method, args)!;
-        }
-        catch (Exception ex)
-        {
-            vt = ValueTask.FromException(ex);
-        }
-        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-        return TransactionScopeExecutor.WrapVoidValueTaskAsync(vt, ctx);
-    }
-
-    [SuppressMessage("Code Smell", "S3981", Justification = "ValueTask is immediately passed to CallGenericValueTaskWrapper as an argument; the try-catch wrapper is necessary to preserve rollback semantics when InvokeTarget throws before returning the task.")]
-    private object HandleValueTaskGeneric(MethodInfo method, object?[] args, TransactionalAttribute attr, Type returnType)
-    {
-        var ctx = TransactionScopeExecutor.OpenScope(method, attr, _observer);
-        var resultType = returnType.GetGenericArguments()[0];
-        object vt;
-        try
-        {
-            vt = InvokeTarget(method, args)!;
-        }
-        catch (Exception ex)
-        {
-            vt = TransactionScopeExecutor.CreateFaultedValueTask(resultType, ex);
-        }
-        TransactionHooks.ClearScope(ctx.Hooks); // restore _current in caller's context
-        return TransactionScopeExecutor.CallGenericValueTaskWrapper(resultType, vt, ctx);
+        return SyncHandler.Execute(targetMethod, args, attr, _observer, InvokeTarget);
     }
 
     // IL2072: concreteType comes from _target.GetType() — its interface members are not tracked
@@ -251,9 +118,6 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         return invoke(_target, args);
     }
 
-    /// <summary>
-    /// Compiles a strongly-typed delegate to avoid MethodInfo.Invoke overhead on the hot path.
-    /// </summary>
     private static Func<object, object?[], object?> BuildDelegate(MethodInfo method)
     {
         if (method.GetParameters().Any(p => p.ParameterType.IsByRef))
