@@ -84,70 +84,92 @@ references:
   commentId: N:Gsag.Transactional.Core.Extensions
   fullName: Gsag.Transactional.Core.Extensions
   nameWithType: Gsag.Transactional.Core.Extensions
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder
+  name: ITransactionalBuilder
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html
+  commentId: T:Gsag.Transactional.Core.Extensions.ITransactionalBuilder
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder
+  nameWithType: ITransactionalBuilder
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging
+  name: AddLogging()
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddLogging
+  commentId: M:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging()
+  nameWithType: ITransactionalBuilder.AddLogging()
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging*
+  name: AddLogging
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddLogging_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging
+  nameWithType: ITransactionalBuilder.AddLogging
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver*
+  name: AddObserver
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddObserver_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver
+  nameWithType: ITransactionalBuilder.AddObserver
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver``1
+  name: AddObserver<T>()
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddObserver__1
+  commentId: M:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver``1
+  name.vb: AddObserver(Of T)()
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver<T>()
+  fullName.vb: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver(Of T)()
+  nameWithType: ITransactionalBuilder.AddObserver<T>()
+  nameWithType.vb: ITransactionalBuilder.AddObserver(Of T)()
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService*
+  name: AddService
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddService_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService
+  nameWithType: ITransactionalBuilder.AddService
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService``2
+  name: AddService<TInterface, TImplementation>()
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddService__2
+  commentId: M:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService``2
+  name.vb: AddService(Of TInterface, TImplementation)()
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService<TInterface, TImplementation>()
+  fullName.vb: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService(Of TInterface, TImplementation)()
+  nameWithType: ITransactionalBuilder.AddService<TInterface, TImplementation>()
+  nameWithType.vb: ITransactionalBuilder.AddService(Of TInterface, TImplementation)()
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly(System.Reflection.Assembly)
+  name: ScanAssembly(Assembly)
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_ScanAssembly_System_Reflection_Assembly_
+  commentId: M:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly(System.Reflection.Assembly)
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly(System.Reflection.Assembly)
+  nameWithType: ITransactionalBuilder.ScanAssembly(Assembly)
+- uid: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly*
+  name: ScanAssembly
+  href: api/Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html#Gsag_Transactional_Core_Extensions_ITransactionalBuilder_ScanAssembly_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly
+  isSpec: "True"
+  fullName: Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly
+  nameWithType: ITransactionalBuilder.ScanAssembly
 - uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions
   name: TransactionalExtensions
   href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html
   commentId: T:Gsag.Transactional.Core.Extensions.TransactionalExtensions
   fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions
   nameWithType: TransactionalExtensions
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  name: AddTransactionalLogging(IServiceCollection)
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_Microsoft_Extensions_DependencyInjection_IServiceCollection_
-  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  nameWithType: TransactionalExtensions.AddTransactionalLogging(IServiceCollection)
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging*
-  name: AddTransactionalLogging
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_
-  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Action{Gsag.Transactional.Core.Extensions.ITransactionalBuilder})
+  name: AddTransactional(IServiceCollection, Action<ITransactionalBuilder>?)
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactional_Microsoft_Extensions_DependencyInjection_IServiceCollection_System_Action_Gsag_Transactional_Core_Extensions_ITransactionalBuilder__
+  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Action{Gsag.Transactional.Core.Extensions.ITransactionalBuilder})
+  name.vb: AddTransactional(IServiceCollection, Action(Of ITransactionalBuilder))
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Action<Gsag.Transactional.Core.Extensions.ITransactionalBuilder>?)
+  fullName.vb: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Action(Of Gsag.Transactional.Core.Extensions.ITransactionalBuilder))
+  nameWithType: TransactionalExtensions.AddTransactional(IServiceCollection, Action<ITransactionalBuilder>?)
+  nameWithType.vb: TransactionalExtensions.AddTransactional(IServiceCollection, Action(Of ITransactionalBuilder))
+- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional*
+  name: AddTransactional
+  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactional_
+  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional
   isSpec: "True"
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging
-  nameWithType: TransactionalExtensions.AddTransactionalLogging
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver*
-  name: AddTransactionalObserver
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver_
-  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver
-  isSpec: "True"
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver
-  nameWithType: TransactionalExtensions.AddTransactionalObserver
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  name: AddTransactionalObserver<T>(IServiceCollection)
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver__1_Microsoft_Extensions_DependencyInjection_IServiceCollection_
-  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  name.vb: AddTransactionalObserver(Of T)(IServiceCollection)
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver<T>(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  fullName.vb: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver(Of T)(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  nameWithType: TransactionalExtensions.AddTransactionalObserver<T>(IServiceCollection)
-  nameWithType.vb: TransactionalExtensions.AddTransactionalObserver(Of T)(IServiceCollection)
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService*
-  name: AddTransactionalService
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService_
-  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService
-  isSpec: "True"
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService
-  nameWithType: TransactionalExtensions.AddTransactionalService
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  name: AddTransactionalService<TInterface, TImplementation>(IServiceCollection)
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService__2_Microsoft_Extensions_DependencyInjection_IServiceCollection_
-  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  name.vb: AddTransactionalService(Of TInterface, TImplementation)(IServiceCollection)
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService<TInterface, TImplementation>(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  fullName.vb: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService(Of TInterface, TImplementation)(Microsoft.Extensions.DependencyInjection.IServiceCollection)
-  nameWithType: TransactionalExtensions.AddTransactionalService<TInterface, TImplementation>(IServiceCollection)
-  nameWithType.vb: TransactionalExtensions.AddTransactionalService(Of TInterface, TImplementation)(IServiceCollection)
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly)
-  name: AddTransactionalServices(IServiceCollection, Assembly)
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_Microsoft_Extensions_DependencyInjection_IServiceCollection_System_Reflection_Assembly_
-  commentId: M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly)
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Reflection.Assembly)
-  nameWithType: TransactionalExtensions.AddTransactionalServices(IServiceCollection, Assembly)
-- uid: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices*
-  name: AddTransactionalServices
-  href: api/Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_
-  commentId: Overload:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices
-  isSpec: "True"
-  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices
-  nameWithType: TransactionalExtensions.AddTransactionalServices
+  fullName: Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional
+  nameWithType: TransactionalExtensions.AddTransactional
 - uid: Gsag.Transactional.Core.Hooks
   name: Gsag.Transactional.Core.Hooks
   href: api/Gsag.Transactional.Core.Hooks.html

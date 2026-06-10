@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/docs/_src/articles/getting-started.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/getting-started.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -123,7 +123,9 @@ The interface stays a clean contract. The proxy resolves the attribute from the 
 <hr>
 <h2 id="3-register-with-di">3. Register with DI</h2>
 <pre><code class="lang-csharp">// Program.cs
-builder.Services.AddTransactionalServices(typeof(Program).Assembly);
+builder.Services.AddTransactional(b =&gt; b
+    .ScanAssembly(typeof(Program).Assembly)
+);
 </code></pre>
 <p>This scans the assembly, finds <code>OrderService</code> implements <code>IOrderService</code>, and registers <code>IOrderService</code> as a <code>DispatchProxy</code>-wrapped transactional service. When you inject <code>IOrderService</code>, you receive the proxy.</p>
 <hr>

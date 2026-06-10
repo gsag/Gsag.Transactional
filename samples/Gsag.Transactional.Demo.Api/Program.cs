@@ -27,15 +27,15 @@ builder.Services.AddScoped<HookOutputCollector>();
 builder.Services.AddScoped<InMemoryEventBus>();
 builder.Services.AddScoped<IEventBus>(sp => sp.GetRequiredService<InMemoryEventBus>());
 
-// Two observers registered side-by-side — the proxy wraps them in CompositeTransactionObserver
-// and calls each in registration order. Composite Observer pattern in action.
-builder.Services.AddTransactionalLogging()                                 // LoggingTransactionObserver (MEL)
-                .AddTransactionalObserver<InMemoryMetricsObserver>();      // InMemoryMetricsObserver (counters)
-
-// Discover all service classes with [Transactional] methods and I{Name} interface:
-// OrderService, InventoryService, PaymentService, AuditService,
-// CheckoutService, InventoryReportService.
-builder.Services.AddTransactionalServices(typeof(CheckoutService).Assembly);
+// Configure transactional services: discover all service classes with [Transactional]
+// methods and I{Name} interface (OrderService, InventoryService, PaymentService,
+// AuditService, CheckoutService, InventoryReportService).
+// Two observers are registered and the proxy wraps them in CompositeTransactionObserver,
+// calling each in registration order.
+builder.Services.AddTransactional(b => b
+    .AddLogging()                                 // LoggingTransactionObserver (MEL)
+    .AddObserver<InMemoryMetricsObserver>()       // InMemoryMetricsObserver (counters)
+    .ScanAssembly(typeof(CheckoutService).Assembly));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

@@ -48,7 +48,9 @@ public class OrderService : IOrderService
 
 ```csharp
 // Program.cs
-builder.Services.AddTransactionalServices(typeof(Program).Assembly);
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(Program).Assembly)
+);
 ```
 
 This scans the assembly, finds `OrderService` implements `IOrderService`, and registers `IOrderService` as a `DispatchProxy`-wrapped transactional service. When you inject `IOrderService`, you receive the proxy.

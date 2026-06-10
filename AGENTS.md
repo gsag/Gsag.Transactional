@@ -98,6 +98,17 @@ After changes involving:
 - observers
 - interception
 
+For concurrency and load validation, run:
+```bat
+scripts\load-test\load-test.bat
+```
+
+Covers:
+- throughput under high concurrency
+- rollback vs commit correctness under load
+- AsyncLocal hook isolation across concurrent tasks
+- nested RequiresNew propagation correctness
+
 # Code Style
 
 Always use braces for:

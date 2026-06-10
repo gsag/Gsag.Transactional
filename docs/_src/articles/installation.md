@@ -18,7 +18,7 @@ Supported runtimes: **.NET 8** and **.NET 9**.
 
 ## DI Registration
 
-Call `AddTransactionalServices` in `Program.cs`, passing the assembly that contains your service classes:
+Call `AddTransactional` in `Program.cs`, passing the assembly that contains your service classes:
 
 ```csharp
 using Gsag.Transactional.Core.Extensions;
@@ -26,7 +26,9 @@ using Gsag.Transactional.Core.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 // Scans the assembly for IFoo / FooService pairs and registers proxied transactional services.
-builder.Services.AddTransactionalServices(typeof(Program).Assembly);
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(Program).Assembly)
+);
 ```
 
 Convention: for each concrete class `FooService` that has at least one `[Transactional]` method, the scanner looks for a matching `IFooService` interface in the same assembly and namespace. If found, it registers the concrete class as `Scoped` and exposes it through a `DispatchProxy` under `IFooService`.
@@ -34,7 +36,9 @@ Convention: for each concrete class `FooService` that has at least one `[Transac
 For services that don't follow the `I{ClassName}` convention, register them explicitly:
 
 ```csharp
-builder.Services.AddTransactionalService<IMyService, MyService>();
+builder.Services.AddTransactional(b => b
+    .AddService<IMyService, MyService>()
+);
 ```
 
 ---
@@ -44,7 +48,7 @@ builder.Services.AddTransactionalService<IMyService, MyService>();
 Enable the built-in MEL observer to see every transaction lifecycle event:
 
 ```csharp
-builder.Services.AddTransactionalLogging();
+builder.Services.AddTransactional(b => b.AddLogging());
 ```
 
 This registers an observer that emits:

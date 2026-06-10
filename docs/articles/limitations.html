@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/docs/_src/articles/limitations.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/limitations.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -100,8 +100,8 @@ public class CheckoutService(IOrderService orders) { }
 <p><strong>Why:</strong> <code>DispatchProxy.Create&lt;T&gt;()</code> requires <code>T</code> to be an interface. There is no equivalent mechanism for concrete classes without external AOP tooling.</p>
 <hr>
 <h2 id="2-only-interface-typed-registrations-are-proxied">2. Only interface-typed registrations are proxied</h2>
-<p><code>AddTransactionalServices</code> registers services as <code>Scoped</code> under their <strong>interface</strong> type and wraps the implementation in a proxy. If you resolve the concrete type directly (e.g., via <code>[FromKeyedServices]</code> or a factory), you receive the unwrapped instance.</p>
-<p><strong>Workaround:</strong> Always consume services through the interface type in DI. Use <code>AddTransactionalService&lt;IFoo, FooService&gt;()</code> for non-convention registrations.</p>
+<p><code>AddTransactional</code> registers services as <code>Scoped</code> under their <strong>interface</strong> type and wraps the implementation in a proxy. If you resolve the concrete type directly (e.g., via <code>[FromKeyedServices]</code> or a factory), you receive the unwrapped instance.</p>
+<p><strong>Workaround:</strong> Always consume services through the interface type in DI. Use <code>.AddService&lt;IFoo, FooService&gt;()</code> for non-convention registrations.</p>
 <hr>
 <h2 id="3-self-invocation-bypasses-the-proxy">3. Self-invocation bypasses the proxy</h2>
 <p>Calling a <code>[Transactional]</code> method via <code>this.Method()</code> from within the same class sends the call directly to the concrete instance — <code>DispatchProxy</code> is not in the call chain.</p>

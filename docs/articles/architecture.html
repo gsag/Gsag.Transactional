@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/docs/_src/articles/architecture.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/architecture.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -120,15 +120,15 @@
 </code></pre>
 <hr>
 <h2 id="transactionproxyt--routing-only">TransactionProxy&lt;T&gt; — routing only</h2>
-<p><code>TransactionProxy&lt;T&gt;</code> is a <code>DispatchProxy</code> subclass. Its <code>Invoke()</code> method is responsible for <strong>routing and caching only</strong> — all commit/rollback logic lives in <code>TransactionScopeExecutor</code>.</p>
+<p><code>TransactionProxy&lt;T&gt;</code> is a <code>DispatchProxy</code> subclass. Its <code>Invoke()</code> method is responsible for <strong>routing and caching only</strong> — all commit/rollback logic is delegated to focused infrastructure classes.</p>
 <p><strong>Attribute lookup — two-step search:</strong><br>
 <code>DispatchProxy.Invoke</code> always receives the <strong>interface</strong> <code>MethodInfo</code>. The proxy checks the interface method for <code>[Transactional]</code> first. If not found, it resolves the corresponding concrete method via <code>Type.GetInterfaceMap()</code> and checks that. This lets you place the attribute on either the interface or the concrete class.</p>
 <p><strong>Cache key:</strong> <code>(MethodInfo interfaceMethod, Type concreteType)</code>. Including the concrete type correctly handles the case where multiple implementations satisfy the same interface.</p>
 <p><strong>Return-type dispatch:</strong> After opening the scope, <code>Invoke()</code> branches by return type:</p>
 <ul>
-<li><code>ValueTask</code> / <code>ValueTask&lt;T&gt;</code> — wrapped via <code>HandleValueTask</code> / <code>HandleValueTaskGeneric</code></li>
-<li><code>Task</code> / <code>Task&lt;T&gt;</code> — wrapped via <code>HandleAsync</code> / <code>HandleAsyncGeneric</code></li>
-<li>Synchronous — executed via <code>HandleSync</code></li>
+<li><code>ValueTask</code> / <code>ValueTask&lt;T&gt;</code> — delegated to <code>AsyncHandler.ExecuteValueTask</code> / <code>AsyncHandler.ExecuteValueTaskGeneric</code></li>
+<li><code>Task</code> / <code>Task&lt;T&gt;</code> — delegated to <code>AsyncHandler.ExecuteTask</code></li>
+<li>Synchronous — delegated to <code>SyncHandler.Execute</code></li>
 </ul>
 <hr>
 <h2 id="transactionscope-must-be-created-before-invoketarget">TransactionScope must be created before InvokeTarget</h2>
@@ -187,8 +187,36 @@ var scope = CreateScope(attr);       // too late
 </table>
 <p><code>ClearScope</code> is called <strong>synchronously</strong> from the async wrapper before returning the task to the caller, then again from <code>TryDispose</code>. The second call is guarded so it cannot clobber a new scope opened by a concurrent continuation.</p>
 <hr>
-<h2 id="transactionscopeexecutor--all-lifecycle-logic">TransactionScopeExecutor — all lifecycle logic</h2>
-<p><code>TransactionScopeExecutor</code> is a <strong>non-generic static class</strong>. Keeping it non-generic means the reflection fields used for <code>MakeGenericMethod</code> calls (<code>WrapGenericTaskAsyncMethod</code>, <code>WrapGenericValueTaskAsyncMethod</code>) are computed <strong>once per application</strong>, not once per proxied interface type.</p>
+<h2 id="infrastructure-classes--focused-responsibilities">Infrastructure classes — focused responsibilities</h2>
+<p>The lifecycle logic is split across four focused classes, each with a single responsibility:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TransactionScopeFactory</code></td>
+<td>Creates and initialises the <code>TransactionScope</code>; sets up the <code>AsyncLocal</code> hook slot via <code>BeginScope</code>; notifies the observer via <code>OnBegin</code></td>
+</tr>
+<tr>
+<td><code>TransactionLifecycle</code></td>
+<td><code>Commit</code>, <code>Rollback</code>, <code>TryDispose</code>, <code>NotifyCommitOutcome</code> — drives <code>scope.Complete()</code> / <code>scope.Dispose()</code> and all observer callbacks</td>
+</tr>
+<tr>
+<td><code>TransactionAsyncExecutor</code></td>
+<td>Async wrappers for <code>Task</code>, <code>ValueTask</code>, <code>Task&lt;T&gt;</code>, and <code>ValueTask&lt;T&gt;</code>; hosts the single <code>WrapCoreAsync&lt;TResult&gt;</code> template that owns the full async lifecycle</td>
+</tr>
+<tr>
+<td><code>TransactionDelegateCache</code></td>
+<td>Compiled-delegate caches for <code>MakeGenericMethod</code> calls; computed once per result type to avoid per-call reflection overhead</td>
+</tr>
+</tbody>
+</table>
+<p><code>TransactionAsyncExecutor</code> unifies the void and result-returning async paths through a <code>WrapCoreAsync&lt;TResult&gt;</code> template method. A zero-byte <code>VoidResult</code> sentinel struct lets the void path share the same generic template without extra allocation.</p>
+<p><code>SyncHandler</code> and <code>AsyncHandler</code> are static classes that implement the sync and async execution paths respectively. Both classes open the scope via <code>TransactionScopeFactory</code>, delegate lifecycle transitions to <code>TransactionLifecycle</code>, and run hooks via <code>TransactionHooks</code>.</p>
 <p>Rollback decisions are delegated to <code>RollbackPolicy</code> (internal). <code>RollbackPolicy.From(attr)</code> captures the attribute configuration at scope-open time; <code>ShouldRollback(ex)</code> implements a three-rule precedence check:</p>
 <ol>
 <li>If the exception type is in <code>NoRollbackFor</code> → <strong>commit</strong></li>

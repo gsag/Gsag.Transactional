@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Baseline suppressions for breaking API changes during 0.x.x development.
+
+  Version 0.x.x is pre-release; breaking API changes are acceptable as the library
+  is not yet stable. This file documents intentional removals and modifications.
+
+  For more info: https://github.com/dotnet/sdk/blob/main/documentation/specs/package-validation.md
+-->
+<Suppressions>
+  <!-- API consolidation: replaced four extension methods with a single fluent builder -->
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Reflection.Assembly)</Target>
+    <IsBaselineVersion>true</IsBaselineVersion>
+    <Justification>Consolidated into AddTransactional() fluent builder for cleaner API. Breaking change acceptable in pre-release 0.x.x version.</Justification>
+  </Suppression>
+
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
+    <IsBaselineVersion>true</IsBaselineVersion>
+    <Justification>Consolidated into AddTransactional().AddLogging() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
+  </Suppression>
+
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
+    <IsBaselineVersion>true</IsBaselineVersion>
+    <Justification>Consolidated into AddTransactional().AddObserver&lt;T&gt;() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
+  </Suppression>
+
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
+    <IsBaselineVersion>true</IsBaselineVersion>
+    <Justification>Consolidated into AddTransactional().AddService&lt;TInterface, TImplementation&gt;() fluent builder. Breaking change acceptable in pre-release 0.x.x version.</Justification>
+  </Suppression>
+</Suppressions>

@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/docs/update-readme/apiSpec/new?filename=Gsag_Transactional_Core_Extensions_TransactionalExtensions.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Extensions.TransactionalExtensions%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/chore/internal-refact/apiSpec/new?filename=Gsag_Transactional_Core_Extensions_TransactionalExtensions.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Extensions.TransactionalExtensions%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -89,7 +89,7 @@
 
 
   <h1 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions" class="text-break">
-Class TransactionalExtensions  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L15"><i class="bi bi-code-slash"></i></a>
+Class TransactionalExtensions  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L9"><i class="bi bi-code-slash"></i></a>
   </h1>
 
   <div class="facts text-secondary">
@@ -153,167 +153,35 @@ Class TransactionalExtensions  <a class="header-action link-secondary" title="Vi
 </h2>
 
 
-  <a id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging*"></a>
+  <a id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactional_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional*"></a>
 
-  <h3 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalLogging_Microsoft_Extensions_DependencyInjection_IServiceCollection_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalLogging(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
-  AddTransactionalLogging(IServiceCollection)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L79"><i class="bi bi-code-slash"></i></a>
+  <h3 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactional_Microsoft_Extensions_DependencyInjection_IServiceCollection_System_Action_Gsag_Transactional_Core_Extensions_ITransactionalBuilder__" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactional(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Action{Gsag.Transactional.Core.Extensions.ITransactionalBuilder})">
+  AddTransactional(IServiceCollection, Action&lt;ITransactionalBuilder&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L26"><i class="bi bi-code-slash"></i></a>
   </h3>
 
-  <div class="markdown level1 summary"><p>Registers the built-in logging observer. All proxied services emit structured log entries
-at DEBUG (BEGIN/COMMIT/COMPLETE) and WARNING (ROLLBACK) level under the category
-<code>Gsag.Transactional.Core.Observability.ITransactionObserver</code>.
-To filter or silence these entries, configure that category in appsettings.json.
-To change the format, skip this method and register your own
-<a class="xref" href="Gsag.Transactional.Core.Observability.ITransactionObserver.html">ITransactionObserver</a> via <a class="xref" href="Gsag.Transactional.Core.Extensions.TransactionalExtensions.html#Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver__1_Microsoft_Extensions_DependencyInjection_IServiceCollection_">AddTransactionalObserver&lt;T&gt;(IServiceCollection)</a> instead.
-Can be combined with other observers — the proxy dispatches to all in registration order.</p>
+  <div class="markdown level1 summary"><p>Registers transactional services using a fluent builder.</p>
+<p>Example:</p>
+<pre><code class="lang-csharp">builder.Services.AddTransactional(b =&gt; b
+    .ScanAssembly(typeof(MyService).Assembly)
+    .AddLogging()
+    .AddObserver&lt;MyMetricsObserver&gt;()
+);</code></pre>
+<p>The builder is optional — calling without a callback registers the bare hooks but no services or observers:</p>
+<pre><code class="lang-csharp">builder.Services.AddTransactional();</code></pre>
 </div>
   <div class="markdown level1 conceptual"></div>
 
   <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public static IServiceCollection AddTransactionalLogging(this IServiceCollection services)</code></pre>
+    <pre><code class="lang-csharp hljs">[RequiresUnreferencedCode(&quot;ScanAssembly reflects to find [Transactional] methods. Ensure all service types and their interface members are preserved when publishing with trimming.&quot;)]
+public static IServiceCollection AddTransactional(this IServiceCollection services, Action&lt;ITransactionalBuilder&gt;? configure = null)</code></pre>
   </div>
 
   <h4 class="section">Parameters</h4>
   <dl class="parameters">
     <dt><code>services</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
     <dd></dd>
-  </dl>
-
-  <h4 class="section">Returns</h4>
-  <dl class="parameters">
-    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-  </dl>
-
-
-
-
-
-
-
-
-
-
-
-  <a id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver*"></a>
-
-  <h3 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalObserver__1_Microsoft_Extensions_DependencyInjection_IServiceCollection_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalObserver``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
-  AddTransactionalObserver&lt;T&gt;(IServiceCollection)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L91"><i class="bi bi-code-slash"></i></a>
-  </h3>
-
-  <div class="markdown level1 summary"><p>Registers <code class="typeparamref">T</code> as an additional <a class="xref" href="Gsag.Transactional.Core.Observability.ITransactionObserver.html">ITransactionObserver</a>.
-When multiple observers are registered, the proxy wraps them in a
-<span class="xref">Gsag.Transactional.Core.Observability.CompositeTransactionObserver</span> and calls each in registration order.
-<code class="typeparamref">T</code> is also registered as its concrete type so it can be injected
-directly (e.g., a metrics observer injected into a controller to read counters).
-Calling this method more than once with the same <code class="typeparamref">T</code> is idempotent.
-Observers must use Singleton or Transient lifetime — never Scoped.</p>
-</div>
-  <div class="markdown level1 conceptual"></div>
-
-  <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public static IServiceCollection AddTransactionalObserver&lt;T&gt;(this IServiceCollection services) where T : class, ITransactionObserver</code></pre>
-  </div>
-
-  <h4 class="section">Parameters</h4>
-  <dl class="parameters">
-    <dt><code>services</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-  </dl>
-
-  <h4 class="section">Returns</h4>
-  <dl class="parameters">
-    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-  </dl>
-
-  <h4 class="section">Type Parameters</h4>
-  <dl class="parameters">
-    <dt><code>T</code></dt>
-    <dd></dd>
-  </dl>
-
-
-
-
-
-
-
-
-
-
-  <a id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService*"></a>
-
-  <h3 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalService__2_Microsoft_Extensions_DependencyInjection_IServiceCollection_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalService``2(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
-  AddTransactionalService&lt;TInterface, TImplementation&gt;(IServiceCollection)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L113"><i class="bi bi-code-slash"></i></a>
-  </h3>
-
-  <div class="markdown level1 summary"><p>Registers a single transactional service pair without naming-convention constraints.
-Use when the interface is in a different assembly, has a non-standard name, or when
-explicit registration is preferred over assembly scanning.</p>
-</div>
-  <div class="markdown level1 conceptual"></div>
-
-  <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public static IServiceCollection AddTransactionalService&lt;TInterface, TImplementation&gt;(this IServiceCollection services) where TInterface : class where TImplementation : class, TInterface</code></pre>
-  </div>
-
-  <h4 class="section">Parameters</h4>
-  <dl class="parameters">
-    <dt><code>services</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-  </dl>
-
-  <h4 class="section">Returns</h4>
-  <dl class="parameters">
-    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-  </dl>
-
-  <h4 class="section">Type Parameters</h4>
-  <dl class="parameters">
-    <dt><code>TInterface</code></dt>
-    <dd></dd>
-    <dt><code>TImplementation</code></dt>
-    <dd></dd>
-  </dl>
-
-
-
-
-
-
-
-
-
-
-  <a id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices*"></a>
-
-  <h3 id="Gsag_Transactional_Core_Extensions_TransactionalExtensions_AddTransactionalServices_Microsoft_Extensions_DependencyInjection_IServiceCollection_System_Reflection_Assembly_" data-uid="Gsag.Transactional.Core.Extensions.TransactionalExtensions.AddTransactionalServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly)">
-  AddTransactionalServices(IServiceCollection, Assembly)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/src/Gsag.Transactional.Core/Extensions/TransactionalExtensions.cs/#L24"><i class="bi bi-code-slash"></i></a>
-  </h3>
-
-  <div class="markdown level1 summary"><p>Scans <code class="paramref">assembly</code> for concrete service classes that have at least one
-[Transactional] method (on the class or on its implemented interfaces), then registers
-each one paired with its I{ClassName} interface as a TransactionProxy.</p>
-<p>Convention: OrderService → IOrderService (interface must be in the same assembly).</p>
-</div>
-  <div class="markdown level1 conceptual"></div>
-
-  <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">[RequiresUnreferencedCode(&quot;Scans the assembly for [Transactional] methods using reflection. Ensure all service types and their interface members are preserved when publishing with trimming.&quot;)]
-public static IServiceCollection AddTransactionalServices(this IServiceCollection services, Assembly assembly)</code></pre>
-  </div>
-
-  <h4 class="section">Parameters</h4>
-  <dl class="parameters">
-    <dt><code>services</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection">IServiceCollection</a></dt>
-    <dd></dd>
-    <dt><code>assembly</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.reflection.assembly">Assembly</a></dt>
+    <dt><code>configure</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action-1">Action</a>&lt;<a class="xref" href="Gsag.Transactional.Core.Extensions.ITransactionalBuilder.html">ITransactionalBuilder</a>&gt;</dt>
     <dd></dd>
   </dl>
 

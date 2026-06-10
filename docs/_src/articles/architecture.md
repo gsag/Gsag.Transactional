@@ -40,7 +40,7 @@ Caller → IFoo.MethodAsync()
 
 ## TransactionProxy\<T\> — routing only
 
-`TransactionProxy<T>` is a `DispatchProxy` subclass. Its `Invoke()` method is responsible for **routing and caching only** — all commit/rollback logic lives in `TransactionScopeExecutor`.
+`TransactionProxy<T>` is a `DispatchProxy` subclass. Its `Invoke()` method is responsible for **routing and caching only** — all commit/rollback logic is delegated to focused infrastructure classes.
 
 **Attribute lookup — two-step search:**  
 `DispatchProxy.Invoke` always receives the **interface** `MethodInfo`. The proxy checks the interface method for `[Transactional]` first. If not found, it resolves the corresponding concrete method via `Type.GetInterfaceMap()` and checks that. This lets you place the attribute on either the interface or the concrete class.
@@ -48,9 +48,9 @@ Caller → IFoo.MethodAsync()
 **Cache key:** `(MethodInfo interfaceMethod, Type concreteType)`. Including the concrete type correctly handles the case where multiple implementations satisfy the same interface.
 
 **Return-type dispatch:** After opening the scope, `Invoke()` branches by return type:
-- `ValueTask` / `ValueTask<T>` — wrapped via `HandleValueTask` / `HandleValueTaskGeneric`
-- `Task` / `Task<T>` — wrapped via `HandleAsync` / `HandleAsyncGeneric`
-- Synchronous — executed via `HandleSync`
+- `ValueTask` / `ValueTask<T>` — delegated to `AsyncHandler.ExecuteValueTask` / `AsyncHandler.ExecuteValueTaskGeneric`
+- `Task` / `Task<T>` — delegated to `AsyncHandler.ExecuteTask`
+- Synchronous — delegated to `SyncHandler.Execute`
 
 ---
 
@@ -107,9 +107,20 @@ Each `HookCollection` carries a `Previous` pointer forming a linked-list stack. 
 
 ---
 
-## TransactionScopeExecutor — all lifecycle logic
+## Infrastructure classes — focused responsibilities
 
-`TransactionScopeExecutor` is a **non-generic static class**. Keeping it non-generic means the reflection fields used for `MakeGenericMethod` calls (`WrapGenericTaskAsyncMethod`, `WrapGenericValueTaskAsyncMethod`) are computed **once per application**, not once per proxied interface type.
+The lifecycle logic is split across four focused classes, each with a single responsibility:
+
+| Class | Responsibility |
+|---|---|
+| `TransactionScopeFactory` | Creates and initialises the `TransactionScope`; sets up the `AsyncLocal` hook slot via `BeginScope`; notifies the observer via `OnBegin` |
+| `TransactionLifecycle` | `Commit`, `Rollback`, `TryDispose`, `NotifyCommitOutcome` — drives `scope.Complete()` / `scope.Dispose()` and all observer callbacks |
+| `TransactionAsyncExecutor` | Async wrappers for `Task`, `ValueTask`, `Task<T>`, and `ValueTask<T>`; hosts the single `WrapCoreAsync<TResult>` template that owns the full async lifecycle |
+| `TransactionDelegateCache` | Compiled-delegate caches for `MakeGenericMethod` calls; computed once per result type to avoid per-call reflection overhead |
+
+`TransactionAsyncExecutor` unifies the void and result-returning async paths through a `WrapCoreAsync<TResult>` template method. A zero-byte `VoidResult` sentinel struct lets the void path share the same generic template without extra allocation.
+
+`SyncHandler` and `AsyncHandler` are static classes that implement the sync and async execution paths respectively. Both classes open the scope via `TransactionScopeFactory`, delegate lifecycle transitions to `TransactionLifecycle`, and run hooks via `TransactionHooks`.
 
 Rollback decisions are delegated to `RollbackPolicy` (internal). `RollbackPolicy.From(attr)` captures the attribute configuration at scope-open time; `ShouldRollback(ex)` implements a three-rule precedence check:
 1. If the exception type is in `NoRollbackFor` → **commit**

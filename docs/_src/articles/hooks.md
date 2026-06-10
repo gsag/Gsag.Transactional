@@ -1,6 +1,6 @@
 # Transaction Hooks
 
-Hooks let you register callbacks that run at specific points in the transaction lifecycle. They are accessed via `ITransactionHooks`, which is registered as a singleton by `AddTransactionalServices`.
+Hooks let you register callbacks that run at specific points in the transaction lifecycle. They are accessed via `ITransactionHooks`, which is registered as a singleton by `AddTransactional`.
 
 ```csharp
 public class OrderService : IOrderService

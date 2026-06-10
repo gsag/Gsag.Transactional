@@ -22,9 +22,9 @@ public class CheckoutService(IOrderService orders) { }
 
 ## 2. Only interface-typed registrations are proxied
 
-`AddTransactionalServices` registers services as `Scoped` under their **interface** type and wraps the implementation in a proxy. If you resolve the concrete type directly (e.g., via `[FromKeyedServices]` or a factory), you receive the unwrapped instance.
+`AddTransactional` registers services as `Scoped` under their **interface** type and wraps the implementation in a proxy. If you resolve the concrete type directly (e.g., via `[FromKeyedServices]` or a factory), you receive the unwrapped instance.
 
-**Workaround:** Always consume services through the interface type in DI. Use `AddTransactionalService<IFoo, FooService>()` for non-convention registrations.
+**Workaround:** Always consume services through the interface type in DI. Use `.AddService<IFoo, FooService>()` for non-convention registrations.
 
 ---
 

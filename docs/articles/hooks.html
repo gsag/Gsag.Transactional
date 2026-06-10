@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/docs/_src/articles/hooks.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/hooks.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -87,7 +87,7 @@
         <article data-uid="">
 <h1 id="transaction-hooks">Transaction Hooks</h1>
 
-<p>Hooks let you register callbacks that run at specific points in the transaction lifecycle. They are accessed via <code>ITransactionHooks</code>, which is registered as a singleton by <code>AddTransactionalServices</code>.</p>
+<p>Hooks let you register callbacks that run at specific points in the transaction lifecycle. They are accessed via <code>ITransactionHooks</code>, which is registered as a singleton by <code>AddTransactional</code>.</p>
 <pre><code class="lang-csharp">public class OrderService : IOrderService
 {
     private readonly ITransactionHooks _hooks;

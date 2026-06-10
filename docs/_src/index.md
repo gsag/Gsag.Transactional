@@ -21,8 +21,10 @@ dotnet add package Gsag.Transactional.Core
 ## Setup
 
 ```csharp
-builder.Services.AddTransactionalServices(typeof(Program).Assembly);
-builder.Services.AddTransactionalLogging(); // optional — Debug + Warning via MEL
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(Program).Assembly)
+    .AddLogging()  // optional — Debug + Warning via MEL
+);
 ```
 
 Mark a method on the **concrete class**:

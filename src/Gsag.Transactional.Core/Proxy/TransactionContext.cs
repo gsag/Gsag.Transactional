@@ -8,7 +8,7 @@ using Gsag.Transactional.Core.Observability;
 namespace Gsag.Transactional.Core.Proxy;
 
 /// <summary>
-/// Per-call state passed from TransactionProxy&lt;T&gt; to TransactionScopeExecutor.
+/// Per-call state passed from TransactionProxy&lt;T&gt; through SyncHandler / AsyncHandler to the lifecycle infrastructure.
 /// Hooks is always non-null; callers check HasHooksFor before iterating.
 /// An empty collection means this invocation is joining an existing scope or is Suppress —
 /// hooks registered during the call flow into the ambient (parent) collection instead.
@@ -20,20 +20,24 @@ internal sealed class TransactionContext(
     MethodInfo method,
     TransactionScope scope,
     TransactionalAttribute attr,
-    Stopwatch stopwatch,
     ITransactionObserver observer,
     HookCollection hooks)
 {
+    private long _endTimestamp;
+
     internal MethodInfo Method { get; } = method;
     internal TransactionScope Scope { get; } = scope;
     internal TransactionalAttribute Attr { get; } = attr;
-    internal Stopwatch Stopwatch { get; } = stopwatch;
     internal ITransactionObserver Observer { get; } = observer;
     internal HookCollection Hooks { get; } = hooks;
 
-    internal RollbackPolicy Policy { get; } = RollbackPolicy.From(attr);
+    internal long StartTimestamp { get; } = Stopwatch.GetTimestamp();
+    internal TimeSpan Elapsed => Stopwatch.GetElapsedTime(StartTimestamp, _endTimestamp);
+    internal void StopTiming() => _endTimestamp = Stopwatch.GetTimestamp();
 
-    internal TransactionInfo Info { get; } = new TransactionInfo
+    internal RollbackPolicy Policy { get; } = TransactionDelegateCache.GetOrCreatePolicy(method, attr);
+
+    internal TransactionInfo Info { get; } = new()
     {
         MethodName = method.Name,
         DeclaringType = method.DeclaringType ?? typeof(object),

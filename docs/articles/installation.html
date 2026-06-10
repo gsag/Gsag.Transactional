@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/docs/update-readme/docs/_src/articles/installation.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/installation.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -96,22 +96,26 @@
 <p>Supported runtimes: <strong>.NET 8</strong> and <strong>.NET 9</strong>.</p>
 <hr>
 <h2 id="di-registration">DI Registration</h2>
-<p>Call <code>AddTransactionalServices</code> in <code>Program.cs</code>, passing the assembly that contains your service classes:</p>
+<p>Call <code>AddTransactional</code> in <code>Program.cs</code>, passing the assembly that contains your service classes:</p>
 <pre><code class="lang-csharp">using Gsag.Transactional.Core.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Scans the assembly for IFoo / FooService pairs and registers proxied transactional services.
-builder.Services.AddTransactionalServices(typeof(Program).Assembly);
+builder.Services.AddTransactional(b =&gt; b
+    .ScanAssembly(typeof(Program).Assembly)
+);
 </code></pre>
 <p>Convention: for each concrete class <code>FooService</code> that has at least one <code>[Transactional]</code> method, the scanner looks for a matching <code>IFooService</code> interface in the same assembly and namespace. If found, it registers the concrete class as <code>Scoped</code> and exposes it through a <code>DispatchProxy</code> under <code>IFooService</code>.</p>
 <p>For services that don't follow the <code>I{ClassName}</code> convention, register them explicitly:</p>
-<pre><code class="lang-csharp">builder.Services.AddTransactionalService&lt;IMyService, MyService&gt;();
+<pre><code class="lang-csharp">builder.Services.AddTransactional(b =&gt; b
+    .AddService&lt;IMyService, MyService&gt;()
+);
 </code></pre>
 <hr>
 <h2 id="logging-optional">Logging (optional)</h2>
 <p>Enable the built-in MEL observer to see every transaction lifecycle event:</p>
-<pre><code class="lang-csharp">builder.Services.AddTransactionalLogging();
+<pre><code class="lang-csharp">builder.Services.AddTransactional(b =&gt; b.AddLogging());
 </code></pre>
 <p>This registers an observer that emits:</p>
 <ul>
