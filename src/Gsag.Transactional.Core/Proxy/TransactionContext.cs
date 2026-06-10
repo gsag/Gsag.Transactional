@@ -8,7 +8,7 @@ using Gsag.Transactional.Core.Observability;
 namespace Gsag.Transactional.Core.Proxy;
 
 /// <summary>
-/// Per-call state passed from TransactionProxy&lt;T&gt; to TransactionScopeExecutor.
+/// Per-call state passed from TransactionProxy&lt;T&gt; through SyncHandler / AsyncHandler to the lifecycle infrastructure.
 /// Hooks is always non-null; callers check HasHooksFor before iterating.
 /// An empty collection means this invocation is joining an existing scope or is Suppress —
 /// hooks registered during the call flow into the ambient (parent) collection instead.

@@ -31,7 +31,7 @@ internal sealed class TransactionHooks : ITransactionHooks
     public void BeforeRollback(Func<Task> action) => _current.Value?.AddAsync(HookEvent.BeforeRollback, action);
 
     /// <summary>
-    /// Called by <c>TransactionScopeExecutor</c> before opening the scope.
+    /// Called by <c>TransactionScopeFactory</c> before opening the scope.
     /// Always returns a <see cref="HookCollection"/> — callers check <see cref="HookCollection.HasHooksFor"/>
     /// rather than null. The returned collection's <see cref="HookCollection.Previous"/> always
     /// holds the snapshot of the AsyncLocal slot before this call, so <see cref="ClearScope"/>
@@ -175,7 +175,7 @@ internal sealed class TransactionHooks : ITransactionHooks
         // before a potential NotSupportedException is thrown. All events are checked
         // regardless of outcome to fail fast consistently.
         // Note: BeforeCommit and BeforeRollback are NOT checked here — they are verified and
-        // executed inline at their respective call sites in HandleSync (before Commit/Rollback),
+        // executed inline at their respective call sites in SyncHandler (before Commit/Rollback),
         // so by the time this finally-block runs they have already completed or been skipped.
         EnsureNoAsyncHooks(hooks, HookEvent.AfterCommit);
         EnsureNoAsyncHooks(hooks, HookEvent.AfterRollback);
