@@ -69,17 +69,22 @@ public class ThrowingOnRollbackObserver : ITransactionObserver
 }
 
 // Service that votes to abort the ambient transaction then returns normally.
-// When the proxy subsequently calls scope.Complete(), TransactionAbortedException is
-// thrown — this exercises the Commit() catch block that calls OnRollback before rethrowing.
+// scope.Complete() succeeds (it only sets _complete=true and never throws with LTM).
+// scope.Dispose() then throws TransactionAbortedException because the committable
+// transaction was rolled back — exercising the disposeEx != null branch in SyncHandler.
 public interface IForcedAbortService
 {
     [Transactional]
     void ForceAbort();
+
+    [Transactional]
+    int ForceAbortWithReturn();
 }
 
 public class ForcedAbortService : IForcedAbortService
 {
     public void ForceAbort() => Transaction.Current!.Rollback();
+    public int ForceAbortWithReturn() { Transaction.Current!.Rollback(); return 42; }
 }
 
 // Task<T>-returning method that throws synchronously before returning its task.
@@ -130,6 +135,23 @@ public class ExecutorEdgeCaseTests
         Assert.Contains("BEGIN:ForceAbort", observer.Calls);
         Assert.Contains("ROLLBACK:ForceAbort", observer.Calls);
         Assert.DoesNotContain("COMMIT:ForceAbort", observer.Calls);
+    }
+
+    [Fact]
+    public void SyncReturn_WhenTransactionAbortedAfterComplete_PropagatesAbortedExceptionAndIgnoresResult()
+    {
+        // Explicit test for the non-void sync path: verifies that when scope.Dispose() throws,
+        // the computed return value is discarded and TransactionAbortedException propagates.
+        // Covers the disposeEx is not null branch in SyncHandler.Execute() for return-type methods.
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IForcedAbortService>(
+            new ForcedAbortService(), observer);
+
+        Assert.Throws<TransactionAbortedException>(() => proxy.ForceAbortWithReturn());
+
+        Assert.Contains("ROLLBACK:ForceAbortWithReturn", observer.Calls);
+        Assert.DoesNotContain("COMMIT:ForceAbortWithReturn", observer.Calls);
+        Assert.Contains("COMPLETE:ForceAbortWithReturn:False", observer.Calls);
     }
 
     [Fact]

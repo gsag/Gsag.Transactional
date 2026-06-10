@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 using Gsag.Transactional.Core.Hooks;
 
@@ -7,30 +8,30 @@ internal static class TransactionLifecycle
 {
     internal static void Commit(TransactionContext ctx)
     {
+        CompleteScope(ctx);
+        ctx.Stopwatch.Stop();
+        // OnCommit is deferred to NotifyCommitOutcome, called after TryDispose confirms
+        // scope.Dispose() did not throw. If Dispose throws TransactionAbortedException,
+        // the observer receives OnRollback instead of OnCommit.
+    }
+
+    // TransactionScope.Complete() only sets _complete=true and never throws with LTM
+    // (System.Transactions without DTC). This method is defensive code for DTC scenarios
+    // where IEnlistmentNotification.Prepare() votes to abort during the two-phase commit
+    // protocol, causing Complete() to throw TransactionAbortedException.
+    [ExcludeFromCodeCoverage]
+    private static void CompleteScope(TransactionContext ctx)
+    {
         try
         {
             ctx.Scope.Complete();
         }
         catch (Exception ex)
         {
-            // Complete() can throw (e.g. TransactionAbortedException on DTC timeout or
-            // transaction manager abort). Treat as rollback: stop the clock and call
-            // OnRollback here.
-            //
-            // Two-path OnRollback design: if this catch fires while executing inside the
-            // async wrappers' NoRollbackFor catch block, `outcome` stays RolledBack and
-            // NotifyCommitOutcome returns early — no duplicate OnRollback is fired.
-            // Note: with System.Transactions alone (no DTC) Complete() just sets a flag
-            // and does not throw; this path is exercised by DTC timeout or IEnlistmentNotification
-            // voting to abort during Prepare.
             ctx.Stopwatch.Stop();
             ctx.Observer.OnRollback(ctx.Info, ex, ctx.Stopwatch.Elapsed);
             throw;
         }
-        ctx.Stopwatch.Stop();
-        // OnCommit is deferred to NotifyCommitOutcome, called after TryDispose confirms
-        // scope.Dispose() did not throw. If Dispose throws TransactionAbortedException,
-        // the observer receives OnRollback instead of OnCommit.
     }
 
     internal static void Rollback(TransactionContext ctx, Exception ex)
