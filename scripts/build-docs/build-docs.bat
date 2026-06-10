@@ -1,3 +1,4 @@
 @echo off
-dotnet run "%~dp0build-docs.cs"
+cd /d "%~dp0..\.."
+dotnet run "scripts/build-docs/build-docs.cs"
 pause
