@@ -99,6 +99,7 @@ internal sealed class TransactionalBuilder : ITransactionalBuilder
     }
 
     [RequiresUnreferencedCode("Inspects arbitrary types for [Transactional] attributes via reflection.")]
+    [SuppressMessage("Vulnerability", "S3011", Justification = "Reflects on user-supplied types to discover [Transactional] methods; this is the intended purpose of the reflection.")]
     private static bool HasTransactionalMethod(Type type) =>
         type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
             .Any(m => m.IsDefined(typeof(TransactionalAttribute), inherit: true))
