@@ -21,11 +21,11 @@ var observer = new ConcurrencyObserver();
 
 var services = new ServiceCollection();
 services.AddSingleton<ITransactionObserver>(observer);
-services
-    .AddTransactionalService<ILoadService, LoadService>()
-    .AddTransactionalService<IInnerService, InnerService>()
-    .AddTransactionalService<IOuterService, OuterService>()
-    .AddTransactionalService<IIsolationService, IsolationService>();
+services.AddTransactional(b => b
+    .AddService<ILoadService, LoadService>()
+    .AddService<IInnerService, InnerService>()
+    .AddService<IOuterService, OuterService>()
+    .AddService<IIsolationService, IsolationService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
