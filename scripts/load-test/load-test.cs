@@ -11,7 +11,7 @@ using Spectre.Console;
 
 const int ThroughputTasks = 20_000;
 const int ThroughputIterationsPerTask = 50;
-const int RollbackTasks = 40_000;       // 20 000 commit + 20 000 rollback
+const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
 const int IsolationTasks = 20_000;
 const int NestedTasks = 10_000;
 
@@ -46,7 +46,7 @@ AnsiConsole.WriteLine();
 var results = new List<ScenarioResult>();
 var sw = new Stopwatch();
 
-// ─── Cenário 1: Throughput puro ───────────────────────────────────────────────
+// ─── Scenario 1: Pure throughput ──────────────────────────────────────────────
 
 observer.Reset();
 long s1Peak = 0; long s1Alloc = 0; int s1Gc0 = 0;
@@ -54,7 +54,7 @@ long s1Peak = 0; long s1Alloc = 0; int s1Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]1/4[/]  Throughput puro...", async _ =>
+    .StartAsync("[cyan]1/4[/]  Pure throughput...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -86,10 +86,10 @@ await AnsiConsole.Status()
         AssertEq(observer.Complete, total, "Complete");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Throughput puro ({ThroughputTasks}×{ThroughputIterationsPerTask})", total, sw.Elapsed, tps, s1Peak, s1Alloc, s1Gc0, error));
+    results.Add(new($"Pure throughput ({ThroughputTasks}×{ThroughputIterationsPerTask})", total, sw.Elapsed, tps, s1Peak, s1Alloc, s1Gc0, error));
 }
 
-// ─── Cenário 2: Rollback vs commit sob carga ─────────────────────────────────
+// ─── Scenario 2: Rollback vs commit under load ───────────────────────────────
 
 observer.Reset();
 long s2Peak = 0; long s2Alloc = 0; int s2Gc0 = 0;
@@ -138,7 +138,7 @@ await AnsiConsole.Status()
     results.Add(new($"Rollback vs commit ({RollbackTasks} tasks)", RollbackTasks, sw.Elapsed, tps, s2Peak, s2Alloc, s2Gc0, error));
 }
 
-// ─── Cenário 3: Isolamento de hooks (AsyncLocal) ─────────────────────────────
+// ─── Scenario 3: Hook isolation (AsyncLocal) ─────────────────────────────────
 
 observer.Reset();
 var hookFireCount = new int[IsolationTasks];
@@ -147,7 +147,7 @@ long s3Peak = 0; long s3Alloc = 0; int s3Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]3/4[/]  Isolamento AsyncLocal...", async _ =>
+    .StartAsync("[cyan]3/4[/]  AsyncLocal isolation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -179,10 +179,10 @@ await AnsiConsole.Status()
         }
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Isolamento AsyncLocal ({IsolationTasks} tasks)", IsolationTasks, sw.Elapsed, tps, s3Peak, s3Alloc, s3Gc0, error));
+    results.Add(new($"AsyncLocal isolation ({IsolationTasks} tasks)", IsolationTasks, sw.Elapsed, tps, s3Peak, s3Alloc, s3Gc0, error));
 }
 
-// ─── Cenário 4: Nested RequiresNew concorrente ────────────────────────────────
+// ─── Scenario 4: Nested RequiresNew concurrent ────────────────────────────────
 
 observer.Reset();
 long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
@@ -219,16 +219,16 @@ await AnsiConsole.Status()
     results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, s4Peak, s4Alloc, s4Gc0, error));
 }
 
-// ─── Tabela de resultados ─────────────────────────────────────────────────────
+// ─── Results table ────────────────────────────────────────────────────────────
 
 AnsiConsole.WriteLine();
 
 var table = new Table()
     .Border(TableBorder.Rounded)
     .BorderColor(Color.Cyan1)
-    .AddColumn(new TableColumn("[cyan]Cenário[/]"))
-    .AddColumn(new TableColumn("[cyan]Transações[/]").RightAligned())
-    .AddColumn(new TableColumn("[cyan]Duração[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]Scenario[/]"))
+    .AddColumn(new TableColumn("[cyan]Transactions[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]Duration[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]TPS[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Avg latency[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Peak heap[/]").RightAligned())
@@ -254,11 +254,11 @@ AnsiConsole.WriteLine();
 bool allPassed = results.All(r => r.Error is null);
 if (allPassed)
 {
-    AnsiConsole.MarkupLine("[green bold]Todos os cenários passaram.[/]");
+    AnsiConsole.MarkupLine("[green bold]All scenarios passed.[/]");
 }
 else
 {
-    AnsiConsole.MarkupLine("[red bold]Um ou mais cenários falharam.[/]");
+    AnsiConsole.MarkupLine("[red bold]One or more scenarios failed.[/]");
     Environment.Exit(1);
 }
 
@@ -268,7 +268,7 @@ static void AssertEq(int actual, int expected, string label)
 {
     if (actual != expected)
     {
-        throw new Exception($"{label}: esperado {expected}, obtido {actual}");
+        throw new Exception($"{label}: expected {expected}, got {actual}");
     }
 }
 
