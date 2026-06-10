@@ -55,7 +55,9 @@ public class MyService : IMyService
 
 ```csharp
 // Program.cs
-builder.Services.AddTransactionalServices(typeof(MyService).Assembly);
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(MyService).Assembly)
+);
 ```
 
 **4. Inject and use the interface — the proxy is transparent:**
@@ -73,7 +75,7 @@ public class MyController : ControllerBase
 }
 ```
 
-`AddTransactionalServices` auto-discovers every concrete class with at least one `[Transactional]` method and a matching interface named `I{ClassName}` in the same assembly.
+`ScanAssembly` auto-discovers every concrete class with at least one `[Transactional]` method and a matching interface named `I{ClassName}` in the same assembly.
 
 ---
 
@@ -183,7 +185,7 @@ public class MyService : IMyService
 | `AfterRollback` | After the transaction rolls back | No | Suppressed |
 | `AfterCompletion` | After the transaction resolves, commit or rollback | No | Suppressed on rollback and `NoRollbackFor` paths |
 
-Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Async overloads (`Func<Task>`) throw `NotSupportedException` when registered inside a synchronous `[Transactional]` method — change the method return type to `Task` to use them. `ITransactionHooks` is registered automatically by `AddTransactionalServices()`.
+Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Async overloads (`Func<Task>`) throw `NotSupportedException` when registered inside a synchronous `[Transactional]` method — change the method return type to `Task` to use them. `ITransactionHooks` is registered automatically by `AddTransactional()`.
 
 ---
 
@@ -204,12 +206,14 @@ Each method accepts a synchronous `Action` or an asynchronous `Func<Task>`. Asyn
 
 ```csharp
 // Single observer — structured log entries at DEBUG/WARNING level
-builder.Services.AddTransactionalLogging();
+builder.Services.AddTransactional(b => b.AddLogging());
 
 // Multiple observers — Composite pattern, called in registration order
-builder.Services.AddTransactionalLogging()
-                .AddTransactionalObserver<MetricsObserver>()
-                .AddTransactionalObserver<TracingObserver>();
+builder.Services.AddTransactional(b => b
+    .AddLogging()
+    .AddObserver<MetricsObserver>()
+    .AddObserver<TracingObserver>()
+);
 ```
 
 When two or more observers are registered, the proxy wraps them in a `CompositeTransactionObserver` automatically — no code changes needed in existing observers.
@@ -242,12 +246,12 @@ public class TracingObserver : ITransactionObserver
 ```
 
 ```csharp
-builder.Services.AddTransactionalObserver<TracingObserver>();
+builder.Services.AddTransactional(b => b.AddObserver<TracingObserver>());
 ```
 
 ### Customizing the built-in logs
 
-`AddTransactionalLogging()` is an opinionated default. To filter or silence it, use the standard .NET logging configuration — the category name is `Gsag.Transactional.Core.Observability.ITransactionObserver`:
+`AddLogging()` (called via the builder) is an opinionated default. To filter or silence it, use the standard .NET logging configuration — the category name is `Gsag.Transactional.Core.Observability.ITransactionObserver`:
 
 ```json
 "Logging": {
@@ -260,8 +264,8 @@ builder.Services.AddTransactionalObserver<TracingObserver>();
 To change the **format**, replace it with your own observer:
 
 ```csharp
-// Instead of AddTransactionalLogging()
-builder.Services.AddTransactionalObserver<MyLoggingObserver>();
+// Instead of .AddLogging()
+builder.Services.AddTransactional(b => b.AddObserver<MyLoggingObserver>());
 ```
 
 ```csharp

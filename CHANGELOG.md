@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **API Consolidation**: Replaced four public extension methods (`AddTransactionalServices`, `AddTransactionalLogging`, `AddTransactionalObserver<T>`, `AddTransactionalService<TInterface, TImplementation>`) with a single fluent builder entry point `AddTransactional(Action<ITransactionalBuilder>)`. Old methods removed; new builder API provides same functionality with improved discoverability and ergonomics. See [Installation](docs/_src/articles/installation.md) for migration examples.
+
+---
+
 ## [0.5.0] — 2026-05-22
 
 ### Added
