@@ -37,7 +37,7 @@ internal sealed class TransactionContext(
 
     internal RollbackPolicy Policy { get; } = TransactionDelegateCache.GetOrCreatePolicy(method, attr);
 
-    internal TransactionInfo Info { get; } = new TransactionInfo
+    internal TransactionInfo Info { get; } = new()
     {
         MethodName = method.Name,
         DeclaringType = method.DeclaringType ?? typeof(object),

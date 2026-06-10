@@ -50,7 +50,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         ArgumentNullException.ThrowIfNull(targetMethod);
-        args ??= [];
+        args ??= Array.Empty<object?>();
 
         var attr = _attributeCache.GetOrAdd((targetMethod, _target.GetType()), FindAttribute);
 
