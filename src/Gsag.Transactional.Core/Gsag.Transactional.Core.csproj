@@ -16,7 +16,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- API validation disabled for 0.x.x pre-release — breaking changes acceptable -->
-    <ValidatePackageMetadata>false</ValidatePackageMetadata>
+    <SkipPackageValidation>true</SkipPackageValidation>
   </PropertyGroup>
 
   <!-- Include README.md in the package root so NuGet.org renders it -->
