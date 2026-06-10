@@ -9,11 +9,11 @@ using Spectre.Console;
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const int ThroughputTasks = 5_000;
-const int ThroughputIterationsPerTask = 20;
-const int RollbackTasks = 10_000;       // 5 000 commit + 5 000 rollback
-const int IsolationTasks = 5_000;
-const int NestedTasks = 2_000;
+const int ThroughputTasks = 20_000;
+const int ThroughputIterationsPerTask = 50;
+const int RollbackTasks = 40_000;       // 20 000 commit + 20 000 rollback
+const int IsolationTasks = 20_000;
+const int NestedTasks = 10_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ IIsolationService isolationProxy = svcp.GetRequiredService<IIsolationService>();
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
-AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks}×{ThroughputIterationsPerTask} | rollback={RollbackTasks} | isolation={IsolationTasks} | nested={NestedTasks}[/]");
+AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0}[/]");
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -49,12 +49,15 @@ var sw = new Stopwatch();
 // ─── Cenário 1: Throughput puro ───────────────────────────────────────────────
 
 observer.Reset();
+long s1Alloc = 0; int s1Gc0 = 0;
 
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
     .StartAsync("[cyan]1/4[/]  Throughput puro...", async _ =>
     {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
         sw.Restart();
         var tasks = Enumerable.Range(0, ThroughputTasks)
             .Select(_ => Task.Run(async () =>
@@ -66,6 +69,8 @@ await AnsiConsole.Status()
             }));
         await Task.WhenAll(tasks);
         sw.Stop();
+        s1Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s1Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -79,12 +84,13 @@ await AnsiConsole.Status()
         AssertEq(observer.Complete, total, "Complete");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Throughput puro ({ThroughputTasks}×{ThroughputIterationsPerTask})", total, sw.Elapsed, tps, error));
+    results.Add(new($"Throughput puro ({ThroughputTasks}×{ThroughputIterationsPerTask})", total, sw.Elapsed, tps, s1Alloc, s1Gc0, error));
 }
 
 // ─── Cenário 2: Rollback vs commit sob carga ─────────────────────────────────
 
 observer.Reset();
+long s2Alloc = 0; int s2Gc0 = 0;
 
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
@@ -92,6 +98,8 @@ await AnsiConsole.Status()
     .StartAsync("[cyan]2/4[/]  Rollback vs commit...", async _ =>
     {
         int half = RollbackTasks / 2;
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
         sw.Restart();
         var tasks = Enumerable.Range(0, RollbackTasks).Select(i =>
         {
@@ -108,6 +116,8 @@ await AnsiConsole.Status()
         });
         await Task.WhenAll(tasks);
         sw.Stop();
+        s2Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s2Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -121,19 +131,22 @@ await AnsiConsole.Status()
         AssertEq(observer.Complete, RollbackTasks, "Complete");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Rollback vs commit ({RollbackTasks} tasks)", RollbackTasks, sw.Elapsed, tps, error));
+    results.Add(new($"Rollback vs commit ({RollbackTasks} tasks)", RollbackTasks, sw.Elapsed, tps, s2Alloc, s2Gc0, error));
 }
 
 // ─── Cenário 3: Isolamento de hooks (AsyncLocal) ─────────────────────────────
 
 observer.Reset();
 var hookFireCount = new int[IsolationTasks];
+long s3Alloc = 0; int s3Gc0 = 0;
 
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
     .StartAsync("[cyan]3/4[/]  Isolamento AsyncLocal...", async _ =>
     {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
         sw.Restart();
         var tasks = Enumerable.Range(0, IsolationTasks)
             .Select(i => Task.Run(async () =>
@@ -142,6 +155,8 @@ await AnsiConsole.Status()
             }));
         await Task.WhenAll(tasks);
         sw.Stop();
+        s3Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s3Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -158,23 +173,28 @@ await AnsiConsole.Status()
         }
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Isolamento AsyncLocal ({IsolationTasks} tasks)", IsolationTasks, sw.Elapsed, tps, error));
+    results.Add(new($"Isolamento AsyncLocal ({IsolationTasks} tasks)", IsolationTasks, sw.Elapsed, tps, s3Alloc, s3Gc0, error));
 }
 
 // ─── Cenário 4: Nested RequiresNew concorrente ────────────────────────────────
 
 observer.Reset();
+long s4Alloc = 0; int s4Gc0 = 0;
 
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
     .StartAsync("[cyan]4/4[/]  Nested RequiresNew...", async _ =>
     {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
         sw.Restart();
         var tasks = Enumerable.Range(0, NestedTasks)
             .Select(_ => Task.Run(() => outerProxy.RunWithInnerAsync()));
         await Task.WhenAll(tasks);
         sw.Stop();
+        s4Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s4Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -188,7 +208,7 @@ await AnsiConsole.Status()
         AssertEq(observer.Complete, totalScopes, "Complete (outer + inner)");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, error));
+    results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, s4Alloc, s4Gc0, error));
 }
 
 // ─── Tabela de resultados ─────────────────────────────────────────────────────
@@ -202,6 +222,9 @@ var table = new Table()
     .AddColumn(new TableColumn("[cyan]Transações[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Duração[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]TPS[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]Avg µs[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]Alloc[/]").RightAligned())
+    .AddColumn(new TableColumn("[cyan]GC0[/]").RightAligned())
     .AddColumn(new TableColumn("[cyan]Status[/]").Centered());
 
 foreach (var r in results)
@@ -209,7 +232,12 @@ foreach (var r in results)
     bool ok = r.Error is null;
     string status = ok ? "[green]✓[/]" : "[red]✗[/]";
     string label = ok ? r.Label : $"{r.Label}\n[red dim]{Markup.Escape(r.Error!)}[/]";
-    table.AddRow(label, $"{r.Transactions:N0}", $"{r.Elapsed.TotalMilliseconds:F0} ms", $"{r.Tps:N0}", status);
+    double avgUs = r.Transactions > 0 ? r.Elapsed.TotalMicroseconds / r.Transactions : 0;
+    string alloc = r.AllocatedBytes >= 1_048_576
+        ? $"{r.AllocatedBytes / 1_048_576.0:F1} MB"
+        : $"{r.AllocatedBytes / 1024.0:F0} KB";
+    table.AddRow(label, $"{r.Transactions:N0}", $"{r.Elapsed.TotalMilliseconds:F0} ms",
+        $"{r.Tps:N0}", $"{avgUs:F1}", alloc, $"{r.GcGen0}", status);
 }
 
 AnsiConsole.Write(table);
@@ -240,7 +268,7 @@ static void AssertEq(int actual, int expected, string label)
 // Result record
 // ─────────────────────────────────────────────────────────────────────────────
 
-record ScenarioResult(string Label, int Transactions, TimeSpan Elapsed, long Tps, string? Error);
+record ScenarioResult(string Label, int Transactions, TimeSpan Elapsed, long Tps, long AllocatedBytes, int GcGen0, string? Error);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Services
