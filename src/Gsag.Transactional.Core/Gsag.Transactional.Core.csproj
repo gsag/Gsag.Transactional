@@ -15,13 +15,15 @@
     <PackageTags>transactions;transactional;dispatchproxy;system.transactions;aop;declarative</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- API validation disabled for 0.x.x pre-release — breaking changes acceptable -->
-    <SkipPackageValidation>true</SkipPackageValidation>
+    <!-- API validation: allow breaking changes for 0.x.x pre-release versions -->
+    <PackageValidationBaselineSuppressions>PackageValidationBaselineSuppressions.xml</PackageValidationBaselineSuppressions>
   </PropertyGroup>
 
   <!-- Include README.md in the package root so NuGet.org renders it -->
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <!-- API validation baseline suppressions for pre-release breaking changes -->
+    <None Include="PackageValidationBaselineSuppressions.xml" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
