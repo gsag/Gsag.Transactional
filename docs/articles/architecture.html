@@ -206,7 +206,7 @@ var scope = CreateScope(attr);       // too late
 <td><code>Commit</code>, <code>Rollback</code>, <code>TryDispose</code>, <code>NotifyCommitOutcome</code> — drives <code>scope.Complete()</code> / <code>scope.Dispose()</code> and all observer callbacks</td>
 </tr>
 <tr>
-<td><code>TransactionAsyncRunner</code></td>
+<td><code>TransactionAsyncExecutor</code></td>
 <td>Async wrappers for <code>Task</code>, <code>ValueTask</code>, <code>Task&lt;T&gt;</code>, and <code>ValueTask&lt;T&gt;</code>; hosts the single <code>WrapCoreAsync&lt;TResult&gt;</code> template that owns the full async lifecycle</td>
 </tr>
 <tr>
@@ -215,7 +215,7 @@ var scope = CreateScope(attr);       // too late
 </tr>
 </tbody>
 </table>
-<p><code>TransactionAsyncRunner</code> unifies the void and result-returning async paths through a <code>WrapCoreAsync&lt;TResult&gt;</code> template method. A zero-byte <code>VoidResult</code> sentinel struct lets the void path share the same generic template without extra allocation.</p>
+<p><code>TransactionAsyncExecutor</code> unifies the void and result-returning async paths through a <code>WrapCoreAsync&lt;TResult&gt;</code> template method. A zero-byte <code>VoidResult</code> sentinel struct lets the void path share the same generic template without extra allocation.</p>
 <p><code>SyncHandler</code> and <code>AsyncHandler</code> are static classes that implement the sync and async execution paths respectively. Both classes open the scope via <code>TransactionScopeFactory</code>, delegate lifecycle transitions to <code>TransactionLifecycle</code>, and run hooks via <code>TransactionHooks</code>.</p>
 <p>Rollback decisions are delegated to <code>RollbackPolicy</code> (internal). <code>RollbackPolicy.From(attr)</code> captures the attribute configuration at scope-open time; <code>ShouldRollback(ex)</code> implements a three-rule precedence check:</p>
 <ol>
