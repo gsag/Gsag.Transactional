@@ -55,15 +55,15 @@ try
     // Success summary
     var table = new Table()
         .Border(TableBorder.Rounded)
-        .BorderColor(Color.Green)
-        .AddColumn("[green]✓ Status[/]")
-        .AddColumn("[green]Result[/]")
-        .AddRow("[green]Build[/]", "[green]Completed Successfully[/]")
+        .BorderColor(Color.Cyan1)
+        .AddColumn("[cyan]✓ Status[/]")
+        .AddColumn("[cyan]Result[/]")
+        .AddRow("[cyan]Build[/]", "[cyan]Completed Successfully[/]")
         .AddRow("[dim]Output[/]", $"[dim]{Path.GetFullPath(docsDir)}[/]");
 
     AnsiConsole.Write(new Panel(table)
-        .Header("[green bold] Documentation Build Complete [/]")
-        .BorderColor(Color.Green)
+        .Header("[cyan bold] Documentation Build Complete [/]")
+        .BorderColor(Color.Cyan1)
         .Padding(1, 1));
 }
 catch (Exception ex)
