@@ -18,20 +18,29 @@ Supported runtimes: **.NET 8** and **.NET 9**.
 
 ## DI Registration
 
-Call `AddTransactional` in `Program.cs`, passing the assembly that contains your service classes:
+Call `AddTransactional` in `Program.cs`:
 
 ```csharp
 using Gsag.Transactional.Core.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Scans the assembly for IFoo / FooService pairs and registers proxied transactional services.
+// The calling assembly is automatically scanned for IFoo / FooService pairs.
 builder.Services.AddTransactional(b => b
-    .ScanAssembly(typeof(Program).Assembly)
+    .AddLogging()  // optional
 );
 ```
 
-Convention: for each concrete class `FooService` that has at least one `[Transactional]` method, the scanner looks for a matching `IFooService` interface in the same assembly and namespace. If found, it registers the concrete class as `Scoped` and exposes it through a `DispatchProxy` under `IFooService`.
+By default, the **calling assembly is automatically scanned** for service classes. Convention: for each concrete class `FooService` that has at least one `[Transactional]` method, the scanner looks for a matching `IFooService` interface in the same assembly and namespace. If found, it registers the concrete class as `Scoped` and exposes it through a `DispatchProxy` under `IFooService`.
+
+To scan a **different assembly**, use `ScanAssembly()`:
+
+```csharp
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .AddLogging()
+);
+```
 
 For services that don't follow the `I{ClassName}` convention, register them explicitly:
 

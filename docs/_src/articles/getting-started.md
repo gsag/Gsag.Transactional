@@ -49,11 +49,20 @@ public class OrderService : IOrderService
 ```csharp
 // Program.cs
 builder.Services.AddTransactional(b => b
-    .ScanAssembly(typeof(Program).Assembly)
+    .AddLogging()
 );
 ```
 
-This scans the assembly, finds `OrderService` implements `IOrderService`, and registers `IOrderService` as a `DispatchProxy`-wrapped transactional service. When you inject `IOrderService`, you receive the proxy.
+The **calling assembly is automatically scanned** to find `OrderService` and its interface `IOrderService`, then registers `IOrderService` as a `DispatchProxy`-wrapped transactional service. When you inject `IOrderService`, you receive the proxy.
+
+To scan a **different assembly** instead, use `ScanAssembly()`:
+
+```csharp
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .AddLogging()
+);
+```
 
 ---
 
