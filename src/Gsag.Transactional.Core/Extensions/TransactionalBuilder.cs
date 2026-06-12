@@ -15,14 +15,27 @@ namespace Gsag.Transactional.Core.Extensions;
 internal sealed class TransactionalBuilder : ITransactionalBuilder
 {
     private readonly IServiceCollection _services;
+    private readonly Assembly _callingAssembly;
+    private bool _explicitDiscoveryRegistered;
 
-    internal TransactionalBuilder(IServiceCollection services)
+    internal TransactionalBuilder(IServiceCollection services, Assembly callingAssembly)
     {
         _services = services;
+        _callingAssembly = callingAssembly;
+        _explicitDiscoveryRegistered = false;
+    }
+
+    internal void EnsureDiscoveryRegistered()
+    {
+        if (!_explicitDiscoveryRegistered)
+        {
+            ScanAssembly(_callingAssembly);
+        }
     }
 
     public ITransactionalBuilder ScanAssembly(Assembly assembly)
     {
+        _explicitDiscoveryRegistered = true;
         _services.TryAddSingleton<ITransactionHooks, TransactionHooks>();
 
         var candidates = assembly.GetTypes()
@@ -81,6 +94,7 @@ internal sealed class TransactionalBuilder : ITransactionalBuilder
         where TInterface : class
         where TImplementation : class, TInterface
     {
+        _explicitDiscoveryRegistered = true;
         _services.TryAddSingleton<ITransactionHooks, TransactionHooks>();
         _services.AddScoped<TImplementation>();
         _services.AddScoped<TInterface>(sp =>

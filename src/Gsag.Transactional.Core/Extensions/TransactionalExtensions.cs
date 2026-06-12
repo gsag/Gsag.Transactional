@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Gsag.Transactional.Core.Extensions;
@@ -11,12 +12,15 @@ public static class TransactionalExtensions
     /// <summary>
     /// Registers transactional services using a fluent builder.
     ///
+    /// Automatically scans the calling assembly for service classes with [Transactional] methods.
+    /// To scan additional assemblies instead, use <c>.ScanAssembly()</c>.
+    ///
     /// Example:
     /// <code>
     /// builder.Services.AddTransactional(b => b
-    ///     .ScanAssembly(typeof(MyService).Assembly)
     ///     .AddLogging()
     ///     .AddObserver&lt;MyMetricsObserver&gt;()
+    ///     .ScanAssembly(typeof(SomeOtherAssembly).Assembly)  // Optional: scan additional assemblies
     /// );
     /// </code>
     ///
@@ -30,8 +34,10 @@ public static class TransactionalExtensions
         this IServiceCollection services,
         Action<ITransactionalBuilder>? configure = null)
     {
-        var builder = new TransactionalBuilder(services);
+        var callingAssembly = Assembly.GetCallingAssembly();
+        var builder = new TransactionalBuilder(services, callingAssembly);
         configure?.Invoke(builder);
+        builder.EnsureDiscoveryRegistered();
         return services;
     }
 }
