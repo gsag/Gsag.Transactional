@@ -413,4 +413,97 @@ public class ExtensionsTests
         Assert.IsType<IExtTestService>(svc, exactMatch: false);
         Assert.IsNotType<ExtTestService>(svc); // must be proxy
     }
+
+    // -------------------------------------------------------------------------
+    // Service isolation — verify only matching services are registered
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void AddTransactional_WithoutExplicitScanAssembly_OnlyIncludesServicesFromCallingAssembly()
+    {
+        // When auto-discovering, only services from the calling assembly should be included
+        var services = NewServices()
+            .AddTransactional(); // Auto-discover calling assembly
+
+        // ExtTestService SHOULD be found (in same assembly, same namespace, has interface)
+        Assert.Contains(services, d => d.ServiceType == typeof(IExtTestService));
+
+        // DifferentNamespaceService should NOT be registered (interface in different namespace)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IDifferentNamespaceService));
+    }
+
+    [Fact]
+    public void AddTransactional_WithScanAssembly_OnlyIncludesServicesFromSpecifiedAssembly()
+    {
+        // When using explicit ScanAssembly, only services from that assembly should be included
+        var services = NewServices()
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
+
+        // ExtTestService SHOULD be found
+        Assert.Contains(services, d => d.ServiceType == typeof(IExtTestService));
+
+        // DifferentNamespaceService should NOT be registered (interface in different namespace)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IDifferentNamespaceService));
+    }
+
+    [Fact]
+    public void AddTransactional_WithoutExplicitScanAssembly_ExcludesOrphanServices()
+    {
+        // Services without matching interfaces should not be registered
+        var services = NewServices()
+            .AddTransactional(); // Auto-discover
+
+        // ExtTestOrphan has [Transactional] but no matching interface — should NOT be registered
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(ExtTestOrphan));
+    }
+
+    [Fact]
+    public void AddTransactional_WithScanAssembly_ExcludesOrphanServices()
+    {
+        // Services without matching interfaces should not be registered
+        var services = NewServices()
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()));
+
+        // ExtTestOrphan has [Transactional] but no matching interface — should NOT be registered
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(ExtTestOrphan));
+    }
+
+    [Fact]
+    public void AddTransactional_WithoutExplicitScanAssembly_RegistersOnlyExpectedServices()
+    {
+        // Verify exact count of registered transactional services
+        var services = NewServices()
+            .AddTransactional(); // Auto-discover
+
+        // Count how many IExtTestService, IInterfaceOnlyAttrService, IManualService are registered
+        var registeredInterfaces = services
+            .Where(d => d.ServiceType == typeof(IExtTestService)
+                     || d.ServiceType == typeof(IInterfaceOnlyAttrService)
+                     || d.ServiceType == typeof(IManualService))
+            .ToList();
+
+        // Should have at least ExtTestService and InterfaceOnlyAttrService (both auto-discovered)
+        // ManualService requires explicit AddService, so should NOT be here
+        Assert.Contains(services, d => d.ServiceType == typeof(IExtTestService));
+        Assert.Contains(services, d => d.ServiceType == typeof(IInterfaceOnlyAttrService));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IManualService));
+    }
+
+    [Fact]
+    public void AddTransactional_ExplicitAddService_SupressesAutoDiscovery()
+    {
+        // When explicit AddService is called, auto-discovery is suppressed
+        // Only the explicitly registered service is available
+        var services = NewServices()
+            .AddTransactional(b => b
+                .AddService<IManualService, ManualServiceImpl>() // Explicit — suppresses auto-discovery
+            );
+
+        // Explicit service SHOULD be registered
+        Assert.Contains(services, d => d.ServiceType == typeof(IManualService));
+
+        // Auto-discovered services should NOT be present (auto-discovery was suppressed)
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IExtTestService));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IInterfaceOnlyAttrService));
+    }
 }
