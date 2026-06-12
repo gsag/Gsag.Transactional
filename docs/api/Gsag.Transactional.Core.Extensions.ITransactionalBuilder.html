@@ -253,9 +253,9 @@ Can be chained to register multiple service pairs.</p>
   <div class="markdown level1 summary"><p>Scans <code class="paramref">assembly</code> for concrete service classes that have at least one
 [Transactional] method (on the class or on its implemented interfaces), then registers
 each one paired with its I{ClassName} interface as a TransactionProxy.
-Convention: OrderService → IOrderService (interface must be in the same namespace).
-Can be called multiple times to scan additional assemblies.</p>
-<p>Calling this method explicitly suppresses automatic calling-assembly discovery.</p>
+Convention: OrderService → IOrderService (interface must be in the same namespace).</p>
+<p>IMPORTANT: Calling this method <strong>overwrites</strong> the default automatic calling-assembly discovery.
+Only the specified assembly is scanned. Call multiple times to scan additional assemblies.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 

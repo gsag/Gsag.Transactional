@@ -33,11 +33,22 @@ builder.Services.AddTransactional(b => b
 
 By default, the **calling assembly is automatically scanned** for service classes. Convention: for each concrete class `FooService` that has at least one `[Transactional]` method, the scanner looks for a matching `IFooService` interface in the same assembly and namespace. If found, it registers the concrete class as `Scoped` and exposes it through a `DispatchProxy` under `IFooService`.
 
-To scan a **different assembly**, use `ScanAssembly()`:
+To scan a **different assembly**, use `ScanAssembly()`. Note: calling `ScanAssembly()` **overwrites the default behavior** — only the specified assembly is scanned:
+
+```csharp
+// Only SomeService.Assembly is scanned; calling assembly is NOT scanned
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .AddLogging()
+);
+```
+
+To scan **multiple assemblies**, call `ScanAssembly()` multiple times:
 
 ```csharp
 builder.Services.AddTransactional(b => b
     .ScanAssembly(typeof(SomeService).Assembly)
+    .ScanAssembly(typeof(OtherService).Assembly)
     .AddLogging()
 );
 ```

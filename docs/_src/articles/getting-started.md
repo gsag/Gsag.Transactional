@@ -55,11 +55,22 @@ builder.Services.AddTransactional(b => b
 
 The **calling assembly is automatically scanned** to find `OrderService` and its interface `IOrderService`, then registers `IOrderService` as a `DispatchProxy`-wrapped transactional service. When you inject `IOrderService`, you receive the proxy.
 
-To scan a **different assembly** instead, use `ScanAssembly()`:
+To scan a **different assembly**, use `ScanAssembly()`. Note: calling `ScanAssembly()` **overwrites the default behavior** — only the specified assembly is scanned:
+
+```csharp
+// Only SomeAssembly is scanned; calling assembly is NOT scanned
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .AddLogging()
+);
+```
+
+To scan **multiple assemblies**, call `ScanAssembly()` multiple times:
 
 ```csharp
 builder.Services.AddTransactional(b => b
     .ScanAssembly(typeof(SomeService).Assembly)
+    .ScanAssembly(typeof(OtherService).Assembly)
     .AddLogging()
 );
 ```

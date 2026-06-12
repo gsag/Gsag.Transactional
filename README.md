@@ -60,11 +60,24 @@ builder.Services.AddTransactional(b => b
 );
 ```
 
-By default, the **calling assembly is automatically scanned** for concrete classes with `[Transactional]` methods and matching interfaces named `I{ClassName}`. To scan a **different assembly**, use `ScanAssembly()`:
+By default, the **calling assembly is automatically scanned** for concrete classes with `[Transactional]` methods and matching interfaces named `I{ClassName}`.
+
+To scan a **different assembly**, use `ScanAssembly()`. Note: calling `ScanAssembly()` **overwrites the default behavior** — only the specified assembly is scanned:
+
+```csharp
+// Only SomeOtherAssembly is scanned; calling assembly is NOT scanned
+builder.Services.AddTransactional(b => b
+    .ScanAssembly(typeof(SomeOtherService).Assembly)
+    .AddLogging()
+);
+```
+
+To scan **multiple assemblies**, call `ScanAssembly()` multiple times:
 
 ```csharp
 builder.Services.AddTransactional(b => b
-    .ScanAssembly(typeof(SomeOtherService).Assembly)
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .ScanAssembly(typeof(OtherService).Assembly)
     .AddLogging()
 );
 ```
