@@ -16,6 +16,7 @@ const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
 const int IsolationTasks = 20_000;
 const int NestedTasks = 10_000;
 const int ExceptionTasks = 15_000;
+const int ExceptionPropagationTasks = 10_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,8 @@ services.AddTransactional(b => b
     .AddService<IInnerService, InnerService>()
     .AddService<IOuterService, OuterService>()
     .AddService<IIsolationService, IsolationService>()
-    .AddService<IExceptionService, ExceptionService>());
+    .AddService<IExceptionService, ExceptionService>()
+    .AddService<IExceptionPropagationService, ExceptionPropagationService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
@@ -38,13 +40,14 @@ ILoadService loadProxy = svcp.GetRequiredService<ILoadService>();
 IOuterService outerProxy = svcp.GetRequiredService<IOuterService>();
 IIsolationService isolationProxy = svcp.GetRequiredService<IIsolationService>();
 IExceptionService exceptionProxy = svcp.GetRequiredService<IExceptionService>();
+IExceptionPropagationService propagationProxy = svcp.GetRequiredService<IExceptionPropagationService>();
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
-AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | exceptions={ExceptionTasks:N0}[/]");
+AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0}[/]");
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -231,7 +234,7 @@ long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]5/5[/]  Exception handling...", async _ =>
+    .StartAsync("[cyan]5/6[/]  Exception handling...", async _ =>
     {
         int third = ExceptionTasks / 3;
         long allocBefore = GC.GetTotalAllocatedBytes();
@@ -285,6 +288,62 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Exception handling ({ExceptionTasks} tasks)", ExceptionTasks, sw.Elapsed, tps, s5Peak, s5Alloc, s5Gc0, error));
+}
+
+// ─── Scenario 6: Exception propagation correctness ────────────────────────────
+
+observer.Reset();
+var rollbackObserverFired = new int[ExceptionPropagationTasks];
+long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
+
+await AnsiConsole.Status()
+    .Spinner(Spinner.Known.Dots)
+    .SpinnerStyle(Style.Parse("cyan"))
+    .StartAsync("[cyan]6/6[/]  Exception propagation...", async _ =>
+    {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
+        using var sampler = new PeakMemorySampler();
+        sw.Restart();
+        var tasks = Enumerable.Range(0, ExceptionPropagationTasks)
+            .Select(i => Task.Run(async () =>
+            {
+                bool exceptionCaught = false;
+                try
+                {
+                    await propagationProxy.ThrowAndVerifyPropagationAsync(i, rollbackObserverFired);
+                }
+                catch (InvalidOperationException)
+                {
+                    exceptionCaught = true;
+                }
+
+                if (!exceptionCaught)
+                    throw new Exception($"Task {i}: Exception was not propagated");
+                if (rollbackObserverFired[i] == 0)
+                    throw new Exception($"Task {i}: Rollback observer did not fire");
+            }));
+        await Task.WhenAll(tasks);
+        sw.Stop();
+        s6Peak = sampler.PeakBytes;
+        s6Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s6Gc0 = GC.CollectionCount(0) - gcBefore;
+    });
+
+{
+    long tps = (long)(ExceptionPropagationTasks / sw.Elapsed.TotalSeconds);
+    string? error = null;
+    try
+    {
+        AssertEq(observer.Begin, ExceptionPropagationTasks, "Begin");
+        AssertEq(observer.Rollback, ExceptionPropagationTasks, "Rollback");
+        AssertEq(observer.Complete, ExceptionPropagationTasks, "Complete");
+        int unfiredObservers = rollbackObserverFired.Count(fired => fired == 0);
+        if (unfiredObservers > 0)
+            throw new Exception($"Rollback observers did not fire: {unfiredObservers} tasks");
+    }
+    catch (Exception ex) { error = ex.Message; }
+    results.Add(new($"Exception propagation ({ExceptionPropagationTasks} tasks)", ExceptionPropagationTasks, sw.Elapsed, tps, s6Peak, s6Alloc, s6Gc0, error));
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -509,6 +568,24 @@ class ExceptionService(ITransactionHooks hooks) : IExceptionService
     {
         hooks.AfterCommit(() => { });
         throw new TimeoutException("Custom exception during transaction");
+    }
+}
+
+interface IExceptionPropagationService
+{
+    Task ThrowAndVerifyPropagationAsync(int taskId, int[] rollbackObserverFired);
+}
+
+class ExceptionPropagationService(ITransactionHooks hooks) : IExceptionPropagationService
+{
+    [Transactional]
+    public Task ThrowAndVerifyPropagationAsync(int taskId, int[] rollbackObserverFired)
+    {
+        hooks.AfterRollback(() =>
+        {
+            Interlocked.Increment(ref rollbackObserverFired[taskId]);
+        });
+        throw new InvalidOperationException($"Task {taskId}: Exception for propagation test");
     }
 }
 
