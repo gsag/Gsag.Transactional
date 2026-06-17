@@ -15,6 +15,7 @@ const int ThroughputIterationsPerTask = 50;
 const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
 const int IsolationTasks = 20_000;
 const int NestedTasks = 10_000;
+const int NestedWithFailureTasks = 8_000;
 const int ExceptionTasks = 15_000;
 const int ExceptionPropagationTasks = 10_000;
 
@@ -30,7 +31,9 @@ services.AddTransactional(b => b
     .AddService<IOuterService, OuterService>()
     .AddService<IIsolationService, IsolationService>()
     .AddService<IExceptionService, ExceptionService>()
-    .AddService<IExceptionPropagationService, ExceptionPropagationService>());
+    .AddService<IExceptionPropagationService, ExceptionPropagationService>()
+    .AddService<IInnerFailureService, InnerFailureService>()
+    .AddService<INestedFailureService, NestedFailureService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
@@ -41,13 +44,14 @@ IOuterService outerProxy = svcp.GetRequiredService<IOuterService>();
 IIsolationService isolationProxy = svcp.GetRequiredService<IIsolationService>();
 IExceptionService exceptionProxy = svcp.GetRequiredService<IExceptionService>();
 IExceptionPropagationService propagationProxy = svcp.GetRequiredService<IExceptionPropagationService>();
+INestedFailureService nestedFailureProxy = svcp.GetRequiredService<INestedFailureService>();
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
-AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0}[/]");
+AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | nested-fail={NestedWithFailureTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0}[/]");
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -197,7 +201,7 @@ long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]4/5[/]  Nested RequiresNew...", async _ =>
+    .StartAsync("[cyan]4/7[/]  Nested RequiresNew...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -226,7 +230,7 @@ await AnsiConsole.Status()
     results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, s4Peak, s4Alloc, s4Gc0, error));
 }
 
-// ─── Scenario 5: Exception handling (diverse exception types) ─────────────────
+// ─── Scenario 5: Nested RequiresNew with inner failure ────────────────────────
 
 observer.Reset();
 long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
@@ -234,7 +238,45 @@ long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]5/6[/]  Exception handling...", async _ =>
+    .StartAsync("[cyan]5/7[/]  Nested RequiresNew (inner fails)...", async _ =>
+    {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
+        using var sampler = new PeakMemorySampler();
+        sw.Restart();
+        var tasks = Enumerable.Range(0, NestedWithFailureTasks)
+            .Select(_ => Task.Run(() => nestedFailureProxy.RunOuterWithFailingInnerAsync()));
+        await Task.WhenAll(tasks);
+        sw.Stop();
+        s5Peak = sampler.PeakBytes;
+        s5Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s5Gc0 = GC.CollectionCount(0) - gcBefore;
+    });
+
+{
+    int totalScopes = NestedWithFailureTasks * 2; // outer + inner per task
+    long tps = (long)(totalScopes / sw.Elapsed.TotalSeconds);
+    string? error = null;
+    try
+    {
+        AssertEq(observer.Begin, totalScopes, "Begin (outer + inner)");
+        AssertEq(observer.Commit, NestedWithFailureTasks, "Commit (outer commits, inner fails)");
+        AssertEq(observer.Rollback, NestedWithFailureTasks, "Rollback (inner fails)");
+        AssertEq(observer.Complete, totalScopes, "Complete (outer + inner)");
+    }
+    catch (Exception ex) { error = ex.Message; }
+    results.Add(new($"Nested RequiresNew with failure ({NestedWithFailureTasks} tasks)", totalScopes, sw.Elapsed, tps, s5Peak, s5Alloc, s5Gc0, error));
+}
+
+// ─── Scenario 6: Exception handling (diverse exception types) ─────────────────
+
+observer.Reset();
+long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
+
+await AnsiConsole.Status()
+    .Spinner(Spinner.Known.Dots)
+    .SpinnerStyle(Style.Parse("cyan"))
+    .StartAsync("[cyan]6/7[/]  Exception handling...", async _ =>
     {
         int third = ExceptionTasks / 3;
         long allocBefore = GC.GetTotalAllocatedBytes();
@@ -270,9 +312,9 @@ await AnsiConsole.Status()
         });
         await Task.WhenAll(tasks);
         sw.Stop();
-        s5Peak = sampler.PeakBytes;
-        s5Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
-        s5Gc0 = GC.CollectionCount(0) - gcBefore;
+        s6Peak = sampler.PeakBytes;
+        s6Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s6Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -287,19 +329,19 @@ await AnsiConsole.Status()
         AssertEq(observer.Complete, ExceptionTasks, "Complete");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Exception handling ({ExceptionTasks} tasks)", ExceptionTasks, sw.Elapsed, tps, s5Peak, s5Alloc, s5Gc0, error));
+    results.Add(new($"Exception handling ({ExceptionTasks} tasks)", ExceptionTasks, sw.Elapsed, tps, s6Peak, s6Alloc, s6Gc0, error));
 }
 
-// ─── Scenario 6: Exception propagation correctness ────────────────────────────
+// ─── Scenario 7: Exception propagation correctness ────────────────────────────
 
 observer.Reset();
 var rollbackObserverFired = new int[ExceptionPropagationTasks];
-long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
+long s7Peak = 0; long s7Alloc = 0; int s7Gc0 = 0;
 
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]6/6[/]  Exception propagation...", async _ =>
+    .StartAsync("[cyan]7/7[/]  Exception propagation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -325,9 +367,9 @@ await AnsiConsole.Status()
             }));
         await Task.WhenAll(tasks);
         sw.Stop();
-        s6Peak = sampler.PeakBytes;
-        s6Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
-        s6Gc0 = GC.CollectionCount(0) - gcBefore;
+        s7Peak = sampler.PeakBytes;
+        s7Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s7Gc0 = GC.CollectionCount(0) - gcBefore;
     });
 
 {
@@ -343,7 +385,7 @@ await AnsiConsole.Status()
             throw new Exception($"Rollback observers did not fire: {unfiredObservers} tasks");
     }
     catch (Exception ex) { error = ex.Message; }
-    results.Add(new($"Exception propagation ({ExceptionPropagationTasks} tasks)", ExceptionPropagationTasks, sw.Elapsed, tps, s6Peak, s6Alloc, s6Gc0, error));
+    results.Add(new($"Exception propagation ({ExceptionPropagationTasks} tasks)", ExceptionPropagationTasks, sw.Elapsed, tps, s7Peak, s7Alloc, s7Gc0, error));
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -586,6 +628,42 @@ class ExceptionPropagationService(ITransactionHooks hooks) : IExceptionPropagati
             Interlocked.Increment(ref rollbackObserverFired[taskId]);
         });
         throw new InvalidOperationException($"Task {taskId}: Exception for propagation test");
+    }
+}
+
+interface INestedFailureService
+{
+    Task RunOuterWithFailingInnerAsync();
+}
+
+interface IInnerFailureService
+{
+    Task RunAndFailAsync();
+}
+
+class InnerFailureService(ITransactionHooks hooks) : IInnerFailureService
+{
+    [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
+    public Task RunAndFailAsync()
+    {
+        hooks.AfterRollback(() => { });
+        throw new InvalidOperationException("Inner transaction failed intentionally");
+    }
+}
+
+class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner) : INestedFailureService
+{
+    [Transactional]
+    public async Task RunOuterWithFailingInnerAsync()
+    {
+        hooks.AfterCommit(() => { });
+        try
+        {
+            await inner.RunAndFailAsync();
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 }
 
