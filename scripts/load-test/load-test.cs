@@ -19,6 +19,7 @@ const int NestedWithFailureTasks = 8_000;
 const int ExceptionTasks = 15_000;
 const int ExceptionPropagationTasks = 10_000;
 const int ISimulationTasks = 5_000;
+const int HookOrderingTasks = 6_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,8 @@ services.AddTransactional(b => b
     .AddService<IExceptionPropagationService, ExceptionPropagationService>()
     .AddService<IInnerFailureService, InnerFailureService>()
     .AddService<INestedFailureService, NestedFailureService>()
-    .AddService<IIOSimulationService, IOSimulationService>());
+    .AddService<IIOSimulationService, IOSimulationService>()
+    .AddService<IHookOrderingService, HookOrderingService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
@@ -48,6 +50,7 @@ IExceptionService exceptionProxy = svcp.GetRequiredService<IExceptionService>();
 IExceptionPropagationService propagationProxy = svcp.GetRequiredService<IExceptionPropagationService>();
 INestedFailureService nestedFailureProxy = svcp.GetRequiredService<INestedFailureService>();
 IIOSimulationService ioProxy = svcp.GetRequiredService<IIOSimulationService>();
+IHookOrderingService hookOrderingProxy = svcp.GetRequiredService<IHookOrderingService>();
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
@@ -399,7 +402,7 @@ long s8Peak = 0; long s8Alloc = 0; int s8Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]8/8[/]  I/O simulation...", async _ =>
+    .StartAsync("[cyan]8/9[/]  I/O simulation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -425,6 +428,48 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"I/O simulation ({ISimulationTasks} tasks)", ISimulationTasks, sw.Elapsed, tps, s8Peak, s8Alloc, s8Gc0, error));
+}
+
+// ─── Scenario 9: Hook ordering under concurrency ────────────────────────────
+
+observer.Reset();
+var hookOrderingFire = new int[HookOrderingTasks * 3];
+long s9Peak = 0; long s9Alloc = 0; int s9Gc0 = 0;
+
+await AnsiConsole.Status()
+    .Spinner(Spinner.Known.Dots)
+    .SpinnerStyle(Style.Parse("cyan"))
+    .StartAsync("[cyan]9/9[/]  Hook ordering...", async _ =>
+    {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
+        using var sampler = new PeakMemorySampler();
+        sw.Restart();
+        var tasks = Enumerable.Range(0, HookOrderingTasks)
+            .Select(i => Task.Run(() => hookOrderingProxy.ValidateHookOrderAsync(i, hookOrderingFire)));
+        await Task.WhenAll(tasks);
+        sw.Stop();
+        s9Peak = sampler.PeakBytes;
+        s9Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s9Gc0 = GC.CollectionCount(0) - gcBefore;
+    });
+
+{
+    long tps = (long)(HookOrderingTasks / sw.Elapsed.TotalSeconds);
+    string? error = null;
+    try
+    {
+        AssertEq(observer.Begin, HookOrderingTasks, "Begin");
+        AssertEq(observer.Commit, HookOrderingTasks, "Commit");
+        AssertEq(observer.Complete, HookOrderingTasks, "Complete");
+        for (int i = 0; i < hookOrderingFire.Length; i++)
+        {
+            if (hookOrderingFire[i] != 1)
+                throw new Exception($"Hook {i}: fired {hookOrderingFire[i]}x (expected 1)");
+        }
+    }
+    catch (Exception ex) { error = ex.Message; }
+    results.Add(new($"Hook ordering ({HookOrderingTasks} tasks)", HookOrderingTasks, sw.Elapsed, tps, s9Peak, s9Alloc, s9Gc0, error));
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -721,6 +766,24 @@ class IOSimulationService(ITransactionHooks hooks) : IIOSimulationService
         int delayMs = _random.Next(1, 11);
         await Task.Delay(delayMs);
         hooks.AfterCommit(() => { });
+    }
+}
+
+interface IHookOrderingService
+{
+    Task ValidateHookOrderAsync(int taskId, int[] hookFireCount);
+}
+
+class HookOrderingService(ITransactionHooks hooks) : IHookOrderingService
+{
+    [Transactional]
+    public Task ValidateHookOrderAsync(int taskId, int[] hookFireCount)
+    {
+        int baseIndex = taskId * 3;
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex]));
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 1]));
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 2]));
+        return Task.CompletedTask;
     }
 }
 
