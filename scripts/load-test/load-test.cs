@@ -18,6 +18,7 @@ const int NestedTasks = 10_000;
 const int NestedWithFailureTasks = 8_000;
 const int ExceptionTasks = 15_000;
 const int ExceptionPropagationTasks = 10_000;
+const int ISimulationTasks = 5_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,8 @@ services.AddTransactional(b => b
     .AddService<IExceptionService, ExceptionService>()
     .AddService<IExceptionPropagationService, ExceptionPropagationService>()
     .AddService<IInnerFailureService, InnerFailureService>()
-    .AddService<INestedFailureService, NestedFailureService>());
+    .AddService<INestedFailureService, NestedFailureService>()
+    .AddService<IIOSimulationService, IOSimulationService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
@@ -45,13 +47,14 @@ IIsolationService isolationProxy = svcp.GetRequiredService<IIsolationService>();
 IExceptionService exceptionProxy = svcp.GetRequiredService<IExceptionService>();
 IExceptionPropagationService propagationProxy = svcp.GetRequiredService<IExceptionPropagationService>();
 INestedFailureService nestedFailureProxy = svcp.GetRequiredService<INestedFailureService>();
+IIOSimulationService ioProxy = svcp.GetRequiredService<IIOSimulationService>();
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
-AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | nested-fail={NestedWithFailureTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0}[/]");
+AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | nested-fail={NestedWithFailureTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0} | io-sim={ISimulationTasks:N0}[/]");
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -341,7 +344,7 @@ long s7Peak = 0; long s7Alloc = 0; int s7Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]7/7[/]  Exception propagation...", async _ =>
+    .StartAsync("[cyan]7/8[/]  Exception propagation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -386,6 +389,42 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Exception propagation ({ExceptionPropagationTasks} tasks)", ExceptionPropagationTasks, sw.Elapsed, tps, s7Peak, s7Alloc, s7Gc0, error));
+}
+
+// ─── Scenario 8: I/O simulation with variable duration ──────────────────────
+
+observer.Reset();
+long s8Peak = 0; long s8Alloc = 0; int s8Gc0 = 0;
+
+await AnsiConsole.Status()
+    .Spinner(Spinner.Known.Dots)
+    .SpinnerStyle(Style.Parse("cyan"))
+    .StartAsync("[cyan]8/8[/]  I/O simulation...", async _ =>
+    {
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
+        using var sampler = new PeakMemorySampler();
+        sw.Restart();
+        var tasks = Enumerable.Range(0, ISimulationTasks)
+            .Select(_ => Task.Run(() => ioProxy.SimulateIOAsync()));
+        await Task.WhenAll(tasks);
+        sw.Stop();
+        s8Peak = sampler.PeakBytes;
+        s8Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s8Gc0 = GC.CollectionCount(0) - gcBefore;
+    });
+
+{
+    long tps = (long)(ISimulationTasks / sw.Elapsed.TotalSeconds);
+    string? error = null;
+    try
+    {
+        AssertEq(observer.Begin, ISimulationTasks, "Begin");
+        AssertEq(observer.Commit, ISimulationTasks, "Commit");
+        AssertEq(observer.Complete, ISimulationTasks, "Complete");
+    }
+    catch (Exception ex) { error = ex.Message; }
+    results.Add(new($"I/O simulation ({ISimulationTasks} tasks)", ISimulationTasks, sw.Elapsed, tps, s8Peak, s8Alloc, s8Gc0, error));
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -664,6 +703,24 @@ class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner) 
         catch (InvalidOperationException)
         {
         }
+    }
+}
+
+interface IIOSimulationService
+{
+    Task SimulateIOAsync();
+}
+
+class IOSimulationService(ITransactionHooks hooks) : IIOSimulationService
+{
+    private static readonly Random _random = new();
+
+    [Transactional]
+    public async Task SimulateIOAsync()
+    {
+        int delayMs = _random.Next(1, 11);
+        await Task.Delay(delayMs);
+        hooks.AfterCommit(() => { });
     }
 }
 
