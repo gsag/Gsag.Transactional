@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
@@ -251,14 +252,30 @@ foreach (var r in results)
 AnsiConsole.Write(table);
 AnsiConsole.WriteLine();
 
-bool allPassed = results.All(r => r.Error is null);
+// ─── Consistency validation ────────────────────────────────────────────────────
+
+AnsiConsole.MarkupLine("[cyan]Transaction Lifecycle Consistency[/]");
+var consistency = observer.ValidateConsistency();
+AnsiConsole.MarkupLine($"Status: {consistency.Summary}");
+
+if (!consistency.IsValid)
+{
+    AnsiConsole.MarkupLine("[yellow]Details:[/]");
+    foreach (var err in consistency.OrphanedTransactions.Concat(consistency.IncompleteTransactions).Concat(consistency.InvalidTransitions).Take(10))
+    {
+        AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(err)}");
+    }
+}
+AnsiConsole.WriteLine();
+
+bool allPassed = results.All(r => r.Error is null) && consistency.IsValid;
 if (allPassed)
 {
-    AnsiConsole.MarkupLine("[green bold]All scenarios passed.[/]");
+    AnsiConsole.MarkupLine("[green bold]All scenarios passed with valid transaction lifecycles.[/]");
 }
 else
 {
-    AnsiConsole.MarkupLine("[red bold]One or more scenarios failed.[/]");
+    AnsiConsole.MarkupLine("[red bold]One or more scenarios failed or transaction lifecycles are invalid.[/]");
     Environment.Exit(1);
 }
 
@@ -404,16 +421,158 @@ class IsolationService(ITransactionHooks hooks) : IIsolationService
 sealed class ConcurrencyObserver : ITransactionObserver
 {
     private int _begin, _commit, _rollback, _complete;
+    private long _txnIdCounter;
+    private readonly ConcurrentDictionary<long, TransactionLifecycle> _lifetimes = new();
+    private readonly AsyncLocal<Stack<long>> _txnStack = new();
 
     public int Begin => _begin;
     public int Commit => _commit;
     public int Rollback => _rollback;
     public int Complete => _complete;
 
-    public void Reset() => _begin = _commit = _rollback = _complete = 0;
+    private Stack<long> TxnStack => _txnStack.Value ??= new();
 
-    public void OnBegin(TransactionInfo info) => Interlocked.Increment(ref _begin);
-    public void OnCommit(TransactionInfo info, TimeSpan elapsed) => Interlocked.Increment(ref _commit);
-    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed) => Interlocked.Increment(ref _rollback);
-    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed) => Interlocked.Increment(ref _complete);
+    public void Reset()
+    {
+        _begin = _commit = _rollback = _complete = 0;
+        _txnIdCounter = 0;
+        _lifetimes.Clear();
+    }
+
+    public void OnBegin(TransactionInfo info)
+    {
+        long id = Interlocked.Increment(ref _txnIdCounter);
+        _lifetimes[id] = new TransactionLifecycle { Id = id, Info = info, BeganAt = DateTime.UtcNow };
+        TxnStack.Push(id);
+        Interlocked.Increment(ref _begin);
+    }
+
+    public void OnCommit(TransactionInfo info, TimeSpan elapsed)
+    {
+        var stack = TxnStack;
+        long? id = stack.Count > 0 ? stack.Peek() : null;
+        if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
+        {
+            lifecycle.CommitAt = DateTime.UtcNow;
+            lifecycle.CommitElapsed = elapsed;
+        }
+        Interlocked.Increment(ref _commit);
+    }
+
+    public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed)
+    {
+        var stack = TxnStack;
+        long? id = stack.Count > 0 ? stack.Peek() : null;
+        if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
+        {
+            lifecycle.RollbackAt = DateTime.UtcNow;
+            lifecycle.RollbackElapsed = elapsed;
+        }
+        Interlocked.Increment(ref _rollback);
+    }
+
+    public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed)
+    {
+        var stack = TxnStack;
+        long? id = stack.Count > 0 ? stack.Pop() : null;
+        if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
+        {
+            lifecycle.CompletedAt = DateTime.UtcNow;
+            lifecycle.CompleteElapsed = elapsed;
+            lifecycle.WasCommitted = committed;
+        }
+        Interlocked.Increment(ref _complete);
+    }
+
+    public ConsistencyCheckResult ValidateConsistency()
+    {
+        var result = new ConsistencyCheckResult();
+
+        foreach (var kvp in _lifetimes)
+        {
+            var lifecycle = kvp.Value;
+
+            if (lifecycle.BeganAt == default)
+            {
+                result.OrphanedTransactions.Add($"TXN {kvp.Key}: No Begin event recorded");
+                continue;
+            }
+
+            if (lifecycle.CompletedAt == default)
+            {
+                result.IncompleteTransactions.Add(
+                    $"TXN {kvp.Key}: Began but never completed ({lifecycle.Info.MethodName})");
+                continue;
+            }
+
+            if (lifecycle.CommitAt == default && lifecycle.RollbackAt == default)
+            {
+                result.IncompleteTransactions.Add(
+                    $"TXN {kvp.Key}: Completed but no Commit or Rollback event");
+                continue;
+            }
+
+            if (lifecycle.CommitAt != default && lifecycle.RollbackAt != default)
+            {
+                result.InvalidTransitions.Add(
+                    $"TXN {kvp.Key}: Both Commit and Rollback events recorded (invalid state)");
+            }
+
+            if (lifecycle.WasCommitted && lifecycle.RollbackAt != default)
+            {
+                result.InvalidTransitions.Add(
+                    $"TXN {kvp.Key}: Marked as committed but has Rollback event");
+            }
+
+            if (!lifecycle.WasCommitted && lifecycle.CommitAt != default)
+            {
+                result.InvalidTransitions.Add(
+                    $"TXN {kvp.Key}: Marked as rolled back but has Commit event");
+            }
+        }
+
+        return result;
+    }
+
+    private class TransactionLifecycle
+    {
+        public long Id { get; set; }
+        public TransactionInfo Info { get; set; } = null!;
+        public DateTime BeganAt { get; set; }
+        public DateTime CommitAt { get; set; }
+        public DateTime RollbackAt { get; set; }
+        public DateTime CompletedAt { get; set; }
+        public TimeSpan CommitElapsed { get; set; }
+        public TimeSpan RollbackElapsed { get; set; }
+        public TimeSpan CompleteElapsed { get; set; }
+        public bool WasCommitted { get; set; }
+    }
+}
+
+record ConsistencyCheckResult
+{
+    public List<string> OrphanedTransactions { get; } = new();
+    public List<string> IncompleteTransactions { get; } = new();
+    public List<string> InvalidTransitions { get; } = new();
+
+    public bool IsValid =>
+        OrphanedTransactions.Count == 0 &&
+        IncompleteTransactions.Count == 0 &&
+        InvalidTransitions.Count == 0;
+
+    public string Summary
+    {
+        get
+        {
+            if (IsValid) return "✓ All transactions valid";
+            var errors = new List<string>();
+            if (OrphanedTransactions.Count > 0)
+                errors.Add($"Orphaned: {OrphanedTransactions.Count}");
+            if (IncompleteTransactions.Count > 0)
+                errors.Add($"Incomplete: {IncompleteTransactions.Count}");
+            if (InvalidTransitions.Count > 0)
+                errors.Add($"Invalid: {InvalidTransitions.Count}");
+            return $"✗ {string.Join(", ", errors)}";
+        }
+    }
 }
