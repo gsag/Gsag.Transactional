@@ -5,6 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.2] — 2026-06-12
+
+### Added
+- **Auto-discovery of calling assembly**: `AddTransactional()` now automatically scans the assembly from which it is called, eliminating the need for explicit `.ScanAssembly()` in most applications. Services with `[Transactional]` methods and matching `I{ClassName}` interfaces are discovered without configuration. Simplifies typical usage: `builder.Services.AddTransactional();` instead of `builder.Services.AddTransactional(b => b.ScanAssembly(typeof(MyService).Assembly));`.
+- **Explicit ScanAssembly override behavior**: Calling `.ScanAssembly()` explicitly now **overwrites** auto-discovery, allowing developers to scan different or additional assemblies when needed. Multiple `.ScanAssembly()` calls scan all specified assemblies. Behavior is clearly documented to prevent confusion.
+- **Comprehensive test coverage for discovery**: 12 new tests validate:
+  - Auto-discovery functionality and proxy generation
+  - Service isolation (only matching services are registered)
+  - Exclusion of orphan services (no matching interface)
+  - Exclusion of services in different namespaces
+  - ScanAssembly override behavior
+  - Multiple assembly scanning
+  - AddService suppression of auto-discovery
+
+### Changed
+- **Documentation clarity**: Updated README, getting-started, and installation articles with explicit examples showing:
+  - Default auto-discovery behavior
+  - ScanAssembly as optional override with `IMPORTANT` note
+  - Multiple assembly scanning patterns
+- **XML documentation**: `ITransactionalBuilder.ScanAssembly()` updated with `IMPORTANT` notice that calling the method overwrites automatic calling-assembly discovery.
+
+### Fixed
+- **Documentation rebuild**: Regenerated static site with DocFX to reflect all auto-discovery changes in API reference.
+
+### Test Coverage
+- Total tests: 256 (was 245)
+- New tests: 12
+  - 6 auto-discovery behavior tests
+  - 6 service isolation tests
+- All tests passing ✓
+
+---
+
 ## [0.5.1] — 2026-06-10
 
 ### Added

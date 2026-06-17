@@ -14,7 +14,9 @@ public interface ITransactionalBuilder
     /// [Transactional] method (on the class or on its implemented interfaces), then registers
     /// each one paired with its I{ClassName} interface as a TransactionProxy.
     /// Convention: OrderService → IOrderService (interface must be in the same namespace).
-    /// Can be called multiple times to scan additional assemblies.
+    ///
+    /// IMPORTANT: Calling this method **overwrites** the default automatic calling-assembly discovery.
+    /// Only the specified assembly is scanned. Call multiple times to scan additional assemblies.
     /// </summary>
     ITransactionalBuilder ScanAssembly(Assembly assembly);
 

@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/docs/_src/articles/getting-started.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/docs/_src/articles/getting-started.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -124,10 +124,24 @@ The interface stays a clean contract. The proxy resolves the attribute from the 
 <h2 id="3-register-with-di">3. Register with DI</h2>
 <pre><code class="lang-csharp">// Program.cs
 builder.Services.AddTransactional(b =&gt; b
-    .ScanAssembly(typeof(Program).Assembly)
+    .AddLogging()
 );
 </code></pre>
-<p>This scans the assembly, finds <code>OrderService</code> implements <code>IOrderService</code>, and registers <code>IOrderService</code> as a <code>DispatchProxy</code>-wrapped transactional service. When you inject <code>IOrderService</code>, you receive the proxy.</p>
+<p>The <strong>calling assembly is automatically scanned</strong> to find <code>OrderService</code> and its interface <code>IOrderService</code>, then registers <code>IOrderService</code> as a <code>DispatchProxy</code>-wrapped transactional service. When you inject <code>IOrderService</code>, you receive the proxy.</p>
+<p>To scan a <strong>different assembly</strong>, use <code>ScanAssembly()</code>. Note: calling <code>ScanAssembly()</code> <strong>overwrites the default behavior</strong> — only the specified assembly is scanned:</p>
+<pre><code class="lang-csharp">// Only SomeAssembly is scanned; calling assembly is NOT scanned
+builder.Services.AddTransactional(b =&gt; b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .AddLogging()
+);
+</code></pre>
+<p>To scan <strong>multiple assemblies</strong>, call <code>ScanAssembly()</code> multiple times:</p>
+<pre><code class="lang-csharp">builder.Services.AddTransactional(b =&gt; b
+    .ScanAssembly(typeof(SomeService).Assembly)
+    .ScanAssembly(typeof(OtherService).Assembly)
+    .AddLogging()
+);
+</code></pre>
 <hr>
 <h2 id="4-inject-and-call">4. Inject and call</h2>
 <pre><code class="lang-csharp">public class CheckoutController : ControllerBase

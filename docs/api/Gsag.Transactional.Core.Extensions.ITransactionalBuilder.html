@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/chore/internal-refact/apiSpec/new?filename=Gsag_Transactional_Core_Extensions_ITransactionalBuilder.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Extensions.ITransactionalBuilder%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/v0.5.2/apiSpec/new?filename=Gsag_Transactional_Core_Extensions_ITransactionalBuilder.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Extensions.ITransactionalBuilder%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -89,7 +89,7 @@
 
 
   <h1 id="Gsag_Transactional_Core_Extensions_ITransactionalBuilder" data-uid="Gsag.Transactional.Core.Extensions.ITransactionalBuilder" class="text-break">
-Interface ITransactionalBuilder  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L10"><i class="bi bi-code-slash"></i></a>
+Interface ITransactionalBuilder  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L10"><i class="bi bi-code-slash"></i></a>
   </h1>
 
   <div class="facts text-secondary">
@@ -126,7 +126,7 @@ Used with <a class="xref" href="Gsag.Transactional.Core.Extensions.Transactional
 
   <h3 id="Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddLogging" data-uid="Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddLogging">
   AddLogging()
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L27"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L29"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Registers the built-in logging observer. All proxied services emit structured log entries
@@ -161,7 +161,7 @@ Idempotent — calling multiple times registers only one logging observer.</p>
 
   <h3 id="Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddObserver__1" data-uid="Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddObserver``1">
   AddObserver&lt;T&gt;()
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L39"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L41"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Registers <code class="typeparamref">T</code> as an additional <a class="xref" href="Gsag.Transactional.Core.Observability.ITransactionObserver.html">ITransactionObserver</a>.
@@ -205,7 +205,7 @@ Can be chained to register multiple custom observers.</p>
 
   <h3 id="Gsag_Transactional_Core_Extensions_ITransactionalBuilder_AddService__2" data-uid="Gsag.Transactional.Core.Extensions.ITransactionalBuilder.AddService``2">
   AddService&lt;TInterface, TImplementation&gt;()
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L47"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L49"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Registers a single transactional service pair without naming-convention constraints.
@@ -247,14 +247,15 @@ Can be chained to register multiple service pairs.</p>
 
   <h3 id="Gsag_Transactional_Core_Extensions_ITransactionalBuilder_ScanAssembly_System_Reflection_Assembly_" data-uid="Gsag.Transactional.Core.Extensions.ITransactionalBuilder.ScanAssembly(System.Reflection.Assembly)">
   ScanAssembly(Assembly)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/chore/internal-refact/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Extensions/ITransactionalBuilder.cs/#L21"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Scans <code class="paramref">assembly</code> for concrete service classes that have at least one
 [Transactional] method (on the class or on its implemented interfaces), then registers
 each one paired with its I{ClassName} interface as a TransactionProxy.
-Convention: OrderService → IOrderService (interface must be in the same namespace).
-Can be called multiple times to scan additional assemblies.</p>
+Convention: OrderService → IOrderService (interface must be in the same namespace).</p>
+<p>IMPORTANT: Calling this method <strong>overwrites</strong> the default automatic calling-assembly discovery.
+Only the specified assembly is scanned. Call multiple times to scan additional assemblies.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
