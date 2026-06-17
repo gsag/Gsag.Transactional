@@ -15,6 +15,7 @@ const int ThroughputIterationsPerTask = 50;
 const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
 const int IsolationTasks = 20_000;
 const int NestedTasks = 10_000;
+const int ExceptionTasks = 15_000;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,8 @@ services.AddTransactional(b => b
     .AddService<ILoadService, LoadService>()
     .AddService<IInnerService, InnerService>()
     .AddService<IOuterService, OuterService>()
-    .AddService<IIsolationService, IsolationService>());
+    .AddService<IIsolationService, IsolationService>()
+    .AddService<IExceptionService, ExceptionService>());
 
 var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
@@ -35,13 +37,14 @@ var svcp = scope.ServiceProvider;
 ILoadService loadProxy = svcp.GetRequiredService<ILoadService>();
 IOuterService outerProxy = svcp.GetRequiredService<IOuterService>();
 IIsolationService isolationProxy = svcp.GetRequiredService<IIsolationService>();
+IExceptionService exceptionProxy = svcp.GetRequiredService<IExceptionService>();
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
-AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0}[/]");
+AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | exceptions={ExceptionTasks:N0}[/]");
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -191,7 +194,7 @@ long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]4/4[/]  Nested RequiresNew...", async _ =>
+    .StartAsync("[cyan]4/5[/]  Nested RequiresNew...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -218,6 +221,70 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, s4Peak, s4Alloc, s4Gc0, error));
+}
+
+// ─── Scenario 5: Exception handling (diverse exception types) ─────────────────
+
+observer.Reset();
+long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
+
+await AnsiConsole.Status()
+    .Spinner(Spinner.Known.Dots)
+    .SpinnerStyle(Style.Parse("cyan"))
+    .StartAsync("[cyan]5/5[/]  Exception handling...", async _ =>
+    {
+        int third = ExceptionTasks / 3;
+        long allocBefore = GC.GetTotalAllocatedBytes();
+        int gcBefore = GC.CollectionCount(0);
+        using var sampler = new PeakMemorySampler();
+        sw.Restart();
+        var tasks = Enumerable.Range(0, ExceptionTasks).Select(i =>
+        {
+            if (i < third)
+            {
+                return Task.Run(async () =>
+                {
+                    try { await exceptionProxy.ThrowDuringExecutionAsync(); }
+                    catch { }
+                });
+            }
+            else if (i < 2 * third)
+            {
+                return Task.Run(async () =>
+                {
+                    try { await exceptionProxy.ThrowInHookAsync(); }
+                    catch { }
+                });
+            }
+            else
+            {
+                return Task.Run(async () =>
+                {
+                    try { await exceptionProxy.ThrowCustomExceptionAsync(); }
+                    catch { }
+                });
+            }
+        });
+        await Task.WhenAll(tasks);
+        sw.Stop();
+        s5Peak = sampler.PeakBytes;
+        s5Alloc = GC.GetTotalAllocatedBytes() - allocBefore;
+        s5Gc0 = GC.CollectionCount(0) - gcBefore;
+    });
+
+{
+    int third = ExceptionTasks / 3;
+    long tps = (long)(ExceptionTasks / sw.Elapsed.TotalSeconds);
+    string? error = null;
+    try
+    {
+        AssertEq(observer.Begin, ExceptionTasks, "Begin");
+        AssertEq(observer.Commit, third, "Commit (exceptions in hooks after commit)");
+        AssertEq(observer.Rollback, 2 * third, "Rollback (exceptions during execution)");
+        AssertEq(observer.Complete, ExceptionTasks, "Complete");
+    }
+    catch (Exception ex) { error = ex.Message; }
+    results.Add(new($"Exception handling ({ExceptionTasks} tasks)", ExceptionTasks, sw.Elapsed, tps, s5Peak, s5Alloc, s5Gc0, error));
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -411,6 +478,37 @@ class IsolationService(ITransactionHooks hooks) : IIsolationService
     {
         hooks.AfterCommit(onCommit);
         return Task.CompletedTask;
+    }
+}
+
+interface IExceptionService
+{
+    Task ThrowDuringExecutionAsync();
+    Task ThrowInHookAsync();
+    Task ThrowCustomExceptionAsync();
+}
+
+class ExceptionService(ITransactionHooks hooks) : IExceptionService
+{
+    [Transactional]
+    public Task ThrowDuringExecutionAsync()
+    {
+        hooks.AfterCommit(() => { });
+        throw new InvalidOperationException("Exception during transaction execution");
+    }
+
+    [Transactional]
+    public Task ThrowInHookAsync()
+    {
+        hooks.AfterCommit(() => throw new ArgumentException("Exception in AfterCommit hook"));
+        return Task.CompletedTask;
+    }
+
+    [Transactional]
+    public Task ThrowCustomExceptionAsync()
+    {
+        hooks.AfterCommit(() => { });
+        throw new TimeoutException("Custom exception during transaction");
     }
 }
 
