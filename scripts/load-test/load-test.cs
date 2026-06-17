@@ -10,6 +10,7 @@ using Spectre.Console;
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
+const int TotalScenarios = 9;
 const int ThroughputTasks = 20_000;
 const int ThroughputIterationsPerTask = 50;
 const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
@@ -20,6 +21,8 @@ const int ExceptionTasks = 15_000;
 const int ExceptionPropagationTasks = 10_000;
 const int ISimulationTasks = 5_000;
 const int HookOrderingTasks = 6_000;
+
+var scenarioIndex = 1;
 
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
@@ -71,7 +74,7 @@ long s1Peak = 0; long s1Alloc = 0; int s1Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]1/4[/]  Pure throughput...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Pure throughput...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -114,7 +117,7 @@ long s2Peak = 0; long s2Alloc = 0; int s2Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]2/4[/]  Rollback vs commit...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Rollback vs commit...", async _ =>
     {
         int half = RollbackTasks / 2;
         long allocBefore = GC.GetTotalAllocatedBytes();
@@ -164,7 +167,7 @@ long s3Peak = 0; long s3Alloc = 0; int s3Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]3/4[/]  AsyncLocal isolation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  AsyncLocal isolation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -207,7 +210,7 @@ long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]4/7[/]  Nested RequiresNew...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -244,7 +247,7 @@ long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]5/7[/]  Nested RequiresNew (inner fails)...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew (inner fails)...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -282,7 +285,7 @@ long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]6/7[/]  Exception handling...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception handling...", async _ =>
     {
         int third = ExceptionTasks / 3;
         long allocBefore = GC.GetTotalAllocatedBytes();
@@ -347,7 +350,7 @@ long s7Peak = 0; long s7Alloc = 0; int s7Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]7/8[/]  Exception propagation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception propagation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -402,7 +405,7 @@ long s8Peak = 0; long s8Alloc = 0; int s8Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]8/9[/]  I/O simulation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  I/O simulation...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -439,7 +442,7 @@ long s9Peak = 0; long s9Alloc = 0; int s9Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync("[cyan]9/9[/]  Hook ordering...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Hook ordering...", async _ =>
     {
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
