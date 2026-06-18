@@ -1,6 +1,5 @@
 using Gsag.Transactional.Demo.Api.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Gsag.Transactional.Demo.Api.Data;
 
@@ -42,18 +41,5 @@ public class CheckoutDbContext : DbContext
             b.Property(e => e.Scenario).HasMaxLength(100).IsRequired();
             b.HasIndex(e => e.OccurredAt);
         });
-
-        // EF Core SQLite cannot translate DateTimeOffset in ORDER BY clauses.
-        // Storing as ISO 8601 text lets SQLite sort correctly; all values are UTC so
-        // lexicographic order matches chronological order.
-        var converter = new DateTimeOffsetToStringConverter();
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            foreach (var property in entityType.GetProperties()
-                .Where(p => p.ClrType == typeof(DateTimeOffset)))
-            {
-                property.SetValueConverter(converter);
-            }
-        }
     }
 }

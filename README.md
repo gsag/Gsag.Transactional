@@ -309,11 +309,16 @@ public class MyLoggingObserver : ITransactionObserver
 
 ## Running locally
 
+**Prerequisites:** Docker (for PostgreSQL)
+
 ```bash
+# Start PostgreSQL container
+docker compose up -d
+
 # Build
 dotnet build
 
-# Run all tests
+# Run all tests (requires PostgreSQL running)
 dotnet test
 
 # Run a specific test class
@@ -322,7 +327,12 @@ dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
 # Run the demo API — opens Swagger automatically in the browser
 # http://localhost:51938/swagger  (HTTPS: https://localhost:51937/swagger)
 dotnet run --project samples/Gsag.Transactional.Demo.Api
+
+# Stop PostgreSQL container
+docker compose down
 ```
+
+> **Note:** Integration tests and the demo API require PostgreSQL to be running. Use `docker compose up` to start it before running tests or the API.
 
 ### Demo API — E-Commerce Checkout
 
@@ -358,6 +368,6 @@ Each endpoint demonstrates one specific `[Transactional]` behaviour. Every respo
 
 5. **Self-invocation bypasses the proxy** — calling `this.Method()` inside the same class skips `DispatchProxy`. Always inject the interface so calls route through the proxy.
 
-6. **SQLite does not enlist in `System.Transactions`** — EF Core 9's SQLite provider sets `SupportsAmbientTransactions = false`. The proxy lifecycle works correctly; the database itself ignores the scope. For real transactional integration tests, use SQL Server, PostgreSQL, or MySQL.
+6. **SQLite does not enlist in `System.Transactions`** — EF Core's SQLite provider sets `SupportsAmbientTransactions = false`. The proxy lifecycle works correctly; the database itself ignores the scope. For real transactional integration tests, use SQL Server, PostgreSQL (recommended for local development via `docker compose`), or MySQL.
 
 7. **`CompositeTransactionObserver` is fail-fast** — if the first registered observer throws, subsequent observers are not called. This is by design but means observer registration order affects which observers receive events when one fails.
