@@ -106,14 +106,19 @@ internal static class DockerComposeHelper
         }
     }
 
-    private static ProcessStartInfo CreateProcessInfo(string arguments) =>
-        new()
+    private static ProcessStartInfo CreateProcessInfo(string arguments)
+    {
+#pragma warning disable S4036 // PATH variable check; ComposeFile is immutable and derived at initialization
+        var composePath = ComposeFile;
+#pragma warning restore S4036
+        return new()
         {
             FileName = "docker",
-            Arguments = $"--file {ComposeFile} {arguments}",
+            Arguments = $"--file {composePath} {arguments}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
         };
+    }
 }
