@@ -1,10 +1,18 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
+using LoadTest.Data;
+using LoadTest.Helpers;
+using LoadTest.Observers;
+using LoadTest.Services;
+using LoadTest.System;
+using LoadTest.Validation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 
@@ -24,12 +32,18 @@ const int HookOrderingTasks = 6_000;
 
 var scenarioIndex = 1;
 
+// ─── System Information ────────────────────────────────────────────────────────
+
+var systemInfo = SystemInfoCollector.Collect();
+
 // ─── DI Setup ─────────────────────────────────────────────────────────────────
 
 var observer = new ConcurrencyObserver();
+var accumulator = new LifecycleAccumulator();
 
 var services = new ServiceCollection();
 services.AddSingleton<ITransactionObserver>(observer);
+services.AddDbContextFactory<LoadTestDbContext>(options => options.UseNpgsql("Host=localhost;Port=5432;Database=loadtest;Username=loadtest;Password=loadtest123;"));
 services.AddTransactional(b => b
     .AddService<ILoadService, LoadService>()
     .AddService<IInnerService, InnerService>()
@@ -43,6 +57,13 @@ services.AddTransactional(b => b
     .AddService<IHookOrderingService, HookOrderingService>());
 
 var sp = services.BuildServiceProvider();
+
+var dbFactory = sp.GetRequiredService<IDbContextFactory<LoadTestDbContext>>();
+using (var setupDb = dbFactory.CreateDbContext())
+{
+    await setupDb.Database.EnsureCreatedAsync();
+}
+
 using var scope = sp.CreateScope();
 var svcp = scope.ServiceProvider;
 
@@ -59,8 +80,13 @@ IHookOrderingService hookOrderingProxy = svcp.GetRequiredService<IHookOrderingSe
 
 AnsiConsole.Write(new FigletText("Load Test").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
-AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress[/]");
+AnsiConsole.MarkupLine("[dim]Gsag.Transactional — concurrency & load stress with PostgreSQL[/]");
 AnsiConsole.MarkupLine($"[dim]throughput={ThroughputTasks:N0}×{ThroughputIterationsPerTask} | rollback={RollbackTasks:N0} | isolation={IsolationTasks:N0} | nested={NestedTasks:N0} | nested-fail={NestedWithFailureTasks:N0} | exceptions={ExceptionTasks:N0} | propagation={ExceptionPropagationTasks:N0} | io-sim={ISimulationTasks:N0}[/]");
+AnsiConsole.WriteLine();
+
+// ─── System Information Display ────────────────────────────────────────────────
+
+DisplaySystemInfo(systemInfo);
 AnsiConsole.WriteLine();
 
 var results = new List<ScenarioResult>();
@@ -74,8 +100,9 @@ long s1Peak = 0; long s1Alloc = 0; int s1Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Pure throughput...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Pure throughput with bank ops...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
@@ -85,7 +112,7 @@ await AnsiConsole.Status()
             {
                 for (int i = 0; i < ThroughputIterationsPerTask; i++)
                 {
-                    await loadProxy.CommitAsync();
+                    await loadProxy.InsertAccountAsync();
                 }
             }));
         await Task.WhenAll(tasks);
@@ -107,6 +134,7 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Pure throughput ({ThroughputTasks}×{ThroughputIterationsPerTask})", total, sw.Elapsed, tps, s1Peak, s1Alloc, s1Gc0, error));
+    accumulator.CaptureErrors(1, observer.ValidateConsistency());
 }
 
 // ─── Scenario 2: Rollback vs commit under load ───────────────────────────────
@@ -117,8 +145,9 @@ long s2Peak = 0; long s2Alloc = 0; int s2Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Rollback vs commit...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Rollback vs commit with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         int half = RollbackTasks / 2;
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -128,12 +157,12 @@ await AnsiConsole.Status()
         {
             if (i < half)
             {
-                return loadProxy.CommitAsync();
+                return loadProxy.InsertAccountAsync();
             }
 
             return Task.Run(async () =>
             {
-                try { await loadProxy.RollbackAsync(); }
+                try { await loadProxy.InsertAccountFailAsync(); }
                 catch (InvalidOperationException) { }
             });
         });
@@ -156,9 +185,10 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Rollback vs commit ({RollbackTasks} tasks)", RollbackTasks, sw.Elapsed, tps, s2Peak, s2Alloc, s2Gc0, error));
+    accumulator.CaptureErrors(2, observer.ValidateConsistency());
 }
 
-// ─── Scenario 3: Hook isolation (AsyncLocal) ─────────────────────────────────
+// ─── Scenario 3: Hook isolation (AsyncLocal) with bank ─────────────────────
 
 observer.Reset();
 var hookFireCount = new int[IsolationTasks];
@@ -167,8 +197,9 @@ long s3Peak = 0; long s3Alloc = 0; int s3Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  AsyncLocal isolation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  AsyncLocal isolation with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
@@ -176,7 +207,7 @@ await AnsiConsole.Status()
         var tasks = Enumerable.Range(0, IsolationTasks)
             .Select(i => Task.Run(async () =>
             {
-                await isolationProxy.RunAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
+                await isolationProxy.UpdateAccountAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
             }));
         await Task.WhenAll(tasks);
         sw.Stop();
@@ -200,9 +231,10 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"AsyncLocal isolation ({IsolationTasks} tasks)", IsolationTasks, sw.Elapsed, tps, s3Peak, s3Alloc, s3Gc0, error));
+    accumulator.CaptureErrors(3, observer.ValidateConsistency());
 }
 
-// ─── Scenario 4: Nested RequiresNew concurrent ────────────────────────────────
+// ─── Scenario 4: Nested RequiresNew with bank ops ─────────────────────────────
 
 observer.Reset();
 long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
@@ -210,14 +242,15 @@ long s4Peak = 0; long s4Alloc = 0; int s4Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
         sw.Restart();
         var tasks = Enumerable.Range(0, NestedTasks)
-            .Select(_ => Task.Run(() => outerProxy.RunWithInnerAsync()));
+            .Select(_ => Task.Run(() => outerProxy.RunWithInnerBankAsync()));
         await Task.WhenAll(tasks);
         sw.Stop();
         s4Peak = sampler.PeakBytes;
@@ -226,7 +259,7 @@ await AnsiConsole.Status()
     });
 
 {
-    int totalScopes = NestedTasks * 2; // outer + inner per task
+    int totalScopes = NestedTasks * 2;
     long tps = (long)(totalScopes / sw.Elapsed.TotalSeconds);
     string? error = null;
     try
@@ -237,6 +270,7 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Nested RequiresNew ({NestedTasks} tasks)", totalScopes, sw.Elapsed, tps, s4Peak, s4Alloc, s4Gc0, error));
+    accumulator.CaptureErrors(4, observer.ValidateConsistency());
 }
 
 // ─── Scenario 5: Nested RequiresNew with inner failure ────────────────────────
@@ -247,14 +281,15 @@ long s5Peak = 0; long s5Alloc = 0; int s5Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew (inner fails)...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Nested RequiresNew (inner fails) with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
         sw.Restart();
         var tasks = Enumerable.Range(0, NestedWithFailureTasks)
-            .Select(_ => Task.Run(() => nestedFailureProxy.RunOuterWithFailingInnerAsync()));
+            .Select(_ => Task.Run(() => nestedFailureProxy.RunOuterWithFailingInnerBankAsync()));
         await Task.WhenAll(tasks);
         sw.Stop();
         s5Peak = sampler.PeakBytes;
@@ -263,7 +298,7 @@ await AnsiConsole.Status()
     });
 
 {
-    int totalScopes = NestedWithFailureTasks * 2; // outer + inner per task
+    int totalScopes = NestedWithFailureTasks * 2;
     long tps = (long)(totalScopes / sw.Elapsed.TotalSeconds);
     string? error = null;
     try
@@ -275,9 +310,10 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Nested RequiresNew with failure ({NestedWithFailureTasks} tasks)", totalScopes, sw.Elapsed, tps, s5Peak, s5Alloc, s5Gc0, error));
+    accumulator.CaptureErrors(5, observer.ValidateConsistency());
 }
 
-// ─── Scenario 6: Exception handling (diverse exception types) ─────────────────
+// ─── Scenario 6: Exception handling with bank ─────────────────────────────────
 
 observer.Reset();
 long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
@@ -285,8 +321,9 @@ long s6Peak = 0; long s6Alloc = 0; int s6Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception handling...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception handling with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         int third = ExceptionTasks / 3;
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
@@ -298,7 +335,7 @@ await AnsiConsole.Status()
             {
                 return Task.Run(async () =>
                 {
-                    try { await exceptionProxy.ThrowDuringExecutionAsync(); }
+                    try { await exceptionProxy.ThrowDuringExecutionBankAsync(); }
                     catch { }
                 });
             }
@@ -306,7 +343,7 @@ await AnsiConsole.Status()
             {
                 return Task.Run(async () =>
                 {
-                    try { await exceptionProxy.ThrowInHookAsync(); }
+                    try { await exceptionProxy.ThrowInHookBankAsync(); }
                     catch { }
                 });
             }
@@ -314,7 +351,7 @@ await AnsiConsole.Status()
             {
                 return Task.Run(async () =>
                 {
-                    try { await exceptionProxy.ThrowCustomExceptionAsync(); }
+                    try { await exceptionProxy.ThrowCustomExceptionBankAsync(); }
                     catch { }
                 });
             }
@@ -339,6 +376,7 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Exception handling ({ExceptionTasks} tasks)", ExceptionTasks, sw.Elapsed, tps, s6Peak, s6Alloc, s6Gc0, error));
+    accumulator.CaptureErrors(6, observer.ValidateConsistency());
 }
 
 // ─── Scenario 7: Exception propagation correctness ────────────────────────────
@@ -350,8 +388,9 @@ long s7Peak = 0; long s7Alloc = 0; int s7Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception propagation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Exception propagation with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
@@ -362,7 +401,7 @@ await AnsiConsole.Status()
                 bool exceptionCaught = false;
                 try
                 {
-                    await propagationProxy.ThrowAndVerifyPropagationAsync(i, rollbackObserverFired);
+                    await propagationProxy.ThrowAndVerifyPropagationBankAsync(i, rollbackObserverFired);
                 }
                 catch (InvalidOperationException)
                 {
@@ -395,6 +434,7 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Exception propagation ({ExceptionPropagationTasks} tasks)", ExceptionPropagationTasks, sw.Elapsed, tps, s7Peak, s7Alloc, s7Gc0, error));
+    accumulator.CaptureErrors(7, observer.ValidateConsistency());
 }
 
 // ─── Scenario 8: I/O simulation with variable duration ──────────────────────
@@ -405,14 +445,15 @@ long s8Peak = 0; long s8Alloc = 0; int s8Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  I/O simulation...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  I/O simulation with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
         sw.Restart();
         var tasks = Enumerable.Range(0, ISimulationTasks)
-            .Select(_ => Task.Run(() => ioProxy.SimulateIOAsync()));
+            .Select(_ => Task.Run(() => ioProxy.SimulateIOWithBankAsync()));
         await Task.WhenAll(tasks);
         sw.Stop();
         s8Peak = sampler.PeakBytes;
@@ -431,9 +472,10 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"I/O simulation ({ISimulationTasks} tasks)", ISimulationTasks, sw.Elapsed, tps, s8Peak, s8Alloc, s8Gc0, error));
+    accumulator.CaptureErrors(8, observer.ValidateConsistency());
 }
 
-// ─── Scenario 9: Hook ordering under concurrency ────────────────────────────
+// ─── Scenario 9: Hook ordering under concurrency with bank ────────────────────
 
 observer.Reset();
 var hookOrderingFire = new int[HookOrderingTasks * 3];
@@ -442,14 +484,15 @@ long s9Peak = 0; long s9Alloc = 0; int s9Gc0 = 0;
 await AnsiConsole.Status()
     .Spinner(Spinner.Known.Dots)
     .SpinnerStyle(Style.Parse("cyan"))
-    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Hook ordering...", async _ =>
+    .StartAsync($"[cyan]{scenarioIndex++}/{TotalScenarios}[/]  Hook ordering with bank...", async _ =>
     {
+        await ClearDatabase(dbFactory);
         long allocBefore = GC.GetTotalAllocatedBytes();
         int gcBefore = GC.CollectionCount(0);
         using var sampler = new PeakMemorySampler();
         sw.Restart();
         var tasks = Enumerable.Range(0, HookOrderingTasks)
-            .Select(i => Task.Run(() => hookOrderingProxy.ValidateHookOrderAsync(i, hookOrderingFire)));
+            .Select(i => Task.Run(() => hookOrderingProxy.ValidateHookOrderBankAsync(i, hookOrderingFire)));
         await Task.WhenAll(tasks);
         sw.Stop();
         s9Peak = sampler.PeakBytes;
@@ -473,6 +516,7 @@ await AnsiConsole.Status()
     }
     catch (Exception ex) { error = ex.Message; }
     results.Add(new($"Hook ordering ({HookOrderingTasks} tasks)", HookOrderingTasks, sw.Elapsed, tps, s9Peak, s9Alloc, s9Gc0, error));
+    accumulator.CaptureErrors(9, observer.ValidateConsistency());
 }
 
 // ─── Results table ────────────────────────────────────────────────────────────
@@ -510,20 +554,25 @@ AnsiConsole.WriteLine();
 // ─── Consistency validation ────────────────────────────────────────────────────
 
 AnsiConsole.MarkupLine("[cyan]Transaction Lifecycle Consistency[/]");
-var consistency = observer.ValidateConsistency();
-AnsiConsole.MarkupLine($"Status: {consistency.Summary}");
-
-if (!consistency.IsValid)
+if (accumulator.HasErrors)
 {
-    AnsiConsole.MarkupLine("[yellow]Details:[/]");
-    foreach (var err in consistency.OrphanedTransactions.Concat(consistency.IncompleteTransactions).Concat(consistency.InvalidTransitions).Take(10))
+    AnsiConsole.MarkupLine($"[red bold]✗ Lifecycle errors found across scenarios:[/]");
+    foreach (var (scenario, error) in accumulator.Errors.Take(20))
     {
-        AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(err)}");
+        AnsiConsole.MarkupLine($"  [red]Scenario {scenario}:[/] {Markup.Escape(error)}");
     }
+    if (accumulator.Errors.Count > 20)
+    {
+        AnsiConsole.MarkupLine($"  [red]... and {accumulator.Errors.Count - 20} more errors[/]");
+    }
+}
+else
+{
+    AnsiConsole.MarkupLine("[green]✓ All transactions valid[/]");
 }
 AnsiConsole.WriteLine();
 
-bool allPassed = results.All(r => r.Error is null) && consistency.IsValid;
+bool allPassed = results.All(r => r.Error is null) && !accumulator.HasErrors;
 if (allPassed)
 {
     AnsiConsole.MarkupLine("[green bold]All scenarios passed with valid transaction lifecycles.[/]");
@@ -550,6 +599,38 @@ static string FormatBytes(long bytes) => bytes switch
     >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
     _                => $"{bytes / 1024.0:F0} KB",
 };
+
+static void DisplaySystemInfo(SystemInfo info)
+{
+    var panel = new Panel(
+        new Rows(
+            new Text($"Machine: {info.MachineName}", new Style(Color.Cyan1)),
+            new Text($"OS: {info.OSDescription}", new Style(Color.Cyan1)),
+            new Text($"Architecture: {info.OSArchitecture}"),
+            new Text($"Cores: {info.ProcessorCount}"),
+            new Text($"RAM: {FormatBytes(info.TotalMemory)} total, {FormatBytes(info.AvailableMemory)} available"),
+            new Text($"Runtime: {info.RuntimeVersion}"),
+            new Text(""),
+            new Text($"Process ID: {info.ProcessId}", new Style(Color.Cyan1)),
+            new Text($"Threads: {info.ThreadCount}"),
+            new Text($"Working Set: {FormatBytes(info.WorkingSetBytes)}"),
+            new Text($"Started: {info.StartTime:yyyy-MM-dd HH:mm:ss}")
+        )
+    )
+    .Header(new PanelHeader("[cyan bold]System Information[/]"))
+    .Border(BoxBorder.Rounded)
+    .BorderColor(Color.Cyan1);
+
+    AnsiConsole.Write(panel);
+}
+
+static async Task ClearDatabase(IDbContextFactory<LoadTestDbContext> factory)
+{
+    using var db = factory.CreateDbContext();
+    await db.AuditLogs.ExecuteDeleteAsync();
+    await db.Transactions.ExecuteDeleteAsync();
+    await db.Accounts.ExecuteDeleteAsync();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Result record
@@ -595,33 +676,32 @@ sealed class PeakMemorySampler : IDisposable
 
 interface ILoadService
 {
-    Task CommitAsync();
-    Task RollbackAsync();
-    Task<int> CommitWithResultAsync();
-    ValueTask CommitValueTaskAsync();
+    Task InsertAccountAsync();
+    Task InsertAccountFailAsync();
 }
 
-class LoadService(ITransactionHooks hooks) : ILoadService
+class LoadService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : ILoadService
 {
     [Transactional]
-    public Task CommitAsync()
+    public async Task InsertAccountAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
-        return Task.CompletedTask;
     }
 
     [Transactional]
-    public Task RollbackAsync()
+    public async Task InsertAccountFailAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterRollback(() => { });
         throw new InvalidOperationException("forced rollback");
     }
-
-    [Transactional]
-    public Task<int> CommitWithResultAsync() => Task.FromResult(42);
-
-    [Transactional]
-    public ValueTask CommitValueTaskAsync() => ValueTask.CompletedTask;
 }
 
 interface IInnerService
@@ -629,26 +709,33 @@ interface IInnerService
     Task RunAsync();
 }
 
-class InnerService(ITransactionHooks hooks) : IInnerService
+class InnerService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IInnerService
 {
     [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
-    public Task RunAsync()
+    public async Task RunAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 500 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
-        return Task.CompletedTask;
     }
 }
 
 interface IOuterService
 {
-    Task RunWithInnerAsync();
+    Task RunWithInnerBankAsync();
 }
 
-class OuterService(ITransactionHooks hooks, IInnerService inner) : IOuterService
+class OuterService(ITransactionHooks hooks, IInnerService inner, IDbContextFactory<LoadTestDbContext> dbFactory) : IOuterService
 {
     [Transactional]
-    public async Task RunWithInnerAsync()
+    public async Task RunWithInnerBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
         await inner.RunAsync();
     }
@@ -656,45 +743,59 @@ class OuterService(ITransactionHooks hooks, IInnerService inner) : IOuterService
 
 interface IIsolationService
 {
-    Task RunAsync(int taskId, Action onCommit);
+    Task UpdateAccountAsync(int taskId, Action onCommit);
 }
 
-class IsolationService(ITransactionHooks hooks) : IIsolationService
+class IsolationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IIsolationService
 {
     [Transactional]
-    public Task RunAsync(int taskId, Action onCommit)
+    public async Task UpdateAccountAsync(int taskId, Action onCommit)
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = $"account-{taskId}", Balance = 1000m };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(onCommit);
-        return Task.CompletedTask;
     }
 }
 
 interface IExceptionService
 {
-    Task ThrowDuringExecutionAsync();
-    Task ThrowInHookAsync();
-    Task ThrowCustomExceptionAsync();
+    Task ThrowDuringExecutionBankAsync();
+    Task ThrowInHookBankAsync();
+    Task ThrowCustomExceptionBankAsync();
 }
 
-class ExceptionService(ITransactionHooks hooks) : IExceptionService
+class ExceptionService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IExceptionService
 {
     [Transactional]
-    public Task ThrowDuringExecutionAsync()
+    public async Task ThrowDuringExecutionBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
         throw new InvalidOperationException("Exception during transaction execution");
     }
 
     [Transactional]
-    public Task ThrowInHookAsync()
+    public async Task ThrowInHookBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => throw new ArgumentException("Exception in AfterCommit hook"));
-        return Task.CompletedTask;
     }
 
     [Transactional]
-    public Task ThrowCustomExceptionAsync()
+    public async Task ThrowCustomExceptionBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
         throw new TimeoutException("Custom exception during transaction");
     }
@@ -702,14 +803,18 @@ class ExceptionService(ITransactionHooks hooks) : IExceptionService
 
 interface IExceptionPropagationService
 {
-    Task ThrowAndVerifyPropagationAsync(int taskId, int[] rollbackObserverFired);
+    Task ThrowAndVerifyPropagationBankAsync(int taskId, int[] rollbackObserverFired);
 }
 
-class ExceptionPropagationService(ITransactionHooks hooks) : IExceptionPropagationService
+class ExceptionPropagationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IExceptionPropagationService
 {
     [Transactional]
-    public Task ThrowAndVerifyPropagationAsync(int taskId, int[] rollbackObserverFired)
+    public async Task ThrowAndVerifyPropagationBankAsync(int taskId, int[] rollbackObserverFired)
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = $"prop-{taskId}", Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterRollback(() =>
         {
             Interlocked.Increment(ref rollbackObserverFired[taskId]);
@@ -720,7 +825,7 @@ class ExceptionPropagationService(ITransactionHooks hooks) : IExceptionPropagati
 
 interface INestedFailureService
 {
-    Task RunOuterWithFailingInnerAsync();
+    Task RunOuterWithFailingInnerBankAsync();
 }
 
 interface IInnerFailureService
@@ -728,21 +833,29 @@ interface IInnerFailureService
     Task RunAndFailAsync();
 }
 
-class InnerFailureService(ITransactionHooks hooks) : IInnerFailureService
+class InnerFailureService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IInnerFailureService
 {
     [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
-    public Task RunAndFailAsync()
+    public async Task RunAndFailAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 500 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterRollback(() => { });
         throw new InvalidOperationException("Inner transaction failed intentionally");
     }
 }
 
-class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner) : INestedFailureService
+class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner, IDbContextFactory<LoadTestDbContext> dbFactory) : INestedFailureService
 {
     [Transactional]
-    public async Task RunOuterWithFailingInnerAsync()
+    public async Task RunOuterWithFailingInnerBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
         try
         {
@@ -756,42 +869,54 @@ class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner) 
 
 interface IIOSimulationService
 {
-    Task SimulateIOAsync();
+    Task SimulateIOWithBankAsync();
 }
 
-class IOSimulationService(ITransactionHooks hooks) : IIOSimulationService
+class IOSimulationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IIOSimulationService
 {
     private static readonly Random _random = new();
 
     [Transactional]
-    public async Task SimulateIOAsync()
+    public async Task SimulateIOWithBankAsync()
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+
         int delayMs = _random.Next(1, 11);
         await Task.Delay(delayMs);
+
+        await db.Accounts.Where(a => a.Name == account.Name).FirstOrDefaultAsync();
+
         hooks.AfterCommit(() => { });
     }
 }
 
 interface IHookOrderingService
 {
-    Task ValidateHookOrderAsync(int taskId, int[] hookFireCount);
+    Task ValidateHookOrderBankAsync(int taskId, int[] hookFireCount);
 }
 
-class HookOrderingService(ITransactionHooks hooks) : IHookOrderingService
+class HookOrderingService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IHookOrderingService
 {
     [Transactional]
-    public Task ValidateHookOrderAsync(int taskId, int[] hookFireCount)
+    public async Task ValidateHookOrderBankAsync(int taskId, int[] hookFireCount)
     {
+        using var db = dbFactory.CreateDbContext();
+        var account = new LoadTestAccount { Name = $"hook-{taskId}", Balance = 1000 };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+
         int baseIndex = taskId * 3;
         hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex]));
         hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 1]));
         hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 2]));
-        return Task.CompletedTask;
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Observer
+// Observer with fixed AsyncLocal (uses ImmutableStack)
 // ─────────────────────────────────────────────────────────────────────────────
 
 sealed class ConcurrencyObserver : ITransactionObserver
@@ -799,14 +924,12 @@ sealed class ConcurrencyObserver : ITransactionObserver
     private int _begin, _commit, _rollback, _complete;
     private long _txnIdCounter;
     private readonly ConcurrentDictionary<long, TransactionLifecycle> _lifetimes = new();
-    private readonly AsyncLocal<Stack<long>> _txnStack = new();
+    private readonly AsyncLocal<ImmutableStack<long>> _txnStack = new();
 
     public int Begin => _begin;
     public int Commit => _commit;
     public int Rollback => _rollback;
     public int Complete => _complete;
-
-    private Stack<long> TxnStack => _txnStack.Value ??= new();
 
     public void Reset()
     {
@@ -819,14 +942,15 @@ sealed class ConcurrencyObserver : ITransactionObserver
     {
         long id = Interlocked.Increment(ref _txnIdCounter);
         _lifetimes[id] = new TransactionLifecycle { Id = id, Info = info, BeganAt = DateTime.UtcNow };
-        TxnStack.Push(id);
+        var current = _txnStack.Value ?? ImmutableStack<long>.Empty;
+        _txnStack.Value = current.Push(id);
         Interlocked.Increment(ref _begin);
     }
 
     public void OnCommit(TransactionInfo info, TimeSpan elapsed)
     {
-        var stack = TxnStack;
-        long? id = stack.Count > 0 ? stack.Peek() : null;
+        var stack = _txnStack.Value ?? ImmutableStack<long>.Empty;
+        long? id = stack.IsEmpty ? null : stack.Peek();
         if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
         {
             lifecycle.CommitAt = DateTime.UtcNow;
@@ -837,8 +961,8 @@ sealed class ConcurrencyObserver : ITransactionObserver
 
     public void OnRollback(TransactionInfo info, Exception exception, TimeSpan elapsed)
     {
-        var stack = TxnStack;
-        long? id = stack.Count > 0 ? stack.Peek() : null;
+        var stack = _txnStack.Value ?? ImmutableStack<long>.Empty;
+        long? id = stack.IsEmpty ? null : stack.Peek();
         if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
         {
             lifecycle.RollbackAt = DateTime.UtcNow;
@@ -849,9 +973,17 @@ sealed class ConcurrencyObserver : ITransactionObserver
 
     public void OnComplete(TransactionInfo info, bool committed, TimeSpan elapsed)
     {
-        var stack = TxnStack;
-        long? id = stack.Count > 0 ? stack.Pop() : null;
-        if (id.HasValue && _lifetimes.TryGetValue(id.Value, out var lifecycle))
+        var stack = _txnStack.Value ?? ImmutableStack<long>.Empty;
+        if (stack.IsEmpty)
+        {
+            Interlocked.Increment(ref _complete);
+            return;
+        }
+
+        long id = stack.Peek();
+        _txnStack.Value = stack.Pop();
+
+        if (_lifetimes.TryGetValue(id, out var lifecycle))
         {
             lifecycle.CompletedAt = DateTime.UtcNow;
             lifecycle.CompleteElapsed = elapsed;
