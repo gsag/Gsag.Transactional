@@ -9,16 +9,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Absolute path prevents working-directory ambiguity between `dotnet run`,
-// published binaries, and test hosts.
-var dbPath = Path.Combine(AppContext.BaseDirectory, "checkout.db");
 builder.Services.AddDbContext<CheckoutDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}")
-           // SQLite does not support System.Transactions ambient enlistment.
-           // The proxy lifecycle (scope commit/rollback, hooks, observer) works correctly;
-           // the database simply ignores the ambient scope. Suppress the warning so it
-           // doesn't surface as an unhandled exception in the demo API.
-           .ConfigureWarnings(w => w.Ignore(RelationalEventId.AmbientTransactionWarning)));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
 
 // Per-request collectors — Scoped so each HTTP request gets its own list.
 // Hooks registered inside [Transactional] methods write to these; the controller

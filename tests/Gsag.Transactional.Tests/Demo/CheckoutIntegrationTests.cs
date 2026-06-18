@@ -6,10 +6,9 @@ using Gsag.Transactional.Demo.Api.Entities;
 using Gsag.Transactional.Demo.Api.Exceptions;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Demo;
@@ -28,17 +27,18 @@ internal sealed class CheckoutRecordingObserver : ITransactionObserver
 }
 
 // ---------------------------------------------------------------------------
-// Integration tests — exercises [Transactional] against a real SQLite file
+// Integration tests — exercises [Transactional] against PostgreSQL
 // ---------------------------------------------------------------------------
 
 /// <summary>
 /// Proves that the transactional proxy commits and rolls back correctly using the
-/// checkout demo services. Each test gets its own temp SQLite file, deleted in DisposeAsync.
+/// checkout demo services. Each test gets its own PostgreSQL database, dropped in DisposeAsync.
 /// </summary>
 public class CheckoutIntegrationTests : IAsyncLifetime
 {
     private CheckoutDbContext _db = null!;
-    private string _dbPath = null!;
+    private string _dbName = null!;
+    private const string PostgresConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres";
 
     // Full service graph — mirrors what DI builds in the API
     private ICheckoutService _checkout = null!;
@@ -49,10 +49,9 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"tx_checkout_{Guid.NewGuid():N}.db");
-        _db = BuildContext(_dbPath);
+        _dbName = $"tx_checkout_{Guid.NewGuid():N}";
+        _db = BuildContext(_dbName);
         await _db.Database.EnsureCreatedAsync();
-        await _db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
 
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
@@ -77,11 +76,15 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
-        SqliteConnection.ClearAllPools();
-        if (File.Exists(_dbPath))
+        try
         {
-            File.Delete(_dbPath);
+            await using var cleanup = new NpgsqlConnection(PostgresConnectionString);
+            await cleanup.OpenAsync();
+            await using var cmd = cleanup.CreateCommand();
+            cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_dbName}\" WITH (FORCE);";
+            await cmd.ExecuteNonQueryAsync();
         }
+        catch { }
     }
 
     // -------------------------------------------------------------------------
@@ -153,20 +156,23 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         // AuditService.WriteAsync uses [Transactional(RequiresNew)] — commits independently.
         // CheckoutService creates an order inside the outer Required scope, then throws.
         //
-        // SQLite limitation: EF Core SQLite does not enlist in System.Transactions, so
-        // SaveChangesAsync inside OrderService commits the order immediately regardless of
-        // the outer scope. On SQL Server / PostgreSQL, the outer-scope order would be
-        // rolled back atomically while the audit entry (RequiresNew) survives.
+        // PostgreSQL enlistment in System.Transactions ensures atomic rollback: the outer-scope
+        // order is rolled back atomically while the audit entry (RequiresNew) survives.
         //
-        // What this test proves regardless of database:
+        // What this test proves:
         // - AuditEntry always persists (RequiresNew committed independently).
         // - AfterRollback hook from the outer scope fires (proxy lifecycle is correct).
+        // - Order is rolled back atomically.
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _checkout.ProcessWithAuditRequiresNewAsync(CancellationToken.None));
 
         var audits = await QueryAuditAsync();
         Assert.Single(audits);
         Assert.Equal("CHECKOUT_FAILED", audits[0].Action);
+
+        // Verify order was rolled back atomically
+        var orders = await QueryOrdersAsync();
+        Assert.Empty(orders);
     }
 
     // -------------------------------------------------------------------------
@@ -277,15 +283,14 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         const int count = 5;
 
         var contexts = Enumerable.Range(0, count)
-            .Select(_ => BuildContextWithBusyTimeoutAsync(_dbPath))
+            .Select(_ => BuildContext(_dbName))
             .ToList();
 
-        var resolvedContexts = await Task.WhenAll(contexts);
         try
         {
             // Each task gets its own TransactionHooks + HookOutputCollector to avoid
             // AsyncLocal ExecutionContext sharing across concurrent tasks.
-            var tasks = resolvedContexts.Select(db =>
+            var tasks = contexts.Select(db =>
             {
                 var hooks = new TransactionHooks();
                 return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()))
@@ -296,7 +301,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         }
         finally
         {
-            foreach (var ctx in resolvedContexts)
+            foreach (var ctx in contexts)
             {
                 await ctx.DisposeAsync();
             }
@@ -311,38 +316,33 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     private async Task<List<CheckoutOrder>> QueryOrdersAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext(_dbName);
         return await fresh.Orders.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<InventoryReservation>> QueryReservationsAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext(_dbName);
         return await fresh.Reservations.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<PaymentRecord>> QueryPaymentsAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext(_dbName);
         return await fresh.Payments.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<AuditEntry>> QueryAuditAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext(_dbName);
         return await fresh.AuditEntries.AsNoTracking().ToListAsync();
     }
 
-    private static CheckoutDbContext BuildContext(string path) =>
-        new(new DbContextOptionsBuilder<CheckoutDbContext>()
-            .UseSqlite($"Data Source={path}")
-            .ConfigureWarnings(w => w.Ignore(RelationalEventId.AmbientTransactionWarning))
-            .Options);
-
-    private static async Task<CheckoutDbContext> BuildContextWithBusyTimeoutAsync(string path)
+    private static CheckoutDbContext BuildContext(string dbName)
     {
-        var ctx = BuildContext(path);
-        await ctx.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");
-        return ctx;
+        var connStr = $"{PostgresConnectionString};Database={dbName}";
+        return new(new DbContextOptionsBuilder<CheckoutDbContext>()
+            .UseNpgsql(connStr)
+            .Options);
     }
 }
