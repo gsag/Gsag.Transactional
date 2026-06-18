@@ -123,7 +123,8 @@ file static class DockerComposeHelper
 
         try
         {
-            var psi = CreateProcessInfo("compose down");
+            // Remove orphans and volumes to ensure complete cleanup
+            var psi = CreateProcessInfo("compose down --remove-orphans --volumes");
             using var process = Process.Start(psi);
             if (process is null)
                 return;
@@ -132,7 +133,11 @@ file static class DockerComposeHelper
 
             if (process.ExitCode == 0)
             {
-                Console.WriteLine("✓ PostgreSQL container stopped");
+                Console.WriteLine("✓ PostgreSQL container and volumes stopped and removed");
+            }
+            else
+            {
+                Console.WriteLine($"Warning: docker compose down exited with code {process.ExitCode}");
             }
         }
         catch (Exception ex)
