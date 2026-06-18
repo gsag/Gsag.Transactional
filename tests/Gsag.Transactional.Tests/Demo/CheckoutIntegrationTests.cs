@@ -41,6 +41,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlFixture _fixture;
     private CheckoutDbContext _db = null!;
+    private CheckoutDbContext _auditDb = null!;
 
     public CheckoutIntegrationTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
@@ -67,8 +68,11 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, collector));
         _paymentService = TransactionProxyFactory.Create<IPaymentService>(
             new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
+        // AuditService uses a separate DbContext to ensure RequiresNew scope isolation
+        _auditDb = BuildContext();
+        await _auditDb.Database.EnsureCreatedAsync();
         _auditService = TransactionProxyFactory.Create<IAuditService>(
-            new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
+            new AuditService(_auditDb, hooks, NullLogger<AuditService>.Instance, collector));
         var reportService = TransactionProxyFactory.Create<IInventoryReportService>(
             new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
 
@@ -80,6 +84,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
+        await _auditDb.DisposeAsync();
     }
 
     private async Task CleanAllTablesAsync()
@@ -94,12 +99,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     // Scenario 1 — Full success: all entities committed
     // -------------------------------------------------------------------------
 
-    // TODO: FK constraint violations under investigation
-    // Issue: Foreign key constraint "FK_Reservations_Orders_OrderId" fails during nested transactional calls
-    // Root cause: Transaction propagation issue when [Transactional] methods call other [Transactional] methods
-    // Impact: Order INSERT not visible to Reservation INSERT within same transaction
-    // Next step: Debug TransactionScope behavior with nested proxy interception
-    [Fact(Skip = "FK constraint violation - transaction nesting issue under investigation")]
+    [Fact]
     public async Task ProcessSuccess_AllEntitiesPersistedInDatabase()
     {
         var result = await _checkout.ProcessSuccessAsync(CancellationToken.None);
@@ -116,7 +116,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         Assert.Single(audits);
     }
 
-    [Fact(Skip = "FK constraint violation - transaction nesting issue under investigation")]
+    [Fact]
     public async Task ProcessSuccess_TwoCalls_BothOrdersPersisted()
     {
         await _checkout.ProcessSuccessAsync(CancellationToken.None);
@@ -162,6 +162,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task AuditRequiresNew_WhenOuterFails_AuditEntryPersists()
     {
         // AuditService.WriteAsync uses [Transactional(RequiresNew)] — commits independently.
+        // AuditService uses a separate DbContext to ensure proper isolation.
         // CheckoutService creates an order inside the outer Required scope, then throws.
         //
         // PostgreSQL enlistment in System.Transactions ensures atomic rollback: the outer-scope
@@ -212,6 +213,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new OrderService(_db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()), observer);
 
         await svc.CreateAsync("observer-commit", 10m, CancellationToken.None);
+        await _db.SaveChangesAsync();
 
         Assert.Contains("COMMIT:CreateAsync", observer.Calls);
         Assert.DoesNotContain("ROLLBACK:CreateAsync", observer.Calls);
@@ -285,7 +287,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     // Scenario 8 — Concurrent transactions: proxy cache must not corrupt state
     // -------------------------------------------------------------------------
 
-    [Fact(Skip = "Transaction abort issue - concurrent nested transactions under investigation")]
+    [Fact]
     public async Task Concurrent_FiveParallelOrders_AllOrdersPersisted()
     {
         const int count = 5;
@@ -298,11 +300,12 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         {
             // Each task gets its own TransactionHooks + HookOutputCollector to avoid
             // AsyncLocal ExecutionContext sharing across concurrent tasks.
-            var tasks = contexts.Select(db =>
+            var tasks = contexts.Select(async db =>
             {
                 var hooks = new TransactionHooks();
-                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()))
-                    .CreateAsync("concurrent", 10m);
+                var svc = TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()));
+                await svc.CreateAsync("concurrent", 10m);
+                await db.SaveChangesAsync();
             });
 
             await Task.WhenAll(tasks);

@@ -37,7 +37,6 @@ public class PaymentService : IPaymentService
             ProcessedAt = DateTimeOffset.UtcNow
         };
         _db.Payments.Add(record);
-        await _db.SaveChangesAsync(ct);
 
         // Hook fires when the OUTER scope commits — not when ProcessAsync returns.
         // This guarantees the event is only published after the full checkout transaction commits.
