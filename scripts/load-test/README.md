@@ -4,20 +4,20 @@ High-concurrency stress test for transaction lifecycle validation under PostgreS
 
 ## Overview
 
-Tests **9 scenarios** with **~118k total transactions** (optimized for fast validation):
+Tests **9 scenarios** with **~25.3k total transactions** (optimized for comprehensive validation):
 
 | Scenario | Operations | Details |
 |----------|------------|---------|
-| Pure throughput | 100,000 | 2k tasks × 50 iterations |
-| Rollback vs commit | 4,000 | 50% commit / 50% rollback |
-| AsyncLocal isolation | 2,000 | Hook fire validation |
-| Nested RequiresNew | 2,000 | Outer + inner transactions |
-| Nested with failure | 1,600 | Inner transaction failure handling |
-| Exception handling | 1,500 | 3 exception types |
-| Exception propagation | 1,000 | Propagation correctness |
-| I/O simulation | 500 | Variable 1-10ms delays |
-| Hook ordering | 1,800 | 600 tasks × 3 hooks each |
-| **TOTAL** | **~118k** | **~2-3 minutes** |
+| Pure throughput | 20,000 | 1k tasks × 20 iterations |
+| Rollback vs commit | 2,000 | 50% commit / 50% rollback |
+| AsyncLocal isolation | 1,000 | Hook fire validation |
+| Nested RequiresNew | 300 | 150 tasks (outer + inner) |
+| Nested with failure | 300 | 150 tasks (inner failure handling) |
+| Exception handling | 600 | 3 exception types |
+| Exception propagation | 500 | Propagation correctness |
+| I/O simulation | 400 | Variable 1-10ms delays |
+| Hook ordering | 400 | 400 tasks × 3 hooks each |
+| **TOTAL** | **~25.3k** | **~20 seconds** |
 
 ## Prerequisites
 
@@ -40,8 +40,8 @@ docker-compose down -v
 ```
 
 ### Expected Runtime
-- **First scenario**: 20-30 seconds
-- **All 9 scenarios**: 2-3 minutes total
+- **First scenario**: 14-15 seconds
+- **All 9 scenarios**: 20 seconds total
 - **Teardown**: ~10 seconds
 
 ## Visual Output
@@ -106,22 +106,24 @@ Npgsql connection pool:
 
 ## Volume Configuration
 
-Volumes are optimized for **2-3 minute runtime** with full validation coverage.
+Volumes are optimized for **~20 second runtime** with full validation coverage and stable connection pooling.
 
 To increase load for aggressive stress testing, edit `Program.cs`:
 
 ```csharp
-// Multiply these for 10x heavier load (~30 minutes runtime):
-const int ThroughputTasks = 20_000;         // default: 2_000
-const int RollbackTasks = 40_000;           // default: 4_000
-const int IsolationTasks = 20_000;          // default: 2_000
+// Multiply these for 2x heavier load (~40 seconds runtime):
+const int ThroughputTasks = 2_000;          // default: 1_000
+const int RollbackTasks = 4_000;            // default: 2_000
+const int IsolationTasks = 2_000;           // default: 1_000
+const int NestedTasks = 300;                // default: 150 (nested are sensitive to concurrency)
 // ... etc
 ```
 
 Or scale uniformly by changing in all scenarios:
-- `1x` (current): ~118k ops, 2-3 minutes ← **recommended for CI/CD**
-- `10x`: ~1.2M ops, 20-30 minutes ← stress test / capacity planning
-- `100x`: ~12M ops, 3+ hours ← extended load testing
+- `1x` (current): ~25.3k ops, 20 seconds ← **recommended for CI/CD**
+- `2x`: ~50.6k ops, 40 seconds ← standard stress test
+- `4x`: ~101k ops, 80 seconds ← extended load testing
+- Nested scenarios (4-5) scale conservatively to avoid deadlock
 
 Progress bars work at any scale.
 

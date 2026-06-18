@@ -143,27 +143,24 @@ static class TestScenarios
         var hookFireCount = new int[isolationTasks];
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  AsyncLocal isolation...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "AsyncLocal isolation", scenarioNum, totalScenarios, isolationTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, isolationTasks)
                     .Select(i => Task.Run(async () =>
                     {
                         await isolation.UpdateAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
+                        onProgress();
                     }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         long tps = (long)(isolationTasks / result.TotalSeconds);
@@ -192,27 +189,24 @@ static class TestScenarios
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Nested RequiresNew", scenarioNum, totalScenarios, nestedTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedTasks)
                     .Select(_ => Task.Run(async () =>
                     {
                         await outer.RunWithInnerAsync();
+                        onProgress();
                     }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         int totalScopes = nestedTasks * 2;
@@ -238,24 +232,24 @@ static class TestScenarios
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew (inner fails)...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Nested RequiresNew (inner fails)", scenarioNum, totalScenarios, nestedWithFailureTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedWithFailureTasks)
-                    .Select(_ => Task.Run(() => nestedFailure.RunOuterWithFailingInnerAsync()));
+                    .Select(_ => Task.Run(async () =>
+                    {
+                        await nestedFailure.RunOuterWithFailingInnerAsync();
+                        onProgress();
+                    }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         int totalScopes = nestedWithFailureTasks * 2;
@@ -282,17 +276,15 @@ static class TestScenarios
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception handling...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Exception handling", scenarioNum, totalScenarios, exceptionTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 int third = exceptionTasks / 3;
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, exceptionTasks).Select(i =>
                 {
                     if (i < third)
@@ -301,6 +293,7 @@ static class TestScenarios
                         {
                             try { await exception.ThrowDuringExecutionAsync(); }
                             catch { }
+                            onProgress();
                         });
                     }
                     else if (i < 2 * third)
@@ -309,6 +302,7 @@ static class TestScenarios
                         {
                             try { await exception.ThrowInHookAsync(); }
                             catch { }
+                            onProgress();
                         });
                     }
                     else
@@ -317,15 +311,14 @@ static class TestScenarios
                         {
                             try { await exception.ThrowCustomExceptionAsync(); }
                             catch { }
+                            onProgress();
                         });
                     }
                 });
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         int third2 = exceptionTasks / 3;
@@ -353,16 +346,14 @@ static class TestScenarios
         var rollbackObserverFired = new int[exceptionPropagationTasks];
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception propagation...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Exception propagation", scenarioNum, totalScenarios, exceptionPropagationTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, exceptionPropagationTasks)
                     .Select(i => Task.Run(async () =>
                     {
@@ -380,13 +371,12 @@ static class TestScenarios
                             throw new Exception($"Task {i}: Exception was not propagated");
                         if (rollbackObserverFired[i] == 0)
                             throw new Exception($"Task {i}: Rollback observer did not fire");
+                        onProgress();
                     }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         long tps = (long)(exceptionPropagationTasks / result.TotalSeconds);
@@ -414,24 +404,24 @@ static class TestScenarios
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  I/O simulation...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "I/O simulation", scenarioNum, totalScenarios, ioSimulationTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, ioSimulationTasks)
-                    .Select(_ => Task.Run(() => ioSim.SimulateIOAsync()));
+                    .Select(_ => Task.Run(async () =>
+                    {
+                        await ioSim.SimulateIOAsync();
+                        onProgress();
+                    }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         long tps = (long)(ioSimulationTasks / result.TotalSeconds);
@@ -457,24 +447,24 @@ static class TestScenarios
         var hookOrderingFire = new int[hookOrderingTasks * 3];
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Hook ordering...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Hook ordering", scenarioNum, totalScenarios, hookOrderingTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, hookOrderingTasks)
-                    .Select(i => Task.Run(() => hookOrdering.ValidateHookOrderAsync(i, hookOrderingFire)));
+                    .Select(i => Task.Run(async () =>
+                    {
+                        await hookOrdering.ValidateHookOrderAsync(i, hookOrderingFire);
+                        onProgress();
+                    }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         long tps = (long)(hookOrderingTasks / result.TotalSeconds);

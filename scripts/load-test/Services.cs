@@ -1,3 +1,4 @@
+using System.Text;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
@@ -249,10 +250,21 @@ class IOSimulationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbC
         try
         {
             using var db = dbFactory.CreateDbContext();
-            db.Entities.Add(new Entity { Value = 1 });
+
+            // 1. Insert data
+            var entity = new Entity { Value = Random.Shared.Next(1, 100) };
+            db.Entities.Add(entity);
             await db.SaveChangesAsync();
-            var delay = Random.Shared.Next(1, 11);
+
+            // 2. Query for validation (simulates post-transaction I/O operations)
+            var inserted = await db.Entities
+                .Where(e => e.Value >= entity.Value)
+                .CountAsync();
+
+            // 3. Simulate additional processing (1-15ms based on result size)
+            var delay = Math.Min(15, Math.Max(1, inserted / 10));
             await Task.Delay(delay);
+
             hooks.AfterCommit(() => { });
         }
         finally { throttle.Release(); }
