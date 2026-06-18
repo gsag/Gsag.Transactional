@@ -42,7 +42,7 @@ var accumulator = new LifecycleAccumulator();
 
 var services = new ServiceCollection();
 services.AddSingleton<ITransactionObserver>(observer);
-services.AddDbContextFactory<LoadTestDbContext>(options => options.UseNpgsql("Host=localhost;Port=5432;Database=loadtest;Username=loadtest;Password=loadtest123;"));
+services.AddDbContextFactory<LoadTestDbContext>(options => options.UseNpgsql("Host=localhost;Port=5432;Database=loadtest;Username=loadtest;Password=loadtest123;MaxPoolSize=250;Pooling=true;"));
 services.AddTransactional(b => b
     .AddService<ILoadService, LoadService>()
     .AddService<IInnerService, InnerService>()

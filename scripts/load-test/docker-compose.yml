@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: loadtest
       POSTGRES_USER: loadtest
       POSTGRES_PASSWORD: loadtest123
+      POSTGRES_INITDB_ARGS: "-c max_connections=500 -c shared_buffers=256MB"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
