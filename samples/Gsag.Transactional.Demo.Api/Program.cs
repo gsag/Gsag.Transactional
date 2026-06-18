@@ -74,6 +74,12 @@ if (app.Environment.IsDevelopment())
             Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
         }
     });
+
+    app.Lifetime.ApplicationStopping.Register(async () =>
+    {
+        Console.WriteLine("\nShutting down PostgreSQL container...");
+        await StopDockerComposeAsync();
+    });
 }
 
 app.MapControllers();
@@ -148,6 +154,42 @@ async Task StartDockerComposeAsync()
     {
         throw new InvalidOperationException("Failed to start docker compose. Ensure Docker is installed and running.", ex);
     }
+}
+
+async Task StopDockerComposeAsync()
+{
+    var composeFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
+
+    if (!File.Exists(composeFile))
+    {
+        return;
+    }
+
+    try
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "docker",
+            Arguments = "compose down",
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(psi);
+        if (process is null)
+            return;
+
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode == 0)
+        {
+            Console.WriteLine("✓ PostgreSQL container stopped");
+        }
+    }
+    catch { }
 }
 
 public partial class Program { }
