@@ -119,13 +119,15 @@ internal static class DockerComposeHelper
 
         // Use ArgumentList for safer argument passing (avoids string interpolation security concerns)
         psi.ArgumentList.Add("--file");
-        psi.ArgumentList.Add(ComposeFile);
-        foreach (var arg in arguments.Split(' '))
+
+        var composeFilePath = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
+        psi.ArgumentList.Add(composeFilePath);
+
+        // Use LINQ Where instead of foreach with if condition
+        var composeArgs = arguments.Split(' ').Where(arg => !string.IsNullOrEmpty(arg));
+        foreach (var arg in composeArgs)
         {
-            if (!string.IsNullOrEmpty(arg))
-            {
-                psi.ArgumentList.Add(arg);
-            }
+            psi.ArgumentList.Add(arg);
         }
 
         return psi;
