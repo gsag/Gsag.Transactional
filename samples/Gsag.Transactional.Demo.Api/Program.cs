@@ -9,7 +9,7 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-await EnsurePostgresIsRunningAsync();
+await DockerComposeHelper.EnsurePostgresIsRunningAsync(builder.Configuration.GetConnectionString("PostgreSQL")!);
 
 builder.Services.AddDbContext<CheckoutDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
@@ -78,31 +78,31 @@ if (app.Environment.IsDevelopment())
     app.Lifetime.ApplicationStopping.Register(async () =>
     {
         Console.WriteLine("\nShutting down PostgreSQL container...");
-        await StopDockerComposeAsync();
+        await DockerComposeHelper.StopDockerComposeAsync();
     });
 }
 
 app.MapControllers();
 app.Run();
 
-async Task EnsurePostgresIsRunningAsync()
+// Helper for docker compose initialization and cleanup
+file static class DockerComposeHelper
 {
-    var connStr = builder.Configuration.GetConnectionString("PostgreSQL");
-    const int maxRetries = 30;
-    const int delayMs = 1000;
+    private static readonly string ComposeFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
 
-    for (int i = 0; i < maxRetries; i++)
+    internal static async Task EnsurePostgresIsRunningAsync(string connStr)
     {
-        try
+        const int maxRetries = 30;
+        const int delayMs = 1000;
+
+        for (int i = 0; i < maxRetries; i++)
         {
-            using var conn = new NpgsqlConnection(connStr);
-            await conn.OpenAsync();
-            await conn.CloseAsync();
-            Console.WriteLine("✓ PostgreSQL is ready");
-            return;
-        }
-        catch
-        {
+            if (await IsPostgresAccessibleAsync(connStr))
+            {
+                Console.WriteLine("✓ PostgreSQL is ready");
+                return;
+            }
+
             if (i == 0)
             {
                 Console.WriteLine("PostgreSQL not accessible, attempting to start docker-compose...");
@@ -110,86 +110,92 @@ async Task EnsurePostgresIsRunningAsync()
             }
             await Task.Delay(delayMs);
         }
+
+        throw new InvalidOperationException("PostgreSQL failed to start after 30 seconds");
     }
 
-    throw new InvalidOperationException("PostgreSQL failed to start after 30 seconds");
-}
-
-async Task StartDockerComposeAsync()
-{
-    var composeFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
-
-    if (!File.Exists(composeFile))
+    internal static async Task StopDockerComposeAsync()
     {
-        throw new FileNotFoundException($"docker-compose.yml not found at {composeFile}");
-    }
-
-    try
-    {
-        var psi = new ProcessStartInfo
+        if (!File.Exists(ComposeFile))
         {
-            FileName = "docker",
-            Arguments = "compose up -d",
-            WorkingDirectory = AppContext.BaseDirectory,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start(psi);
-        if (process is null)
-            throw new InvalidOperationException("Failed to start docker compose");
-
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"docker compose exited with code {process.ExitCode}");
-        }
-
-        Console.WriteLine("✓ docker compose started successfully");
-    }
-    catch (Exception ex)
-    {
-        throw new InvalidOperationException("Failed to start docker compose. Ensure Docker is installed and running.", ex);
-    }
-}
-
-async Task StopDockerComposeAsync()
-{
-    var composeFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
-
-    if (!File.Exists(composeFile))
-    {
-        return;
-    }
-
-    try
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "docker",
-            Arguments = "compose down",
-            WorkingDirectory = AppContext.BaseDirectory,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start(psi);
-        if (process is null)
             return;
+        }
 
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode == 0)
+        try
         {
-            Console.WriteLine("✓ PostgreSQL container stopped");
+            var psi = CreateProcessInfo("compose down");
+            using var process = Process.Start(psi);
+            if (process is null)
+                return;
+
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode == 0)
+            {
+                Console.WriteLine("✓ PostgreSQL container stopped");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to stop docker compose: {ex.Message}");
         }
     }
-    catch { }
+
+    private static async Task<bool> IsPostgresAccessibleAsync(string connStr)
+    {
+        try
+        {
+            using var conn = new NpgsqlConnection(connStr);
+            await conn.OpenAsync();
+            await conn.CloseAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task StartDockerComposeAsync()
+    {
+        if (!File.Exists(ComposeFile))
+        {
+            throw new FileNotFoundException($"docker-compose.yml not found at {ComposeFile}");
+        }
+
+        try
+        {
+            var psi = CreateProcessInfo("compose up -d");
+            using var process = Process.Start(psi);
+            if (process is null)
+                throw new InvalidOperationException("Failed to start docker compose");
+
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"docker compose exited with code {process.ExitCode}");
+            }
+
+            Console.WriteLine("✓ docker compose started successfully");
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to start docker compose. Ensure Docker is installed and running.", ex);
+        }
+    }
+
+    private static ProcessStartInfo CreateProcessInfo(string arguments) =>
+        new()
+        {
+            FileName = "docker",
+            Arguments = arguments,
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
 }
 
 public partial class Program { }
