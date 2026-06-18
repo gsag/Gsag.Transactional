@@ -56,9 +56,7 @@ static class Database
     public static async Task ClearDatabase(IDbContextFactory<LoadTestDbContext> factory)
     {
         using var db = factory.CreateDbContext();
-        await db.AuditLogs.ExecuteDeleteAsync();
-        await db.Transactions.ExecuteDeleteAsync();
-        await db.Accounts.ExecuteDeleteAsync();
+        await db.Entities.ExecuteDeleteAsync();
     }
 }
 

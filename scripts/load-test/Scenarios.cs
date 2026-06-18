@@ -23,7 +23,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Pure throughput with bank ops...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Pure throughput...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -35,7 +35,7 @@ static class TestScenarios
                     {
                         for (int i = 0; i < throughputIterationsPerTask; i++)
                         {
-                            await load.InsertAccountAsync();
+                            await load.InsertAsync();
                         }
                     }));
                 await Task.WhenAll(tasks);
@@ -72,7 +72,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Rollback vs commit with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Rollback vs commit...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 int half = rollbackTasks / 2;
@@ -84,12 +84,12 @@ static class TestScenarios
                 {
                     if (i < half)
                     {
-                        return load.InsertAccountAsync();
+                        return load.InsertAsync();
                     }
 
                     return Task.Run(async () =>
                     {
-                        try { await load.InsertAccountFailAsync(); }
+                        try { await load.InsertFailAsync(); }
                         catch (InvalidOperationException) { }
                     });
                 });
@@ -128,7 +128,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  AsyncLocal isolation with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  AsyncLocal isolation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -138,7 +138,7 @@ static class TestScenarios
                 var tasks = Enumerable.Range(0, isolationTasks)
                     .Select(i => Task.Run(async () =>
                     {
-                        await isolation.UpdateAccountAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
+                        await isolation.UpdateAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
                     }));
                 await Task.WhenAll(tasks);
                 sw.Stop();
@@ -177,7 +177,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -185,7 +185,7 @@ static class TestScenarios
                 using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedTasks)
-                    .Select(_ => Task.Run(() => outer.RunWithInnerBankAsync()));
+                    .Select(_ => Task.Run(() => outer.RunWithInnerAsync()));
                 await Task.WhenAll(tasks);
                 sw.Stop();
                 peak = sampler.PeakBytes;
@@ -220,7 +220,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew (inner fails) with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew (inner fails)...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -228,7 +228,7 @@ static class TestScenarios
                 using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedWithFailureTasks)
-                    .Select(_ => Task.Run(() => nestedFailure.RunOuterWithFailingInnerBankAsync()));
+                    .Select(_ => Task.Run(() => nestedFailure.RunOuterWithFailingInnerAsync()));
                 await Task.WhenAll(tasks);
                 sw.Stop();
                 peak = sampler.PeakBytes;
@@ -264,7 +264,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception handling with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception handling...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 int third = exceptionTasks / 3;
@@ -278,7 +278,7 @@ static class TestScenarios
                     {
                         return Task.Run(async () =>
                         {
-                            try { await exception.ThrowDuringExecutionBankAsync(); }
+                            try { await exception.ThrowDuringExecutionAsync(); }
                             catch { }
                         });
                     }
@@ -286,7 +286,7 @@ static class TestScenarios
                     {
                         return Task.Run(async () =>
                         {
-                            try { await exception.ThrowInHookBankAsync(); }
+                            try { await exception.ThrowInHookAsync(); }
                             catch { }
                         });
                     }
@@ -294,7 +294,7 @@ static class TestScenarios
                     {
                         return Task.Run(async () =>
                         {
-                            try { await exception.ThrowCustomExceptionBankAsync(); }
+                            try { await exception.ThrowCustomExceptionAsync(); }
                             catch { }
                         });
                     }
@@ -335,7 +335,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception propagation with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception propagation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -348,7 +348,7 @@ static class TestScenarios
                         bool exceptionCaught = false;
                         try
                         {
-                            await propagation.ThrowAndVerifyPropagationBankAsync(i, rollbackObserverFired);
+                            await propagation.ThrowAndVerifyPropagationAsync(i, rollbackObserverFired);
                         }
                         catch (InvalidOperationException)
                         {
@@ -396,7 +396,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  I/O simulation with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  I/O simulation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -404,7 +404,7 @@ static class TestScenarios
                 using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, ioSimulationTasks)
-                    .Select(_ => Task.Run(() => ioSim.SimulateIOWithBankAsync()));
+                    .Select(_ => Task.Run(() => ioSim.SimulateIOAsync()));
                 await Task.WhenAll(tasks);
                 sw.Stop();
                 peak = sampler.PeakBytes;
@@ -439,7 +439,7 @@ static class TestScenarios
         var result = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Hook ordering with bank...", async _ =>
+            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Hook ordering...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
                 long allocBefore = GC.GetTotalAllocatedBytes();
@@ -447,7 +447,7 @@ static class TestScenarios
                 using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, hookOrderingTasks)
-                    .Select(i => Task.Run(() => hookOrdering.ValidateHookOrderBankAsync(i, hookOrderingFire)));
+                    .Select(i => Task.Run(() => hookOrdering.ValidateHookOrderAsync(i, hookOrderingFire)));
                 await Task.WhenAll(tasks);
                 sw.Stop();
                 peak = sampler.PeakBytes;

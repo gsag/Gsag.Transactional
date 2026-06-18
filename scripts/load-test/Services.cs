@@ -8,28 +8,26 @@ namespace LoadTest.Services;
 
 interface ILoadService
 {
-    Task InsertAccountAsync();
-    Task InsertAccountFailAsync();
+    Task InsertAsync();
+    Task InsertFailAsync();
 }
 
 class LoadService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : ILoadService
 {
     [Transactional]
-    public async Task InsertAccountAsync()
+    public async Task InsertAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
     }
 
     [Transactional]
-    public async Task InsertAccountFailAsync()
+    public async Task InsertFailAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
         hooks.AfterRollback(() => { });
         throw new InvalidOperationException("forced rollback");
@@ -47,8 +45,7 @@ class InnerService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext>
     public async Task RunAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 500 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 2 });
         await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
     }
@@ -56,17 +53,16 @@ class InnerService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext>
 
 interface IOuterService
 {
-    Task RunWithInnerBankAsync();
+    Task RunWithInnerAsync();
 }
 
-class OuterService(ITransactionHooks hooks, IInnerService inner, IDbContextFactory<LoadTestDbContext> dbFactory) : IOuterService
+class OuterService(IInnerService inner, ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IOuterService
 {
     [Transactional]
-    public async Task RunWithInnerBankAsync()
+    public async Task RunWithInnerAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
         await inner.RunAsync();
@@ -75,174 +71,150 @@ class OuterService(ITransactionHooks hooks, IInnerService inner, IDbContextFacto
 
 interface IIsolationService
 {
-    Task UpdateAccountAsync(int taskId, Action onCommit);
+    Task UpdateAsync(int taskId, Action onHook);
 }
 
 class IsolationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IIsolationService
 {
     [Transactional]
-    public async Task UpdateAccountAsync(int taskId, Action onCommit)
+    public async Task UpdateAsync(int taskId, Action onHook)
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = $"account-{taskId}", Balance = 1000m };
-        db.Accounts.Add(account);
+        var entity = await db.Entities.FirstOrDefaultAsync() ?? new Entity { Value = 0 };
+        if (entity.Id == 0) db.Entities.Add(entity);
+        entity.Value += 1;
         await db.SaveChangesAsync();
-        hooks.AfterCommit(onCommit);
+        hooks.AfterCommit(onHook);
     }
 }
 
 interface IExceptionService
 {
-    Task ThrowDuringExecutionBankAsync();
-    Task ThrowInHookBankAsync();
-    Task ThrowCustomExceptionBankAsync();
+    Task ThrowDuringExecutionAsync();
+    Task ThrowInHookAsync();
+    Task ThrowCustomExceptionAsync();
 }
 
 class ExceptionService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IExceptionService
 {
     [Transactional]
-    public async Task ThrowDuringExecutionBankAsync()
+    public async Task ThrowDuringExecutionAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-        hooks.AfterCommit(() => { });
-        throw new InvalidOperationException("Exception during transaction execution");
+        throw new InvalidOperationException("exception during execution");
     }
 
     [Transactional]
-    public async Task ThrowInHookBankAsync()
+    public async Task ThrowInHookAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-        hooks.AfterCommit(() => throw new ArgumentException("Exception in AfterCommit hook"));
+        hooks.AfterCommit(() => throw new InvalidOperationException("exception in hook"));
     }
 
     [Transactional]
-    public async Task ThrowCustomExceptionBankAsync()
+    public async Task ThrowCustomExceptionAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-        hooks.AfterCommit(() => { });
-        throw new TimeoutException("Custom exception during transaction");
+        throw new ApplicationException("custom exception");
     }
 }
 
 interface IExceptionPropagationService
 {
-    Task ThrowAndVerifyPropagationBankAsync(int taskId, int[] rollbackObserverFired);
+    Task ThrowAndVerifyPropagationAsync(int taskId, int[] observerFired);
 }
 
 class ExceptionPropagationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IExceptionPropagationService
 {
     [Transactional]
-    public async Task ThrowAndVerifyPropagationBankAsync(int taskId, int[] rollbackObserverFired)
+    public async Task ThrowAndVerifyPropagationAsync(int taskId, int[] observerFired)
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = $"prop-{taskId}", Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-        hooks.AfterRollback(() =>
-        {
-            Interlocked.Increment(ref rollbackObserverFired[taskId]);
-        });
-        throw new InvalidOperationException($"Task {taskId}: Exception for propagation test");
+        hooks.AfterRollback(() => Interlocked.Increment(ref observerFired[taskId]));
+        throw new InvalidOperationException("propagation test");
     }
-}
-
-interface INestedFailureService
-{
-    Task RunOuterWithFailingInnerBankAsync();
 }
 
 interface IInnerFailureService
 {
-    Task RunAndFailAsync();
+    Task RunAsync();
 }
 
 class InnerFailureService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IInnerFailureService
 {
     [Transactional(Propagation = TransactionScopeOption.RequiresNew)]
-    public async Task RunAndFailAsync()
+    public async Task RunAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 500 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 2 });
         await db.SaveChangesAsync();
         hooks.AfterRollback(() => { });
-        throw new InvalidOperationException("Inner transaction failed intentionally");
+        throw new InvalidOperationException("inner transaction failure");
     }
 }
 
-class NestedFailureService(ITransactionHooks hooks, IInnerFailureService inner, IDbContextFactory<LoadTestDbContext> dbFactory) : INestedFailureService
+interface INestedFailureService
+{
+    Task RunOuterWithFailingInnerAsync();
+}
+
+class NestedFailureService(IInnerFailureService inner, ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : INestedFailureService
 {
     [Transactional]
-    public async Task RunOuterWithFailingInnerBankAsync()
+    public async Task RunOuterWithFailingInnerAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
         hooks.AfterCommit(() => { });
-        try
-        {
-            await inner.RunAndFailAsync();
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        try { await inner.RunAsync(); }
+        catch (InvalidOperationException) { }
     }
 }
 
 interface IIOSimulationService
 {
-    Task SimulateIOWithBankAsync();
+    Task SimulateIOAsync();
 }
 
 class IOSimulationService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IIOSimulationService
 {
-    private static readonly Random _random = new();
-
     [Transactional]
-    public async Task SimulateIOWithBankAsync()
+    public async Task SimulateIOAsync()
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = Guid.NewGuid().ToString(), Balance = 1000 };
-        db.Accounts.Add(account);
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-
-        int delayMs = _random.Next(1, 11);
-        await Task.Delay(delayMs);
-
-        await db.Accounts.Where(a => a.Name == account.Name).FirstOrDefaultAsync();
-
+        var delay = Random.Shared.Next(1, 11);
+        await Task.Delay(delay);
         hooks.AfterCommit(() => { });
     }
 }
 
 interface IHookOrderingService
 {
-    Task ValidateHookOrderBankAsync(int taskId, int[] hookFireCount);
+    Task ValidateHookOrderAsync(int taskId, int[] hookFires);
 }
 
 class HookOrderingService(ITransactionHooks hooks, IDbContextFactory<LoadTestDbContext> dbFactory) : IHookOrderingService
 {
     [Transactional]
-    public async Task ValidateHookOrderBankAsync(int taskId, int[] hookFireCount)
+    public async Task ValidateHookOrderAsync(int taskId, int[] hookFires)
     {
         using var db = dbFactory.CreateDbContext();
-        var account = new LoadTestAccount { Name = $"hook-{taskId}", Balance = 1000 };
-        db.Accounts.Add(account);
+        var baseIdx = taskId * 3;
+        db.Entities.Add(new Entity { Value = 1 });
         await db.SaveChangesAsync();
-
-        int baseIndex = taskId * 3;
-        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex]));
-        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 1]));
-        hooks.AfterCommit(() => Interlocked.Increment(ref hookFireCount[baseIndex + 2]));
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFires[baseIdx]));
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFires[baseIdx + 1]));
+        hooks.AfterCommit(() => Interlocked.Increment(ref hookFires[baseIdx + 2]));
     }
 }
