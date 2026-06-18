@@ -41,7 +41,6 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlFixture _fixture;
     private CheckoutDbContext _db = null!;
-    private string _dbName = null!;
 
     public CheckoutIntegrationTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
@@ -54,9 +53,9 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _dbName = $"tx_checkout_{Guid.NewGuid():N}";
-        _db = BuildContext(_dbName);
+        _db = BuildContext();
         await _db.Database.EnsureCreatedAsync();
+        await CleanAllTablesAsync();
 
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
@@ -81,15 +80,14 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
-        try
-        {
-            await using var cleanup = new NpgsqlConnection(_fixture.ConnectionString);
-            await cleanup.OpenAsync();
-            await using var cmd = cleanup.CreateCommand();
-            cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_dbName}\" WITH (FORCE);";
-            await cmd.ExecuteNonQueryAsync();
-        }
-        catch { }
+    }
+
+    private async Task CleanAllTablesAsync()
+    {
+        await _db.AuditEntries.ExecuteDeleteAsync();
+        await _db.Payments.ExecuteDeleteAsync();
+        await _db.Reservations.ExecuteDeleteAsync();
+        await _db.Orders.ExecuteDeleteAsync();
     }
 
     // -------------------------------------------------------------------------
@@ -288,7 +286,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         const int count = 5;
 
         var contexts = Enumerable.Range(0, count)
-            .Select(_ => BuildContext(_dbName))
+            .Select(_ => BuildContext())
             .ToList();
 
         try
@@ -321,33 +319,32 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     private async Task<List<CheckoutOrder>> QueryOrdersAsync()
     {
-        await using var fresh = BuildContext(_dbName);
+        await using var fresh = BuildContext();
         return await fresh.Orders.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<InventoryReservation>> QueryReservationsAsync()
     {
-        await using var fresh = BuildContext(_dbName);
+        await using var fresh = BuildContext();
         return await fresh.Reservations.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<PaymentRecord>> QueryPaymentsAsync()
     {
-        await using var fresh = BuildContext(_dbName);
+        await using var fresh = BuildContext();
         return await fresh.Payments.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<AuditEntry>> QueryAuditAsync()
     {
-        await using var fresh = BuildContext(_dbName);
+        await using var fresh = BuildContext();
         return await fresh.AuditEntries.AsNoTracking().ToListAsync();
     }
 
-    private CheckoutDbContext BuildContext(string dbName)
+    private CheckoutDbContext BuildContext()
     {
-        var connStr = $"{_fixture.ConnectionString};Database={dbName}";
         return new(new DbContextOptionsBuilder<CheckoutDbContext>()
-            .UseNpgsql(connStr)
+            .UseNpgsql(_fixture.ConnectionString, opts => opts.MaxBatchSize(1))
             .Options);
     }
 }
