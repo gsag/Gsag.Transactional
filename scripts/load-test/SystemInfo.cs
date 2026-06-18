@@ -26,7 +26,7 @@ static class SystemInfoCollector
     public static SystemInfo Collect()
     {
         var proc = Process.GetCurrentProcess();
-        var totalMemory = GC.GetTotalMemory(false);
+        var gcInfo = GC.GetGCMemoryInfo();
 
         return new SystemInfo
         {
@@ -35,7 +35,7 @@ static class SystemInfoCollector
             OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
             ProcessorCount = Environment.ProcessorCount,
             TotalMemory = GC.GetTotalMemory(false),
-            AvailableMemory = GC.GetGCMemoryInfo().HeapSizeBytes,
+            AvailableMemory = gcInfo.TotalAvailableMemoryBytes,
             RuntimeVersion = RuntimeInformation.FrameworkDescription,
             ProcessId = proc.Id,
             ThreadCount = proc.Threads.Count,

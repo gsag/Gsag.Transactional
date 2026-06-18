@@ -26,9 +26,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Pure throughput...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, throughputTasks)
                     .Select(_ => Task.Run(async () =>
@@ -76,9 +76,9 @@ static class TestScenarios
             {
                 await Database.ClearDatabase(dbFactory);
                 int half = rollbackTasks / 2;
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, rollbackTasks).Select(i =>
                 {
@@ -131,9 +131,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  AsyncLocal isolation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, isolationTasks)
                     .Select(i => Task.Run(async () =>
@@ -180,9 +180,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedTasks)
                     .Select(_ => Task.Run(() => outer.RunWithInnerAsync()));
@@ -223,9 +223,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Nested RequiresNew (inner fails)...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, nestedWithFailureTasks)
                     .Select(_ => Task.Run(() => nestedFailure.RunOuterWithFailingInnerAsync()));
@@ -268,9 +268,9 @@ static class TestScenarios
             {
                 await Database.ClearDatabase(dbFactory);
                 int third = exceptionTasks / 3;
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, exceptionTasks).Select(i =>
                 {
@@ -338,9 +338,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Exception propagation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, exceptionPropagationTasks)
                     .Select(i => Task.Run(async () =>
@@ -399,9 +399,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  I/O simulation...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, ioSimulationTasks)
                     .Select(_ => Task.Run(() => ioSim.SimulateIOAsync()));
@@ -442,9 +442,9 @@ static class TestScenarios
             .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Hook ordering...", async _ =>
             {
                 await Database.ClearDatabase(dbFactory);
+                using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                using var sampler = new PeakMemorySampler();
                 var sw = Stopwatch.StartNew();
                 var tasks = Enumerable.Range(0, hookOrderingTasks)
                     .Select(i => Task.Run(() => hookOrdering.ValidateHookOrderAsync(i, hookOrderingFire)));

@@ -18,8 +18,11 @@ sealed class ConcurrencyObserver : ITransactionObserver
 
     public void Reset()
     {
-        _begin = _commit = _rollback = _complete = 0;
-        _txnIdCounter = 0;
+        Volatile.Write(ref _begin, 0);
+        Volatile.Write(ref _commit, 0);
+        Volatile.Write(ref _rollback, 0);
+        Volatile.Write(ref _complete, 0);
+        Interlocked.Exchange(ref _txnIdCounter, 0);
         _lifetimes.Clear();
     }
 
