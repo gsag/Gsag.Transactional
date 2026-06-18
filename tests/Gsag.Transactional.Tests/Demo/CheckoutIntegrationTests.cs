@@ -6,6 +6,7 @@ using Gsag.Transactional.Demo.Api.Entities;
 using Gsag.Transactional.Demo.Api.Exceptions;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
+using Gsag.Transactional.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
@@ -27,18 +28,22 @@ internal sealed class CheckoutRecordingObserver : ITransactionObserver
 }
 
 // ---------------------------------------------------------------------------
-// Integration tests — exercises [Transactional] against PostgreSQL
+// Integration tests — exercises [Transactional] against PostgreSQL testcontainer
 // ---------------------------------------------------------------------------
 
 /// <summary>
 /// Proves that the transactional proxy commits and rolls back correctly using the
 /// checkout demo services. Each test gets its own PostgreSQL database, dropped in DisposeAsync.
+/// PostgreSQL container is managed by Testcontainers.
 /// </summary>
+[Collection("PostgreSQL Collection")]
 public class CheckoutIntegrationTests : IAsyncLifetime
 {
+    private readonly PostgreSqlFixture _fixture;
     private CheckoutDbContext _db = null!;
     private string _dbName = null!;
-    private const string PostgresConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres";
+
+    public CheckoutIntegrationTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
     // Full service graph — mirrors what DI builds in the API
     private ICheckoutService _checkout = null!;
@@ -78,7 +83,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         await _db.DisposeAsync();
         try
         {
-            await using var cleanup = new NpgsqlConnection(PostgresConnectionString);
+            await using var cleanup = new NpgsqlConnection(_fixture.ConnectionString);
             await cleanup.OpenAsync();
             await using var cmd = cleanup.CreateCommand();
             cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_dbName}\" WITH (FORCE);";
@@ -338,9 +343,9 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         return await fresh.AuditEntries.AsNoTracking().ToListAsync();
     }
 
-    private static CheckoutDbContext BuildContext(string dbName)
+    private CheckoutDbContext BuildContext(string dbName)
     {
-        var connStr = $"{PostgresConnectionString};Database={dbName}";
+        var connStr = $"{_fixture.ConnectionString};Database={dbName}";
         return new(new DbContextOptionsBuilder<CheckoutDbContext>()
             .UseNpgsql(connStr)
             .Options);

@@ -5,9 +5,11 @@ using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+await EnsurePostgresIsRunningAsync();
 
 builder.Services.AddDbContext<CheckoutDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
@@ -76,5 +78,76 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 app.Run();
+
+async Task EnsurePostgresIsRunningAsync()
+{
+    var connStr = builder.Configuration.GetConnectionString("PostgreSQL");
+    const int maxRetries = 30;
+    const int delayMs = 1000;
+
+    for (int i = 0; i < maxRetries; i++)
+    {
+        try
+        {
+            using var conn = new NpgsqlConnection(connStr);
+            await conn.OpenAsync();
+            await conn.CloseAsync();
+            Console.WriteLine("✓ PostgreSQL is ready");
+            return;
+        }
+        catch
+        {
+            if (i == 0)
+            {
+                Console.WriteLine("PostgreSQL not accessible, attempting to start docker-compose...");
+                await StartDockerComposeAsync();
+            }
+            await Task.Delay(delayMs);
+        }
+    }
+
+    throw new InvalidOperationException("PostgreSQL failed to start after 30 seconds");
+}
+
+async Task StartDockerComposeAsync()
+{
+    var composeFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
+
+    if (!File.Exists(composeFile))
+    {
+        throw new FileNotFoundException($"docker-compose.yml not found at {composeFile}");
+    }
+
+    try
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "docker",
+            Arguments = "compose up -d",
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(psi);
+        if (process is null)
+            throw new InvalidOperationException("Failed to start docker compose");
+
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"docker compose exited with code {process.ExitCode}");
+        }
+
+        Console.WriteLine("✓ docker compose started successfully");
+    }
+    catch (Exception ex)
+    {
+        throw new InvalidOperationException("Failed to start docker compose. Ensure Docker is installed and running.", ex);
+    }
+}
 
 public partial class Program { }
