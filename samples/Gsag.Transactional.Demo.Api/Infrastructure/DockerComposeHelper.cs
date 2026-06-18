@@ -110,8 +110,7 @@ internal static class DockerComposeHelper
         new()
         {
             FileName = "docker",
-            Arguments = arguments,
-            WorkingDirectory = Path.GetDirectoryName(ComposeFile)!,
+            Arguments = $"--file {ComposeFile} {arguments}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
