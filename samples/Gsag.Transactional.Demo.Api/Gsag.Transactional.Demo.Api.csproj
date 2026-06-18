@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <None Update="docker-compose.yml" CopyToOutputDirectory="PreserveNewest" />
+    <None Update=".env" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
