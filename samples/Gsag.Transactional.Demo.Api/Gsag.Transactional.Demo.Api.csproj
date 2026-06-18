@@ -23,4 +23,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="docker-compose.yml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
