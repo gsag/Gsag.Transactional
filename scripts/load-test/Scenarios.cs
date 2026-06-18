@@ -30,12 +30,17 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
+                var completed = 0L;
+                var logInterval = Math.Max(1, throughputTasks / 10);
                 var tasks = Enumerable.Range(0, throughputTasks)
                     .Select(_ => Task.Run(async () =>
                     {
                         for (int i = 0; i < throughputIterationsPerTask; i++)
                         {
                             await load.InsertAsync();
+                            long done = Interlocked.Increment(ref completed);
+                            if (done % logInterval == 0)
+                                AnsiConsole.MarkupLine($"[dim]{done:N0} / {throughputTasks * throughputIterationsPerTask:N0}[/]");
                         }
                     }));
                 await Task.WhenAll(tasks);
@@ -80,17 +85,28 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
+                var completed = 0L;
+                var logInterval = Math.Max(1, rollbackTasks / 10);
                 var tasks = Enumerable.Range(0, rollbackTasks).Select(i =>
                 {
                     if (i < half)
                     {
-                        return load.InsertAsync();
+                        return Task.Run(async () =>
+                        {
+                            await load.InsertAsync();
+                            long done = Interlocked.Increment(ref completed);
+                            if (done % logInterval == 0)
+                                AnsiConsole.MarkupLine($"[dim]{done:N0} / {rollbackTasks:N0}[/]");
+                        });
                     }
 
                     return Task.Run(async () =>
                     {
                         try { await load.InsertFailAsync(); }
                         catch (InvalidOperationException) { }
+                        long done = Interlocked.Increment(ref completed);
+                        if (done % logInterval == 0)
+                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {rollbackTasks:N0}[/]");
                     });
                 });
                 await Task.WhenAll(tasks);
@@ -135,10 +151,15 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
+                var completed = 0L;
+                var logInterval = Math.Max(1, isolationTasks / 10);
                 var tasks = Enumerable.Range(0, isolationTasks)
                     .Select(i => Task.Run(async () =>
                     {
                         await isolation.UpdateAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
+                        long done = Interlocked.Increment(ref completed);
+                        if (done % logInterval == 0)
+                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {isolationTasks:N0}[/]");
                     }));
                 await Task.WhenAll(tasks);
                 sw.Stop();
@@ -184,8 +205,16 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
+                var completed = 0L;
+                var logInterval = Math.Max(1, nestedTasks / 10);
                 var tasks = Enumerable.Range(0, nestedTasks)
-                    .Select(_ => Task.Run(() => outer.RunWithInnerAsync()));
+                    .Select(_ => Task.Run(async () =>
+                    {
+                        await outer.RunWithInnerAsync();
+                        long done = Interlocked.Increment(ref completed);
+                        if (done % logInterval == 0)
+                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {nestedTasks:N0}[/]");
+                    }));
                 await Task.WhenAll(tasks);
                 sw.Stop();
                 peak = sampler.PeakBytes;
@@ -272,6 +301,8 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
+                var completed = 0L;
+                var logInterval = Math.Max(1, exceptionTasks / 10);
                 var tasks = Enumerable.Range(0, exceptionTasks).Select(i =>
                 {
                     if (i < third)

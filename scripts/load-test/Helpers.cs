@@ -60,6 +60,29 @@ static class Database
     }
 }
 
+sealed class ProgressTracker
+{
+    private long _completed;
+    private readonly long _total;
+    private readonly Action<int> _onUpdate;
+
+    public ProgressTracker(long total, Action<int> onUpdate)
+    {
+        _total = total;
+        _onUpdate = onUpdate;
+    }
+
+    public void Increment()
+    {
+        long now = Interlocked.Increment(ref _completed);
+        int percent = (int)((now * 100) / _total);
+        if (percent % 10 == 0 && now > 0)
+            _onUpdate(percent);
+    }
+
+    public long Completed => Volatile.Read(ref _completed);
+}
+
 sealed class PeakMemorySampler : IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
