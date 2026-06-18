@@ -60,24 +60,22 @@ static class Database
     }
 }
 
-sealed class ProgressTracker
+sealed class ProgressBar
 {
     private long _completed;
     private readonly long _total;
-    private readonly Action<int> _onUpdate;
+    private readonly ProgressTask _task;
 
-    public ProgressTracker(long total, Action<int> onUpdate)
+    public ProgressBar(ProgressTask task, long total)
     {
         _total = total;
-        _onUpdate = onUpdate;
+        _task = task;
     }
 
     public void Increment()
     {
         long now = Interlocked.Increment(ref _completed);
-        int percent = (int)((now * 100) / _total);
-        if (percent % 10 == 0 && now > 0)
-            _onUpdate(percent);
+        _task.Value = Math.Min(100, (now * 100L) / _total);
     }
 
     public long Completed => Volatile.Read(ref _completed);

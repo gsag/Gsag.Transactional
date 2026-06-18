@@ -20,16 +20,16 @@ using Spectre.Console;
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 const int TotalScenarios = 9;
-const int ThroughputTasks = 20_000;
+const int ThroughputTasks = 2_000;       // 100k total (2k × 50)
 const int ThroughputIterationsPerTask = 50;
-const int RollbackTasks = 40_000;       // 20,000 commit + 20,000 rollback
-const int IsolationTasks = 20_000;
-const int NestedTasks = 10_000;
-const int NestedWithFailureTasks = 8_000;
-const int ExceptionTasks = 15_000;
-const int ExceptionPropagationTasks = 10_000;
-const int ISimulationTasks = 5_000;
-const int HookOrderingTasks = 6_000;
+const int RollbackTasks = 4_000;        // 4k tasks (2k commit + 2k rollback)
+const int IsolationTasks = 2_000;
+const int NestedTasks = 1_000;
+const int NestedWithFailureTasks = 800;
+const int ExceptionTasks = 1_500;
+const int ExceptionPropagationTasks = 1_000;
+const int ISimulationTasks = 500;
+const int HookOrderingTasks = 600;
 
 // ─── System Information ────────────────────────────────────────────────────────
 

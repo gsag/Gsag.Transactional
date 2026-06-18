@@ -9,6 +9,27 @@ using Spectre.Console;
 
 namespace LoadTest.Scenarios;
 
+static class ProgressHelper
+{
+    public static async Task<TimeSpan> RunWithProgressAsync(
+        string label, int scenarioNum, int totalScenarios,
+        long totalOps, Func<Action, Task> operation)
+    {
+        return await AnsiConsole.Progress()
+            .Columns(new ProgressColumn[] { new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn() })
+            .StartAsync(async ctx =>
+            {
+                var task = ctx.AddTask($"[cyan]{scenarioNum}/{totalScenarios}[/]  {label}", new ProgressTaskSettings { MaxValue = 100 });
+                var progressBar = new ProgressBar(task, totalOps);
+                var sw = Stopwatch.StartNew();
+                await operation(() => progressBar.Increment());
+                sw.Stop();
+                task.Value = 100;
+                return sw.Elapsed;
+            });
+    }
+}
+
 static class TestScenarios
 {
     public static async Task<ScenarioResult> RunPureThroughputAsync(
@@ -19,39 +40,31 @@ static class TestScenarios
     {
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
+        int total = throughputTasks * throughputIterationsPerTask;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Pure throughput...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Pure throughput", scenarioNum, totalScenarios, total,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
-                var completed = 0L;
-                var logInterval = Math.Max(1, throughputTasks / 10);
                 var tasks = Enumerable.Range(0, throughputTasks)
                     .Select(_ => Task.Run(async () =>
                     {
                         for (int i = 0; i < throughputIterationsPerTask; i++)
                         {
                             await load.InsertAsync();
-                            long done = Interlocked.Increment(ref completed);
-                            if (done % logInterval == 0)
-                                AnsiConsole.MarkupLine($"[dim]{done:N0} / {throughputTasks * throughputIterationsPerTask:N0}[/]");
+                            onProgress();
                         }
                     }));
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
-        int total = throughputTasks * throughputIterationsPerTask;
         long tps = (long)(total / result.TotalSeconds);
         string? error = null;
         try
@@ -74,19 +87,15 @@ static class TestScenarios
         obs.Reset();
         long peak = 0; long alloc = 0; int gc0 = 0;
 
-        var result = await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
-            .StartAsync($"[cyan]{scenarioNum}/{totalScenarios}[/]  Rollback vs commit...", async _ =>
+        var result = await ProgressHelper.RunWithProgressAsync(
+            "Rollback vs commit", scenarioNum, totalScenarios, rollbackTasks,
+            async onProgress =>
             {
                 await Database.ClearDatabase(dbFactory);
                 int half = rollbackTasks / 2;
                 using var sampler = new PeakMemorySampler();
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
-                var sw = Stopwatch.StartNew();
-                var completed = 0L;
-                var logInterval = Math.Max(1, rollbackTasks / 10);
                 var tasks = Enumerable.Range(0, rollbackTasks).Select(i =>
                 {
                     if (i < half)
@@ -94,27 +103,20 @@ static class TestScenarios
                         return Task.Run(async () =>
                         {
                             await load.InsertAsync();
-                            long done = Interlocked.Increment(ref completed);
-                            if (done % logInterval == 0)
-                                AnsiConsole.MarkupLine($"[dim]{done:N0} / {rollbackTasks:N0}[/]");
+                            onProgress();
                         });
                     }
-
                     return Task.Run(async () =>
                     {
                         try { await load.InsertFailAsync(); }
                         catch (InvalidOperationException) { }
-                        long done = Interlocked.Increment(ref completed);
-                        if (done % logInterval == 0)
-                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {rollbackTasks:N0}[/]");
+                        onProgress();
                     });
                 });
                 await Task.WhenAll(tasks);
-                sw.Stop();
                 peak = sampler.PeakBytes;
                 alloc = GC.GetTotalAllocatedBytes() - allocBefore;
                 gc0 = GC.CollectionCount(0) - gcBefore;
-                return sw.Elapsed;
             });
 
         int half2 = rollbackTasks / 2;
@@ -151,15 +153,10 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
-                var completed = 0L;
-                var logInterval = Math.Max(1, isolationTasks / 10);
                 var tasks = Enumerable.Range(0, isolationTasks)
                     .Select(i => Task.Run(async () =>
                     {
                         await isolation.UpdateAsync(i, () => Interlocked.Increment(ref hookFireCount[i]));
-                        long done = Interlocked.Increment(ref completed);
-                        if (done % logInterval == 0)
-                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {isolationTasks:N0}[/]");
                     }));
                 await Task.WhenAll(tasks);
                 sw.Stop();
@@ -205,15 +202,10 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
-                var completed = 0L;
-                var logInterval = Math.Max(1, nestedTasks / 10);
                 var tasks = Enumerable.Range(0, nestedTasks)
                     .Select(_ => Task.Run(async () =>
                     {
                         await outer.RunWithInnerAsync();
-                        long done = Interlocked.Increment(ref completed);
-                        if (done % logInterval == 0)
-                            AnsiConsole.MarkupLine($"[dim]{done:N0} / {nestedTasks:N0}[/]");
                     }));
                 await Task.WhenAll(tasks);
                 sw.Stop();
@@ -301,8 +293,6 @@ static class TestScenarios
                 long allocBefore = GC.GetTotalAllocatedBytes();
                 int gcBefore = GC.CollectionCount(0);
                 var sw = Stopwatch.StartNew();
-                var completed = 0L;
-                var logInterval = Math.Max(1, exceptionTasks / 10);
                 var tasks = Enumerable.Range(0, exceptionTasks).Select(i =>
                 {
                     if (i < third)
