@@ -1,3 +1,5 @@
+using LoadTest.Observers;
+
 namespace LoadTest.Validation;
 
 class LifecycleAccumulator
