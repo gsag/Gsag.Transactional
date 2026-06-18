@@ -108,17 +108,26 @@ internal static class DockerComposeHelper
 
     private static ProcessStartInfo CreateProcessInfo(string arguments)
     {
-#pragma warning disable S4036 // PATH variable check; ComposeFile is immutable and derived at initialization
-        var composePath = ComposeFile;
-#pragma warning restore S4036
-        return new()
+        var psi = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"--file {composePath} {arguments}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
         };
+
+        // Use ArgumentList for safer argument passing (avoids string interpolation security concerns)
+        psi.ArgumentList.Add("--file");
+        psi.ArgumentList.Add(ComposeFile);
+        foreach (var arg in arguments.Split(' '))
+        {
+            if (!string.IsNullOrEmpty(arg))
+            {
+                psi.ArgumentList.Add(arg);
+            }
+        }
+
+        return psi;
     }
 }
