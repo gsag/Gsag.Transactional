@@ -58,8 +58,8 @@ internal sealed class HookCollection
     }
 
     internal IReadOnlyList<Action> SyncFor(HookEvent evt) =>
-        _sync is not null && _sync.TryGetValue(evt, out var l) ? l : [];
+        _sync is not null && _sync.TryGetValue(evt, out var l) ? l : Array.Empty<Action>();
 
     internal IReadOnlyList<Func<Task>> AsyncFor(HookEvent evt) =>
-        _async is not null && _async.TryGetValue(evt, out var l) ? l : [];
+        _async is not null && _async.TryGetValue(evt, out var l) ? l : Array.Empty<Func<Task>>();
 }

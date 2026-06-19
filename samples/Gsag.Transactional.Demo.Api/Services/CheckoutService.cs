@@ -51,9 +51,15 @@ public class CheckoutService : ICheckoutService
         _collector.Record("CheckoutService: outer Required scope opened");
 
         var order = await _orders.CreateAsync("success", 99.99m, ct);
+        // Flush order to database to assign generated ID before dependent entities reference it
+        await _db.SaveChangesAsync(ct);
+
         var reservation = await _inventory.ReserveAsync(order.Id, "PROD-001", 1, ct);
         var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
         var audit = await _audit.WriteAsync("CHECKOUT_SUCCESS", "success", true, ct);
+
+        // Persist remaining entities
+        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: all services committed — checkout complete ✓"));
 
@@ -186,7 +192,13 @@ public class CheckoutService : ICheckoutService
         _collector.Record("CheckoutService: outer Required scope opened — inner hooks fire when THIS scope commits");
 
         var order = await _orders.CreateAsync("after-commit-hook", 149.99m, ct);
+        // Flush order to database to assign generated ID before dependent entities reference it
+        await _db.SaveChangesAsync(ct);
+
         var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
+
+        // Persist remaining entities
+        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: all inner service hooks have now fired (event bus received events)"));
 
@@ -230,12 +242,17 @@ public class CheckoutService : ICheckoutService
         _collector.Record("CheckoutService: outer Required scope active — about to call Suppress service");
 
         var order = await _orders.CreateAsync("suppress", 79.99m, ct);
+        // Flush order to database to assign generated ID before dependent entities reference it
+        await _db.SaveChangesAsync(ct);
 
         _collector.Record("CheckoutService: calling InventoryReportService (Suppress) — outer scope will be suspended");
         var report = await _inventoryReport.ReadAvailableStockAsync(ct);
         _collector.Record("CheckoutService: Suppress scope exited — outer Required scope resumed");
 
         var payment = await _payments.ProcessAsync(order.Id, order.Amount, ct);
+
+        // Persist remaining entities
+        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() => _collector.Record("CheckoutService.AfterCommit: committed — Suppress read did not affect transaction outcome"));
 

@@ -34,7 +34,6 @@ public class OrderService : IOrderService
             CreatedAt = DateTimeOffset.UtcNow
         };
         _db.Orders.Add(order);
-        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() =>
         {

@@ -78,9 +78,9 @@ Change the method return type to Task, Task<T>, ValueTask, or ValueTask<T>.
 
 ## 6. EF Core SQLite does not support ambient transactions
 
-EF Core 9's SQLite provider sets `SupportsAmbientTransactions = false`. This means `DbConnection` does not enlist in the `TransactionScope`, so database-level rollback cannot be tested with SQLite in integration tests.
+EF Core's SQLite provider sets `SupportsAmbientTransactions = false`. This means `DbConnection` does not enlist in the `TransactionScope`, so database-level rollback cannot be reliably tested with SQLite in integration tests. This limitation is why the demo API and integration tests use PostgreSQL instead.
 
-**Workaround:** Throw before `SaveChangesAsync()` to test rollback semantics at the proxy level. For full database rollback tests, use a provider that supports ambient transactions (SQL Server, PostgreSQL via Npgsql).
+**Workaround:** For full database rollback tests and reliable transactional behavior, use a provider that supports ambient transactions (SQL Server, PostgreSQL via Npgsql). The demo API uses PostgreSQL locally via `docker compose up`.
 
 ---
 

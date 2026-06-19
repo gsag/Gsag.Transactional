@@ -3,22 +3,14 @@ using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
-using Gsag.Transactional.Demo.Api.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Absolute path prevents working-directory ambiguity between `dotnet run`,
-// published binaries, and test hosts.
-var dbPath = Path.Combine(AppContext.BaseDirectory, "checkout.db");
-builder.Services.AddDbContext<CheckoutDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}")
-           // SQLite does not support System.Transactions ambient enlistment.
-           // The proxy lifecycle (scope commit/rollback, hooks, observer) works correctly;
-           // the database simply ignores the ambient scope. Suppress the warning so it
-           // doesn't surface as an unhandled exception in the demo API.
-           .ConfigureWarnings(w => w.Ignore(RelationalEventId.AmbientTransactionWarning)));
+var connectionString = builder.Configuration.GetConnectionString("Database");
+
+builder.Services.AddSingleton<EnvironmentBootstrapper>();
+builder.Services.AddDbContext<CheckoutDbContext>(options => options.UseNpgsql(connectionString));
 
 // Per-request collectors — Scoped so each HTTP request gets its own list.
 // Hooks registered inside [Transactional] methods write to these; the controller
@@ -57,32 +49,51 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
-    // EnsureCreated is intentional for this demo — no migrations needed.
-    // Note: EnsureCreated and Migrate() are mutually exclusive; enabling migrations
-    // later would require dropping and recreating the database.
-    db.Database.EnsureCreated();
-}
-
 app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
 
-if (app.Environment.IsDevelopment())
-{
-    app.Lifetime.ApplicationStarted.Register(() =>
-    {
-        var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
-               ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
-        if (url is not null)
-        {
-            Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
-        }
-    });
-}
-
 app.MapControllers();
-app.Run();
+
+// Initialize database before running
+app.Lifetime.ApplicationStarted.Register(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+        await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
+
+        var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        logger.LogInformation("Database schema ensured");
+
+        if (app.Environment.IsDevelopment())
+        {
+            var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
+                   ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
+            if (url is not null)
+            {
+                Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to initialize application");
+        throw new InvalidOperationException("Application initialization failed. Ensure Docker is running, docker-compose.yml exists, and database connection is properly configured.", ex);
+    }
+});
+
+// Stop container on shutdown
+app.Lifetime.ApplicationStopping.Register(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+    await bootstrapper.StopContainerAsync();
+});
+
+await app.RunAsync();
 
 public partial class Program { }

@@ -6,10 +6,10 @@ using Gsag.Transactional.Demo.Api.Entities;
 using Gsag.Transactional.Demo.Api.Exceptions;
 using Gsag.Transactional.Demo.Api.Infrastructure;
 using Gsag.Transactional.Demo.Api.Services;
-using Microsoft.Data.Sqlite;
+using Gsag.Transactional.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Demo;
@@ -28,17 +28,22 @@ internal sealed class CheckoutRecordingObserver : ITransactionObserver
 }
 
 // ---------------------------------------------------------------------------
-// Integration tests — exercises [Transactional] against a real SQLite file
+// Integration tests — exercises [Transactional] against PostgreSQL testcontainer
 // ---------------------------------------------------------------------------
 
 /// <summary>
 /// Proves that the transactional proxy commits and rolls back correctly using the
-/// checkout demo services. Each test gets its own temp SQLite file, deleted in DisposeAsync.
+/// checkout demo services. Each test gets its own PostgreSQL database, dropped in DisposeAsync.
+/// PostgreSQL container is managed by Testcontainers.
 /// </summary>
+[Collection("PostgreSQL Collection")]
 public class CheckoutIntegrationTests : IAsyncLifetime
 {
+    private readonly PostgreSqlFixture _fixture;
     private CheckoutDbContext _db = null!;
-    private string _dbPath = null!;
+    private CheckoutDbContext _auditDb = null!;
+
+    public CheckoutIntegrationTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
     // Full service graph — mirrors what DI builds in the API
     private ICheckoutService _checkout = null!;
@@ -49,10 +54,9 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"tx_checkout_{Guid.NewGuid():N}.db");
-        _db = BuildContext(_dbPath);
+        _db = BuildContext();
         await _db.Database.EnsureCreatedAsync();
-        await _db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
+        await CleanAllTablesAsync();
 
         var hooks = new TransactionHooks();
         var eventBus = new InMemoryEventBus();
@@ -64,8 +68,11 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new InventoryService(_db, hooks, NullLogger<InventoryService>.Instance, collector));
         _paymentService = TransactionProxyFactory.Create<IPaymentService>(
             new PaymentService(_db, hooks, NullLogger<PaymentService>.Instance, eventBus, collector));
+        // AuditService uses a separate DbContext to ensure RequiresNew scope isolation
+        _auditDb = BuildContext();
+        await _auditDb.Database.EnsureCreatedAsync();
         _auditService = TransactionProxyFactory.Create<IAuditService>(
-            new AuditService(_db, hooks, NullLogger<AuditService>.Instance, collector));
+            new AuditService(_auditDb, hooks, NullLogger<AuditService>.Instance, collector));
         var reportService = TransactionProxyFactory.Create<IInventoryReportService>(
             new InventoryReportService(_db, NullLogger<InventoryReportService>.Instance));
 
@@ -77,11 +84,15 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _db.DisposeAsync();
-        SqliteConnection.ClearAllPools();
-        if (File.Exists(_dbPath))
-        {
-            File.Delete(_dbPath);
-        }
+        await _auditDb.DisposeAsync();
+    }
+
+    private async Task CleanAllTablesAsync()
+    {
+        await _db.AuditEntries.ExecuteDeleteAsync();
+        await _db.Payments.ExecuteDeleteAsync();
+        await _db.Reservations.ExecuteDeleteAsync();
+        await _db.Orders.ExecuteDeleteAsync();
     }
 
     // -------------------------------------------------------------------------
@@ -151,22 +162,26 @@ public class CheckoutIntegrationTests : IAsyncLifetime
     public async Task AuditRequiresNew_WhenOuterFails_AuditEntryPersists()
     {
         // AuditService.WriteAsync uses [Transactional(RequiresNew)] — commits independently.
+        // AuditService uses a separate DbContext to ensure proper isolation.
         // CheckoutService creates an order inside the outer Required scope, then throws.
         //
-        // SQLite limitation: EF Core SQLite does not enlist in System.Transactions, so
-        // SaveChangesAsync inside OrderService commits the order immediately regardless of
-        // the outer scope. On SQL Server / PostgreSQL, the outer-scope order would be
-        // rolled back atomically while the audit entry (RequiresNew) survives.
+        // PostgreSQL enlistment in System.Transactions ensures atomic rollback: the outer-scope
+        // order is rolled back atomically while the audit entry (RequiresNew) survives.
         //
-        // What this test proves regardless of database:
+        // What this test proves:
         // - AuditEntry always persists (RequiresNew committed independently).
         // - AfterRollback hook from the outer scope fires (proxy lifecycle is correct).
+        // - Order is rolled back atomically.
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _checkout.ProcessWithAuditRequiresNewAsync(CancellationToken.None));
 
         var audits = await QueryAuditAsync();
         Assert.Single(audits);
         Assert.Equal("CHECKOUT_FAILED", audits[0].Action);
+
+        // Verify order was rolled back atomically
+        var orders = await QueryOrdersAsync();
+        Assert.Empty(orders);
     }
 
     // -------------------------------------------------------------------------
@@ -198,6 +213,7 @@ public class CheckoutIntegrationTests : IAsyncLifetime
             new OrderService(_db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()), observer);
 
         await svc.CreateAsync("observer-commit", 10m, CancellationToken.None);
+        await _db.SaveChangesAsync();
 
         Assert.Contains("COMMIT:CreateAsync", observer.Calls);
         Assert.DoesNotContain("ROLLBACK:CreateAsync", observer.Calls);
@@ -277,26 +293,26 @@ public class CheckoutIntegrationTests : IAsyncLifetime
         const int count = 5;
 
         var contexts = Enumerable.Range(0, count)
-            .Select(_ => BuildContextWithBusyTimeoutAsync(_dbPath))
+            .Select(_ => BuildContext())
             .ToList();
 
-        var resolvedContexts = await Task.WhenAll(contexts);
         try
         {
             // Each task gets its own TransactionHooks + HookOutputCollector to avoid
             // AsyncLocal ExecutionContext sharing across concurrent tasks.
-            var tasks = resolvedContexts.Select(db =>
+            var tasks = contexts.Select(async db =>
             {
                 var hooks = new TransactionHooks();
-                return TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()))
-                    .CreateAsync("concurrent", 10m);
+                var svc = TransactionProxyFactory.Create<IOrderService>(new OrderService(db, hooks, NullLogger<OrderService>.Instance, new HookOutputCollector()));
+                await svc.CreateAsync("concurrent", 10m);
+                await db.SaveChangesAsync();
             });
 
             await Task.WhenAll(tasks);
         }
         finally
         {
-            foreach (var ctx in resolvedContexts)
+            foreach (var ctx in contexts)
             {
                 await ctx.DisposeAsync();
             }
@@ -311,38 +327,32 @@ public class CheckoutIntegrationTests : IAsyncLifetime
 
     private async Task<List<CheckoutOrder>> QueryOrdersAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext();
         return await fresh.Orders.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<InventoryReservation>> QueryReservationsAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext();
         return await fresh.Reservations.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<PaymentRecord>> QueryPaymentsAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext();
         return await fresh.Payments.AsNoTracking().ToListAsync();
     }
 
     private async Task<List<AuditEntry>> QueryAuditAsync()
     {
-        await using var fresh = BuildContext(_dbPath);
+        await using var fresh = BuildContext();
         return await fresh.AuditEntries.AsNoTracking().ToListAsync();
     }
 
-    private static CheckoutDbContext BuildContext(string path) =>
-        new(new DbContextOptionsBuilder<CheckoutDbContext>()
-            .UseSqlite($"Data Source={path}")
-            .ConfigureWarnings(w => w.Ignore(RelationalEventId.AmbientTransactionWarning))
-            .Options);
-
-    private static async Task<CheckoutDbContext> BuildContextWithBusyTimeoutAsync(string path)
+    private CheckoutDbContext BuildContext()
     {
-        var ctx = BuildContext(path);
-        await ctx.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");
-        return ctx;
+        return new(new DbContextOptionsBuilder<CheckoutDbContext>()
+            .UseNpgsql(_fixture.ConnectionString, opts => opts.MaxBatchSize(1))
+            .Options);
     }
 }

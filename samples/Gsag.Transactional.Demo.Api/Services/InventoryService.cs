@@ -35,7 +35,6 @@ public class InventoryService : IInventoryService
             ReservedAt = DateTimeOffset.UtcNow
         };
         _db.Reservations.Add(reservation);
-        await _db.SaveChangesAsync(ct);
 
         _hooks.AfterCommit(() =>
         {
