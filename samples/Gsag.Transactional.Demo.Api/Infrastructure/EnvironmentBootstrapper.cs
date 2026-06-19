@@ -91,7 +91,7 @@ internal class EnvironmentBootstrapper
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
             await Task.WhenAll(outputTask, errorTask);
-            var output = await outputTask;
+            _ = await outputTask;
             var error = await errorTask;
 
             await process.WaitForExitAsync();
