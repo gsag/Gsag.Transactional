@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
@@ -106,6 +107,7 @@ internal static class DockerComposeHelper
         }
     }
 
+    [SuppressMessage("Security", "S4036", Justification = "composeFilePath is output-relative and immutable; docker-compose.yml is copied to output dir by build")]
     private static ProcessStartInfo CreateProcessInfo(string arguments)
     {
         var psi = new ProcessStartInfo
@@ -121,11 +123,7 @@ internal static class DockerComposeHelper
         psi.ArgumentList.Add("--file");
 
         var composeFilePath = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
-
-        // S4036 suppressed: composeFilePath is output-relative and safe; .csproj copies docker-compose.yml to output directory
-#pragma warning disable S4036
         psi.ArgumentList.Add(composeFilePath);
-#pragma warning restore S4036
 
         // Use LINQ Where instead of foreach with if condition
         var composeArgs = arguments.Split(' ').Where(arg => !string.IsNullOrEmpty(arg));
