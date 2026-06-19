@@ -3,16 +3,14 @@ using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
-using Gsag.Transactional.Demo.Api.Services;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-await DockerComposeHelper.EnsurePostgresIsRunningAsync(builder.Configuration.GetConnectionString("PostgreSQL")!);
+var connectionString = builder.Configuration.GetConnectionString("Database");
 
-builder.Services.AddDbContext<CheckoutDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
+builder.Services.AddSingleton<EnvironmentBootstrapper>();
+builder.Services.AddDbContext<CheckoutDbContext>(options => options.UseNpgsql(connectionString));
 
 // Per-request collectors — Scoped so each HTTP request gets its own list.
 // Hooks registered inside [Transactional] methods write to these; the controller
@@ -63,9 +61,13 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
 
-if (app.Environment.IsDevelopment())
+app.Lifetime.ApplicationStarted.Register(async () =>
 {
-    app.Lifetime.ApplicationStarted.Register(() =>
+    using var scope = app.Services.CreateScope();
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+    await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
+
+    if (app.Environment.IsDevelopment())
     {
         var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
                ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
@@ -73,14 +75,16 @@ if (app.Environment.IsDevelopment())
         {
             Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
         }
-    });
+    }
+});
 
-    app.Lifetime.ApplicationStopping.Register(async () =>
-    {
-        Console.WriteLine("\nShutting down PostgreSQL container...");
-        await DockerComposeHelper.StopDockerComposeAsync();
-    });
-}
+app.Lifetime.ApplicationStopping.Register(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+    Console.WriteLine("\nShutting down container...");
+    await bootstrapper.StopContainerAsync();
+});
 
 app.MapControllers();
 app.Run();
