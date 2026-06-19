@@ -49,8 +49,12 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Ensure database is ready BEFORE attempting to create schema
 using (var scope = app.Services.CreateScope())
 {
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+    bootstrapper.EnsureDatabaseIsReady(connectionString!);
+
     var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
     // EnsureCreated is intentional for this demo — no migrations needed.
     // Note: EnsureCreated and Migrate() are mutually exclusive; enabling migrations
@@ -61,13 +65,9 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
 
-app.Lifetime.ApplicationStarted.Register(async () =>
+if (app.Environment.IsDevelopment())
 {
-    using var scope = app.Services.CreateScope();
-    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
-    await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
-
-    if (app.Environment.IsDevelopment())
+    app.Lifetime.ApplicationStarted.Register(() =>
     {
         var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
                ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
@@ -75,8 +75,8 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         {
             Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
         }
-    }
-});
+    });
+}
 
 app.Lifetime.ApplicationStopping.Register(async () =>
 {

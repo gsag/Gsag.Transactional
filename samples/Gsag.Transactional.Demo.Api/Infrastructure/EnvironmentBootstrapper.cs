@@ -17,26 +17,43 @@ internal class EnvironmentBootstrapper
         _delayMs = delayMs;
     }
 
+    /// <summary>
+    /// Synchronous version for startup initialization before async pipeline.
+    /// Blocks until database is ready or timeout is reached.
+    /// </summary>
+    internal void EnsureDatabaseIsReady(string connectionString)
+    {
+        EnsureDatabaseIsReadyAsync(connectionString).GetAwaiter().GetResult();
+    }
+
     internal async Task EnsureDatabaseIsReadyAsync(string connectionString)
     {
+        _logger.LogInformation("Ensuring database is ready (retries: {MaxRetries}, delay: {DelayMs}ms)", _maxRetries, _delayMs);
+
         for (int i = 0; i < _maxRetries; i++)
         {
             if (await IsDatabaseAccessibleAsync(connectionString))
             {
-                _logger.LogInformation("✓ Database is ready");
+                _logger.LogInformation("✓ Database is ready (attempt {Attempt}/{MaxRetries})", i + 1, _maxRetries);
                 return;
             }
 
             if (i == 0)
             {
-                _logger.LogInformation("Database not accessible, attempting to start container...");
+                _logger.LogInformation("Database not accessible, attempting to start container (attempt {Attempt}/{MaxRetries})...", i + 1, _maxRetries);
                 await StartContainerAsync();
             }
+            else
+            {
+                _logger.LogInformation("Database still not accessible, retrying (attempt {Attempt}/{MaxRetries})...", i + 1, _maxRetries);
+            }
+
             await Task.Delay(_delayMs);
         }
 
         var totalSeconds = _maxRetries * _delayMs / 1000;
-        throw new InvalidOperationException($"Database failed to start after {totalSeconds} seconds");
+        _logger.LogError("Database failed to start after {TotalSeconds} seconds", totalSeconds);
+        throw new InvalidOperationException($"Database failed to start after {totalSeconds} seconds. Ensure Docker is running and docker-compose.yml is accessible.");
     }
 
     internal async Task StopContainerAsync()
@@ -64,6 +81,7 @@ internal class EnvironmentBootstrapper
 
     private async Task StartContainerAsync()
     {
+        _logger.LogInformation("Starting container with docker-compose file at: {ContainerPath}", ContainerFile);
         await RunContainerCommandAsync(
             "up -d",
             successMessage: "✓ Container started successfully",
@@ -74,18 +92,21 @@ internal class EnvironmentBootstrapper
     {
         if (!File.Exists(ContainerFile))
         {
-            _logger.LogError("docker-compose.yml not found at {ContainerPath}", ContainerFile);
+            _logger.LogError("docker-compose.yml not found at {ContainerPath}. Expected location: {BaseDirectory}", ContainerFile, AppContext.BaseDirectory);
             throw new FileNotFoundException($"docker-compose.yml not found at {ContainerFile}");
         }
 
         try
         {
+            _logger.LogDebug("Executing: docker compose -f {ContainerFile} {CommandArgs}", ContainerFile, commandArgs);
             var psi = CreateContainerProcessInfo(commandArgs);
             using var process = Process.Start(psi);
             if (process is null)
             {
-                _logger.LogError("Failed to start {ErrorMessage}", errorMessage);
-                throw new InvalidOperationException($"Failed to start {errorMessage}");
+                _logger.LogError("Failed to start {ErrorMessage} - Process.Start returned null. " +
+                    "Verify 'docker' command is available in PATH", errorMessage);
+                throw new InvalidOperationException($"Failed to start {errorMessage} - cannot create process. " +
+                    "Ensure Docker is installed and 'docker' command is in your PATH.");
             }
 
             var outputTask = process.StandardOutput.ReadToEndAsync();
@@ -98,10 +119,11 @@ internal class EnvironmentBootstrapper
 
             if (process.ExitCode != 0)
             {
-                var errorDetail = string.IsNullOrWhiteSpace(error) ? string.Empty : $"\n{error}";
+                var errorDetail = string.IsNullOrWhiteSpace(error) ? string.Empty : $"\nDocker stderr: {error}";
                 _logger.LogError("{ErrorMessage} exited with code {ExitCode}{ErrorDetail}",
                     errorMessage, process.ExitCode, errorDetail);
-                throw new InvalidOperationException($"{errorMessage} exited with code {process.ExitCode}{errorDetail}");
+                throw new InvalidOperationException($"{errorMessage} exited with code {process.ExitCode}. " +
+                    $"Check Docker is running and available.{errorDetail}");
             }
 
             _logger.LogInformation(successMessage);
@@ -114,10 +136,20 @@ internal class EnvironmentBootstrapper
         {
             throw;
         }
+        catch (Exception ex) when (ex.GetType().Name == "Win32Exception" && ex.Message.Contains("docker"))
+        {
+            _logger.LogError("Docker command not found: {Message}. " +
+                "Docker is not installed or not in PATH. " +
+                "Install Docker Desktop and ensure it's in your system PATH.", ex.Message);
+            throw new InvalidOperationException(
+                "Docker command not found. Ensure Docker is installed and in your system PATH. " +
+                $"Original error: {ex.Message}", ex);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to run {ErrorMessage}. Ensure Docker is installed and running.", errorMessage);
-            throw new InvalidOperationException($"Failed to run {errorMessage}. Ensure Docker is installed and running. {ex.Message}", ex);
+            _logger.LogError(ex, "Failed to run {ErrorMessage}. Ensure Docker daemon is running and " +
+                "'docker' command is available in PATH.", errorMessage);
+            throw new InvalidOperationException($"Failed to run {errorMessage}. {ex.Message}", ex);
         }
     }
 
