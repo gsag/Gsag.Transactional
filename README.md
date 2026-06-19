@@ -309,50 +309,24 @@ public class MyLoggingObserver : ITransactionObserver
 
 ## Running locally
 
-**Prerequisites:** Docker (for PostgreSQL)
+**Requirements:** Docker (needed for PostgreSQL in tests and demo API)
 
 ```bash
-# Start PostgreSQL container
-docker compose up -d
-
 # Build
 dotnet build
 
-# Run all tests (requires PostgreSQL running)
+# Run tests
 dotnet test
 
-# Run a specific test class
-dotnet test --filter "FullyQualifiedName~CheckoutIntegrationTests"
-
-# Run the demo API — opens Swagger automatically in the browser
-# http://localhost:51938/swagger  (HTTPS: https://localhost:51937/swagger)
+# Run demo API (opens Swagger in browser)
 dotnet run --project samples/Gsag.Transactional.Demo.Api
-
-# Stop PostgreSQL container
-docker compose down
 ```
 
-> **Note:** Integration tests and the demo API require PostgreSQL to be running. Use `docker compose up` to start it before running tests or the API.
+> **Note:** Docker must be installed and running. The application automatically manages the PostgreSQL container. See [Demo API README](samples/Gsag.Transactional.Demo.Api/README.md) for details.
 
 ### Demo API — E-Commerce Checkout
 
-Each endpoint demonstrates one specific `[Transactional]` behaviour. Every response includes `hooksOutput` (registered hooks and their execution order) and `publishedEvents` (events dispatched after commit) so you can observe the library's behaviour directly in the response body.
-
-| Endpoint | `[Transactional]` config | What it demonstrates |
-|---|---|---|
-| `POST /checkout/success` | `Required` | Full commit — OrderService, InventoryService, PaymentService join the outer scope; AuditService commits independently via `RequiresNew`; AfterCommit hooks fire at the outer commit |
-| `POST /checkout/payment-failure` | `Required` | Rollback — PaymentService throws before `SaveChanges`; outer scope disposes without `Complete()`; AfterRollback hooks run |
-| `POST /checkout/inventory-failure` | `Required` | Rollback — InventoryService throws before `SaveChanges`; identical lifecycle to payment failure |
-| `POST /checkout/audit-requires-new` | `Required` outer + `RequiresNew` audit | AuditEntry commits independently; outer scope then throws and rolls back — audit row survives |
-| `POST /checkout/no-rollback-for` | `NoRollbackFor=[NotificationException]` | `NotificationException` triggers `scope.Complete()` instead of rollback — order and payment persist despite the 400 response |
-| `POST /checkout/after-commit-hook` | `Required` | AfterCommit hook publishes `payment.approved` to the event bus **only after** `scope.Complete()`; hook does not fire when the inner method returns |
-| `POST /checkout/after-rollback-hook` | `Required` | Three compensating hooks (2 sync + 1 async) registered and executed in order after rollback |
-| `POST /checkout/suppress` | `Required` outer + `Suppress` read | InventoryReportService runs with `Transaction.Current = null`; outer scope is suspended for its duration and automatically resumed |
-| `GET /checkout/orders` | — | All persisted checkout orders |
-| `GET /checkout/audit-log` | — | All persisted audit entries |
-| `GET /checkout/payments` | — | All persisted payment records |
-| `GET /checkout/metrics` | — | Cumulative transaction counters from `InMemoryMetricsObserver` — demonstrates the Composite Observer pattern with two registered observers |
-| `DELETE /checkout/reset` | — | Clears all data between demo runs |
+E-commerce checkout example demonstrating transaction propagation, lifecycle hooks, and observers. See [Demo API docs](samples/Gsag.Transactional.Demo.Api/README.md) for complete endpoint documentation.
 
 ---
 
