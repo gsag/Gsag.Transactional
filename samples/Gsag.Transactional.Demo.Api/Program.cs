@@ -82,7 +82,6 @@ app.Lifetime.ApplicationStopping.Register(async () =>
 {
     using var scope = app.Services.CreateScope();
     var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
-    Console.WriteLine("\nShutting down container...");
     await bootstrapper.StopContainerAsync();
 });
 
