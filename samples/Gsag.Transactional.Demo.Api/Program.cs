@@ -49,25 +49,25 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Ensure database is ready BEFORE attempting to create schema
-using (var scope = app.Services.CreateScope())
+app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
+
+app.MapControllers();
+
+// Initialize database before running
+app.Lifetime.ApplicationStarted.Register(async () =>
 {
+    using var scope = app.Services.CreateScope();
     var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
-    bootstrapper.EnsureDatabaseIsReady(connectionString!);
+    await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
 
     var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
     // EnsureCreated is intentional for this demo — no migrations needed.
     // Note: EnsureCreated and Migrate() are mutually exclusive; enabling migrations
     // later would require dropping and recreating the database.
-    db.Database.EnsureCreated();
-}
+    await db.Database.EnsureCreatedAsync();
 
-app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
-
-if (app.Environment.IsDevelopment())
-{
-    app.Lifetime.ApplicationStarted.Register(() =>
+    if (app.Environment.IsDevelopment())
     {
         var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
                ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
@@ -75,17 +75,18 @@ if (app.Environment.IsDevelopment())
         {
             Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
         }
-    });
-}
+    }
+});
 
+// Stop container on shutdown
 app.Lifetime.ApplicationStopping.Register(async () =>
 {
     using var scope = app.Services.CreateScope();
     var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+    Console.WriteLine("\nShutting down container...");
     await bootstrapper.StopContainerAsync();
 });
 
-app.MapControllers();
-app.Run();
+await app.RunAsync();
 
 public partial class Program { }

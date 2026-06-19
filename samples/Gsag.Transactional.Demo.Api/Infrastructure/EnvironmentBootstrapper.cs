@@ -17,15 +17,6 @@ internal class EnvironmentBootstrapper
         _delayMs = delayMs;
     }
 
-    /// <summary>
-    /// Synchronous version for startup initialization before async pipeline.
-    /// Blocks until database is ready or timeout is reached.
-    /// </summary>
-    internal void EnsureDatabaseIsReady(string connectionString)
-    {
-        EnsureDatabaseIsReadyAsync(connectionString).GetAwaiter().GetResult();
-    }
-
     internal async Task EnsureDatabaseIsReadyAsync(string connectionString)
     {
         _logger.LogInformation("Ensuring database is ready (retries: {MaxRetries}, delay: {DelayMs}ms)", _maxRetries, _delayMs);
