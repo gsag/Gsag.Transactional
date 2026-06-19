@@ -115,7 +115,7 @@ internal class EnvironmentBootstrapper
         }
         catch (Exception ex) when (ex.GetType().Name == "Win32Exception" && ex.Message.Contains("docker"))
         {
-            _logger.LogError("Docker command not found in PATH: {Message}. Install Docker Desktop and ensure " +
+            _logger.LogError(ex, "Docker command not found in PATH: {Message}. Install Docker Desktop and ensure " +
                 "the 'docker' command is available in your system PATH.", ex.Message);
             throw new InvalidOperationException(
                 "Docker is not installed or not in PATH. Please install Docker Desktop and ensure it's in your system PATH.",

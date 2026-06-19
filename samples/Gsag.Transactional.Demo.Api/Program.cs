@@ -82,7 +82,7 @@ app.Lifetime.ApplicationStarted.Register(async () =>
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to initialize application");
-        throw;
+        throw new InvalidOperationException("Application initialization failed. Ensure Docker is running, docker-compose.yml exists, and database connection is properly configured.", ex);
     }
 });
 
