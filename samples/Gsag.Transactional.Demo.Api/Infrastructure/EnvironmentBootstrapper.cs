@@ -19,24 +19,18 @@ internal class EnvironmentBootstrapper
 
     internal async Task EnsureDatabaseIsReadyAsync(string connectionString)
     {
-        _logger.LogInformation("Ensuring database is ready (retries: {MaxRetries}, delay: {DelayMs}ms)", _maxRetries, _delayMs);
-
         for (int i = 0; i < _maxRetries; i++)
         {
             if (await IsDatabaseAccessibleAsync(connectionString))
             {
-                _logger.LogInformation("✓ Database is ready (attempt {Attempt}/{MaxRetries})", i + 1, _maxRetries);
+                _logger.LogInformation("Database is ready");
                 return;
             }
 
             if (i == 0)
             {
-                _logger.LogInformation("Database not accessible, attempting to start container (attempt {Attempt}/{MaxRetries})...", i + 1, _maxRetries);
+                _logger.LogInformation("Database not accessible, starting container...");
                 await StartContainerAsync();
-            }
-            else
-            {
-                _logger.LogInformation("Database still not accessible, retrying (attempt {Attempt}/{MaxRetries})...", i + 1, _maxRetries);
             }
 
             await Task.Delay(_delayMs);
@@ -51,7 +45,7 @@ internal class EnvironmentBootstrapper
     {
         await RunContainerCommandAsync(
             "down --remove-orphans --volumes",
-            successMessage: "✓ Container and volumes stopped and removed",
+            successMessage: "Container and volumes stopped and removed",
             errorMessage: "container shutdown");
     }
 
@@ -75,7 +69,7 @@ internal class EnvironmentBootstrapper
         _logger.LogInformation("Starting container with docker-compose file at: {ContainerPath}", ContainerFile);
         await RunContainerCommandAsync(
             "up -d",
-            successMessage: "✓ Container started successfully",
+            successMessage: "Container started successfully",
             errorMessage: "container startup");
     }
 
@@ -119,27 +113,17 @@ internal class EnvironmentBootstrapper
 
             _logger.LogInformation(successMessage);
         }
-        catch (FileNotFoundException)
-        {
-            throw;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
         catch (Exception ex) when (ex.GetType().Name == "Win32Exception" && ex.Message.Contains("docker"))
         {
-            _logger.LogError("Docker command not found: {Message}. " +
-                "Docker is not installed or not in PATH. " +
-                "Install Docker Desktop and ensure it's in your system PATH.", ex.Message);
+            _logger.LogError("Docker command not found in PATH: {Message}. Install Docker Desktop and ensure " +
+                "the 'docker' command is available in your system PATH.", ex.Message);
             throw new InvalidOperationException(
-                "Docker command not found. Ensure Docker is installed and in your system PATH. " +
-                $"Original error: {ex.Message}", ex);
+                "Docker is not installed or not in PATH. Please install Docker Desktop and ensure it's in your system PATH.",
+                ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to run {ErrorMessage}. Ensure Docker daemon is running and " +
-                "'docker' command is available in PATH.", errorMessage);
+            _logger.LogError(ex, "Failed to run {ErrorMessage}.", errorMessage);
             throw new InvalidOperationException($"Failed to run {errorMessage}. {ex.Message}", ex);
         }
     }

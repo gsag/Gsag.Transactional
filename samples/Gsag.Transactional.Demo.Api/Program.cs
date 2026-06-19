@@ -58,23 +58,31 @@ app.MapControllers();
 app.Lifetime.ApplicationStarted.Register(async () =>
 {
     using var scope = app.Services.CreateScope();
-    var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
-    await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
-    // EnsureCreated is intentional for this demo — no migrations needed.
-    // Note: EnsureCreated and Migrate() are mutually exclusive; enabling migrations
-    // later would require dropping and recreating the database.
-    await db.Database.EnsureCreatedAsync();
-
-    if (app.Environment.IsDevelopment())
+    try
     {
-        var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
-               ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
-        if (url is not null)
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
+        await bootstrapper.EnsureDatabaseIsReadyAsync(connectionString!);
+
+        var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        logger.LogInformation("Database schema ensured");
+
+        if (app.Environment.IsDevelopment())
         {
-            Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
+            var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
+                   ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
+            if (url is not null)
+            {
+                Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
+            }
         }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to initialize application");
+        throw;
     }
 });
 
@@ -83,7 +91,6 @@ app.Lifetime.ApplicationStopping.Register(async () =>
 {
     using var scope = app.Services.CreateScope();
     var bootstrapper = scope.ServiceProvider.GetRequiredService<EnvironmentBootstrapper>();
-    Console.WriteLine("\nShutting down container...");
     await bootstrapper.StopContainerAsync();
 });
 
