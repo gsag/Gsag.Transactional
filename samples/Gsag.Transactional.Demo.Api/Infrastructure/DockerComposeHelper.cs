@@ -9,7 +9,7 @@ internal static class DockerComposeHelper
 
     internal static async Task EnsurePostgresIsRunningAsync(string connStr)
     {
-        const int maxRetries = 30;
+        const int maxRetries = 10;
         const int delayMs = 1000;
 
         for (int i = 0; i < maxRetries; i++)
@@ -28,39 +28,15 @@ internal static class DockerComposeHelper
             await Task.Delay(delayMs);
         }
 
-        throw new InvalidOperationException("PostgreSQL failed to start after 30 seconds");
+        throw new InvalidOperationException("PostgreSQL failed to start after 10 seconds");
     }
 
     internal static async Task StopDockerComposeAsync()
     {
-        if (!File.Exists(ComposeFile))
-        {
-            return;
-        }
-
-        try
-        {
-            // Remove orphans and volumes to ensure complete cleanup
-            var psi = CreateProcessInfo("compose down --remove-orphans --volumes");
-            using var process = Process.Start(psi);
-            if (process is null)
-                return;
-
-            await process.WaitForExitAsync();
-
-            if (process.ExitCode == 0)
-            {
-                Console.WriteLine("✓ PostgreSQL container and volumes stopped and removed");
-            }
-            else
-            {
-                Console.WriteLine($"Warning: docker compose down exited with code {process.ExitCode}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Warning: Failed to stop docker compose: {ex.Message}");
-        }
+        await RunDockerComposeCommandAsync(
+            "compose down --remove-orphans --volumes",
+            successMessage: "✓ PostgreSQL container and volumes stopped and removed",
+            errorMessage: "docker compose down");
     }
 
     private static async Task<bool> IsPostgresAccessibleAsync(string connStr)
@@ -80,6 +56,14 @@ internal static class DockerComposeHelper
 
     private static async Task StartDockerComposeAsync()
     {
+        await RunDockerComposeCommandAsync(
+            "compose up -d",
+            successMessage: "✓ docker compose started successfully",
+            errorMessage: "docker compose");
+    }
+
+    private static async Task RunDockerComposeCommandAsync(string commandArgs, string successMessage, string errorMessage)
+    {
         if (!File.Exists(ComposeFile))
         {
             throw new FileNotFoundException($"docker-compose.yml not found at {ComposeFile}");
@@ -87,23 +71,25 @@ internal static class DockerComposeHelper
 
         try
         {
-            var psi = CreateProcessInfo("compose up -d");
+            var psi = CreateProcessInfo(commandArgs);
             using var process = Process.Start(psi);
             if (process is null)
-                throw new InvalidOperationException("Failed to start docker compose");
+            {
+                throw new InvalidOperationException($"Failed to start {errorMessage}");
+            }
 
             await process.WaitForExitAsync();
 
             if (process.ExitCode != 0)
             {
-                throw new InvalidOperationException($"docker compose exited with code {process.ExitCode}");
+                throw new InvalidOperationException($"{errorMessage} exited with code {process.ExitCode}");
             }
 
-            Console.WriteLine("✓ docker compose started successfully");
+            Console.WriteLine(successMessage);
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to start docker compose. Ensure Docker is installed and running.", ex);
+            throw new InvalidOperationException($"Failed to run {errorMessage}. Ensure Docker is installed and running.", ex);
         }
     }
 
@@ -119,15 +105,10 @@ internal static class DockerComposeHelper
             CreateNoWindow = true
         };
 
-        // Use ArgumentList for safer argument passing (avoids string interpolation security concerns)
         psi.ArgumentList.Add("--file");
+        psi.ArgumentList.Add(ComposeFile);
 
-        var composeFilePath = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
-        psi.ArgumentList.Add(composeFilePath);
-
-        // Use LINQ Where instead of foreach with if condition
-        var composeArgs = arguments.Split(' ').Where(arg => !string.IsNullOrEmpty(arg));
-        foreach (var arg in composeArgs)
+        foreach (var arg in arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             psi.ArgumentList.Add(arg);
         }
