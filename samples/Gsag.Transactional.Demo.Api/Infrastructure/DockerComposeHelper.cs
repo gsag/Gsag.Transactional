@@ -34,7 +34,7 @@ internal static class DockerComposeHelper
     internal static async Task StopDockerComposeAsync()
     {
         await RunDockerComposeCommandAsync(
-            "compose down --remove-orphans --volumes",
+            "down --remove-orphans --volumes",
             successMessage: "✓ PostgreSQL container and volumes stopped and removed",
             errorMessage: "docker compose down");
     }
@@ -57,7 +57,7 @@ internal static class DockerComposeHelper
     private static async Task StartDockerComposeAsync()
     {
         await RunDockerComposeCommandAsync(
-            "compose up -d",
+            "up -d",
             successMessage: "✓ docker compose started successfully",
             errorMessage: "docker compose");
     }
@@ -78,18 +78,30 @@ internal static class DockerComposeHelper
                 throw new InvalidOperationException($"Failed to start {errorMessage}");
             }
 
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+
             await process.WaitForExitAsync();
 
             if (process.ExitCode != 0)
             {
-                throw new InvalidOperationException($"{errorMessage} exited with code {process.ExitCode}");
+                var errorDetail = string.IsNullOrWhiteSpace(error) ? string.Empty : $"\n{error}";
+                throw new InvalidOperationException($"{errorMessage} exited with code {process.ExitCode}{errorDetail}");
             }
 
             Console.WriteLine(successMessage);
         }
+        catch (FileNotFoundException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to run {errorMessage}. Ensure Docker is installed and running.", ex);
+            throw new InvalidOperationException($"Failed to run {errorMessage}. Ensure Docker is installed and running. {ex.Message}", ex);
         }
     }
 
@@ -105,7 +117,8 @@ internal static class DockerComposeHelper
             CreateNoWindow = true
         };
 
-        psi.ArgumentList.Add("--file");
+        psi.ArgumentList.Add("compose");
+        psi.ArgumentList.Add("-f");
         psi.ArgumentList.Add(ComposeFile);
 
         foreach (var arg in arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries))
