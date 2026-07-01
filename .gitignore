@@ -3,6 +3,7 @@
 
 # Codex
 .agents
+.codex
 
 # Build output
 bin/
