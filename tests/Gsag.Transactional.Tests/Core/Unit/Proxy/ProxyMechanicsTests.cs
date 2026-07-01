@@ -1,7 +1,7 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
-using System.Diagnostics;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
 using Gsag.Transactional.Core.Hooks;
