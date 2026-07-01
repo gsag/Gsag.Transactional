@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
@@ -114,6 +115,47 @@ public class UnsupportedAsyncLikeService : IUnsupportedAsyncLikeService
     }
 }
 
+
+public interface IExtensionAwaitableService
+{
+    [Transactional]
+    ExtensionAwaitable RunAsyncLike();
+}
+
+public sealed class ExtensionAwaitableService : IExtensionAwaitableService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Events { get; } = [];
+
+    public ExtensionAwaitableService(ITransactionHooks hooks) => _hooks = hooks;
+
+    public ExtensionAwaitable RunAsyncLike()
+    {
+        _hooks.AfterCommit(() => Events.Add("after-commit"));
+        return new ExtensionAwaitable();
+    }
+}
+
+public readonly struct ExtensionAwaitable
+{
+}
+
+public sealed class ExtensionAwaiter : INotifyCompletion
+{
+    public bool IsCompleted => true;
+
+    public void OnCompleted(Action continuation) => continuation();
+
+    public void GetResult()
+    {
+    }
+}
+
+public static class ExtensionAwaitableExtensions
+{
+    public static ExtensionAwaiter GetAwaiter(this ExtensionAwaitable value) => new();
+}
+
 public sealed class RecordingTraceListener : TraceListener
 {
     public List<string> Messages { get; } = [];
@@ -223,6 +265,42 @@ public class ProxyMechanicsTests
                 message.Contains("skipped", StringComparison.OrdinalIgnoreCase) &&
                 message.Contains("StreamAsync", StringComparison.OrdinalIgnoreCase) &&
                 message.Contains("IAsyncEnumerable", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            lock (Trace.Listeners)
+            {
+                Trace.Listeners.Remove(listener);
+            }
+        }
+    }
+
+    [Fact]
+    public void ExtensionAwaitableReturnType_SkipsTransactionAndEmitsWarning()
+    {
+        var listener = new RecordingTraceListener();
+
+        lock (Trace.Listeners)
+        {
+            Trace.Listeners.Add(listener);
+        }
+
+        try
+        {
+            var hooks = new TransactionHooks();
+            var svc = new ExtensionAwaitableService(hooks);
+            var observer = new RecordingObserver();
+            var proxy = TransactionProxyFactory.Create<IExtensionAwaitableService>(svc, observer);
+
+            var result = proxy.RunAsyncLike();
+
+            Assert.IsType<ExtensionAwaitable>(result);
+            Assert.Empty(observer.Calls);
+            Assert.Empty(svc.Events);
+            Assert.Contains(listener.Messages, message =>
+                message.Contains("skipped", StringComparison.OrdinalIgnoreCase) &&
+                message.Contains("RunAsyncLike", StringComparison.OrdinalIgnoreCase) &&
+                message.Contains("ExtensionAwaitable", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

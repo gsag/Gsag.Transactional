@@ -188,26 +188,81 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
 
     private static bool HasAwaiterPattern(Type returnType)
     {
-        var getAwaiter = returnType.GetMethod(
+        if (TryGetAwaiterMethod(returnType, out var getAwaiter))
+        {
+            var awaiterType = getAwaiter.ReturnType;
+            return IsAwaiterType(awaiterType);
+        }
+
+        return HasExtensionGetAwaiter(returnType);
+    }
+
+    private static bool TryGetAwaiterMethod(Type returnType, [NotNullWhen(true)] out MethodInfo? getAwaiter)
+    {
+        getAwaiter = returnType.GetMethod(
             "GetAwaiter",
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
             Type.EmptyTypes,
             modifiers: null);
 
-        if (getAwaiter is null)
+        return getAwaiter is not null;
+    }
+
+    private static bool HasExtensionGetAwaiter(Type returnType)
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-            return false;
+            Type[] types;
+
+            try
+            {
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types.Where(static type => type is not null).Cast<Type>().ToArray();
+            }
+
+            foreach (var type in types)
+            {
+                if (!type.IsAbstract || !type.IsSealed)
+                {
+                    continue;
+                }
+
+                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                {
+                    if (method.Name != "GetAwaiter")
+                    {
+                        continue;
+                    }
+
+                    var parameters = method.GetParameters();
+                    if (parameters.Length != 1)
+                    {
+                        continue;
+                    }
+
+                    if (!parameters[0].ParameterType.IsAssignableFrom(returnType))
+                    {
+                        continue;
+                    }
+
+                    if (IsAwaiterType(method.ReturnType))
+                    {
+                        return true;
+                    }
+                }
+            }
         }
 
-        var awaiterType = getAwaiter.ReturnType;
+        return false;
+    }
 
+    private static bool IsAwaiterType(Type awaiterType)
+    {
         return awaiterType.GetMethod("GetResult", BindingFlags.Public | BindingFlags.Instance, binder: null, Type.EmptyTypes, modifiers: null) is not null
             && typeof(System.Runtime.CompilerServices.INotifyCompletion).IsAssignableFrom(awaiterType);
     }
 }
-
-
-
-
-
