@@ -10,24 +10,26 @@ namespace Gsag.Transactional.Core.Proxy;
 /// <summary>
 /// A DispatchProxy that intercepts method calls and wraps those decorated with
 /// [Transactional] inside a TransactionScope. Supports sync, Task, Task&lt;T&gt;,
-/// ValueTask, and ValueTask&lt;T&gt; return types.
+/// ValueTask, and ValueTask&lt;T&gt; return types. Async-like return types that the
+/// proxy cannot safely manage, such as IAsyncEnumerable&lt;T&gt; and custom awaitables,
+/// are invoked directly after emitting a warning.
 /// </summary>
 internal class TransactionProxy<T> : DispatchProxy where T : class
 {
     private T _target = null!;
     private ITransactionObserver _observer = NullTransactionObserver.Instance;
 
-    // Per-T caches — static fields on a generic type are intentionally per-T instantiation.
+    // Per-T caches: static fields on a generic type are intentionally per-T instantiation.
     // Key includes the concrete type so that different implementations of the same interface
     // each get their own attribute entries.
-    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour; each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<(MethodInfo method, Type concrete), TransactionalAttribute?> _attributeCache = new();
 
-    // _delegateCache key is the interface MethodInfo — not the concrete method — because
+    // _delegateCache key is the interface MethodInfo, not the concrete method, because
     // the Expression.Convert(instanceParam, method.DeclaringType!) in BuildDelegate targets
     // the interface, and virtual dispatch carries the call to the correct concrete override.
     // Including the concrete type in the key is unnecessary and would fragment the cache.
-    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour; each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
     public static T Wrap(T target, ITransactionObserver? observer = null)
@@ -59,41 +61,22 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             return InvokeTarget(targetMethod, args);
         }
 
-        var returnType = targetMethod.ReturnType;
-
-        if (returnType == typeof(ValueTask))
-        {
-            // ValueTask is boxed as object because DispatchProxy.Invoke must return object?.
-            // The caller's generated code unboxes and awaits correctly.
-#pragma warning disable S3415 // ValueTask must be boxed here due to DispatchProxy.Invoke signature constraint
-            return AsyncHandler.ExecuteValueTask(targetMethod, args, attr, _observer, InvokeTarget);
-#pragma warning restore S3415
-        }
-
-        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
-        {
-            return AsyncHandler.ExecuteValueTaskGeneric(targetMethod, args, attr, returnType, _observer, InvokeTarget);
-        }
-
-        if (typeof(Task).IsAssignableFrom(returnType))
-        {
-            return AsyncHandler.ExecuteTask(targetMethod, args, attr, returnType, _observer, InvokeTarget);
-        }
-
-        return SyncHandler.Execute(targetMethod, args, attr, _observer, InvokeTarget);
+        var strategy = TransactionInvocationStrategyResolver.Resolve(targetMethod.ReturnType);
+        var context = new TransactionInvocationContext(targetMethod, args, attr, _observer, InvokeTarget);
+        return strategy.Invoke(context);
     }
 
-    // IL2072: concreteType comes from _target.GetType() — its interface members are not tracked
+    // IL2072: concreteType comes from _target.GetType(); its interface members are not tracked
     // statically, but concreteType is always an instance of T (enforced by Wrap) and T is
     // constrained to be an interface, so the interface map is guaranteed to resolve correctly.
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072",
-        Justification = "concreteType always implements the interface — verified at proxy creation by Wrap(). " +
+        Justification = "concreteType always implements the interface, verified at proxy creation by Wrap(). " +
                         "Interface methods are preserved because T is a generic type parameter on TransactionProxy<T>.")]
     private static TransactionalAttribute? FindAttribute((MethodInfo Method, Type Concrete) key)
     {
         var (m, concreteType) = key;
 
-        // 1. Attribute on the interface method — checked first so interface-level
+        // 1. Attribute on the interface method: checked first so interface-level
         //    declarations take precedence (e.g. library contracts, test doubles).
         var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: false);
         if (a is not null)
@@ -101,7 +84,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             return a;
         }
 
-        // 2. Attribute on the concrete implementation method — DispatchProxy.Invoke
+        // 2. Attribute on the concrete implementation method: DispatchProxy.Invoke
         //    always passes the interface MethodInfo, so we must resolve the concrete
         //    counterpart via the interface map.
         if (m.DeclaringType is null)

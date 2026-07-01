@@ -1,6 +1,10 @@
 # Claude Code
 .claude/
 
+# Codex
+.agents
+.codex
+
 # Build output
 bin/
 obj/

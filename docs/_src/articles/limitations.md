@@ -59,7 +59,7 @@ public class OrderService : IOrderService
 - `ValueTask<T>`
 - Synchronous (non-async) return types — runs synchronously, no async hook support
 
-Methods returning other types (e.g., `IAsyncEnumerable<T>`, custom awaitables) are not intercepted and are forwarded directly to the target.
+Methods returning other types (e.g., `IAsyncEnumerable<T>`, custom awaitables) emit a warning at runtime and are forwarded directly to the target without opening a transaction.
 
 ---
 
@@ -89,3 +89,4 @@ EF Core's SQLite provider sets `SupportsAmbientTransactions = false`. This means
 `BeforeRollback` hooks run on the rollback path — the decision to roll back has already been made. Throwing inside a `BeforeRollback` hook does not change the outcome; the exception is suppressed and the rollback proceeds.
 
 If you need to intercept before a rollback decision is made, register a `BeforeCommit` hook instead (it can cause a rollback by throwing).
+
