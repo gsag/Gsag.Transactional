@@ -156,6 +156,31 @@ public static class ExtensionAwaitableExtensions
     public static ExtensionAwaiter GetAwaiter(this ExtensionAwaitable value) => new();
 }
 
+public interface IInstanceAwaitableService
+{
+    [Transactional]
+    InstanceAwaitable RunAsyncLike();
+}
+
+public sealed class InstanceAwaitableService : IInstanceAwaitableService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Events { get; } = [];
+
+    public InstanceAwaitableService(ITransactionHooks hooks) => _hooks = hooks;
+
+    public InstanceAwaitable RunAsyncLike()
+    {
+        _hooks.AfterCommit(() => Events.Add("after-commit"));
+        return new InstanceAwaitable();
+    }
+}
+
+public readonly struct InstanceAwaitable
+{
+    public ExtensionAwaiter GetAwaiter() => new();
+}
+
 public sealed class RecordingTraceListener : TraceListener
 {
     public List<string> Messages { get; } = [];
@@ -276,7 +301,24 @@ public class ProxyMechanicsTests
     }
 
     [Fact]
-    public void ExtensionAwaitableReturnType_SkipsTransactionAndEmitsWarning()
+    public void ExtensionAwaitableReturnType_DoesNotSkipTransaction()
+    {
+        var hooks = new TransactionHooks();
+        var svc = new ExtensionAwaitableService(hooks);
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IExtensionAwaitableService>(svc, observer);
+
+        var result = proxy.RunAsyncLike();
+
+        Assert.IsType<ExtensionAwaitable>(result);
+        Assert.Equal(["after-commit"], svc.Events);
+        Assert.Contains("BEGIN:RunAsyncLike", observer.Calls);
+        Assert.Contains("COMMIT:RunAsyncLike", observer.Calls);
+        Assert.Contains("COMPLETE:RunAsyncLike:True", observer.Calls);
+    }
+
+    [Fact]
+    public void InstanceAwaitableReturnType_SkipsTransactionAndEmitsWarning()
     {
         var listener = new RecordingTraceListener();
 
@@ -288,19 +330,19 @@ public class ProxyMechanicsTests
         try
         {
             var hooks = new TransactionHooks();
-            var svc = new ExtensionAwaitableService(hooks);
+            var svc = new InstanceAwaitableService(hooks);
             var observer = new RecordingObserver();
-            var proxy = TransactionProxyFactory.Create<IExtensionAwaitableService>(svc, observer);
+            var proxy = TransactionProxyFactory.Create<IInstanceAwaitableService>(svc, observer);
 
             var result = proxy.RunAsyncLike();
 
-            Assert.IsType<ExtensionAwaitable>(result);
+            Assert.IsType<InstanceAwaitable>(result);
             Assert.Empty(observer.Calls);
             Assert.Empty(svc.Events);
             Assert.Contains(listener.Messages, message =>
                 message.Contains("skipped", StringComparison.OrdinalIgnoreCase) &&
                 message.Contains("RunAsyncLike", StringComparison.OrdinalIgnoreCase) &&
-                message.Contains("ExtensionAwaitable", StringComparison.OrdinalIgnoreCase));
+                message.Contains("InstanceAwaitable", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -310,7 +352,6 @@ public class ProxyMechanicsTests
             }
         }
     }
-
     [Fact]
     public void Wrap_WithConcreteClassAsT_ThrowsInvalidOperationException()
     {

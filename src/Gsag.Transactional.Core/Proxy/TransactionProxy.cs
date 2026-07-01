@@ -19,17 +19,17 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
     private T _target = null!;
     private ITransactionObserver _observer = NullTransactionObserver.Instance;
 
-    // Per-T caches — static fields on a generic type are intentionally per-T instantiation.
+    // Per-T caches: static fields on a generic type are intentionally per-T instantiation.
     // Key includes the concrete type so that different implementations of the same interface
     // each get their own attribute entries.
-    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour; each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<(MethodInfo method, Type concrete), TransactionalAttribute?> _attributeCache = new();
 
-    // _delegateCache key is the interface MethodInfo — not the concrete method — because
+    // _delegateCache key is the interface MethodInfo, not the concrete method, because
     // the Expression.Convert(instanceParam, method.DeclaringType!) in BuildDelegate targets
     // the interface, and virtual dispatch carries the call to the correct concrete override.
     // Including the concrete type in the key is unnecessary and would fragment the cache.
-    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour — each proxied interface gets its own isolated cache.")]
+    [SuppressMessage("Major Code Smell", "S2743", Justification = "Per-T instantiation is the intended behaviour; each proxied interface gets its own isolated cache.")]
     private static readonly ConcurrentDictionary<MethodInfo, Func<object, object?[], object?>> _delegateCache = new();
 
     public static T Wrap(T target, ITransactionObserver? observer = null)
@@ -61,55 +61,22 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             return InvokeTarget(targetMethod, args);
         }
 
-        var returnType = targetMethod.ReturnType;
-
-        if (returnType == typeof(ValueTask))
-        {
-            // ValueTask is boxed as object because DispatchProxy.Invoke must return object?.
-            // The caller's generated code unboxes and awaits correctly.
-#pragma warning disable S3415 // ValueTask must be boxed here due to DispatchProxy.Invoke signature constraint
-            return AsyncHandler.ExecuteValueTask(targetMethod, args, attr, _observer, InvokeTarget);
-#pragma warning restore S3415
-        }
-
-        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
-        {
-            return AsyncHandler.ExecuteValueTaskGeneric(targetMethod, args, attr, returnType, _observer, InvokeTarget);
-        }
-
-        if (typeof(Task).IsAssignableFrom(returnType))
-        {
-            return AsyncHandler.ExecuteTask(targetMethod, args, attr, returnType, _observer, InvokeTarget);
-        }
-
-        if (IsUnsupportedAsyncLikeReturnType(returnType))
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                "[Transactional] skipped for {0}.{1} returning {2}. " +
-                "The method will run without TransactionScope because this return type is async-like " +
-                "but not supported by the transactional proxy. Use Task, Task<T>, ValueTask, or ValueTask<T> " +
-                "for transactional behavior.",
-                targetMethod.DeclaringType?.FullName ?? typeof(T).FullName,
-                targetMethod.Name,
-                returnType.FullName ?? returnType.Name);
-
-            return InvokeTarget(targetMethod, args);
-        }
-
-        return SyncHandler.Execute(targetMethod, args, attr, _observer, InvokeTarget);
+        var strategy = TransactionInvocationStrategyResolver.Resolve(targetMethod.ReturnType);
+        var context = new TransactionInvocationContext(targetMethod, args, attr, _observer, InvokeTarget);
+        return strategy.Invoke(context);
     }
 
-    // IL2072: concreteType comes from _target.GetType() — its interface members are not tracked
+    // IL2072: concreteType comes from _target.GetType(); its interface members are not tracked
     // statically, but concreteType is always an instance of T (enforced by Wrap) and T is
     // constrained to be an interface, so the interface map is guaranteed to resolve correctly.
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072",
-        Justification = "concreteType always implements the interface — verified at proxy creation by Wrap(). " +
+        Justification = "concreteType always implements the interface, verified at proxy creation by Wrap(). " +
                         "Interface methods are preserved because T is a generic type parameter on TransactionProxy<T>.")]
     private static TransactionalAttribute? FindAttribute((MethodInfo Method, Type Concrete) key)
     {
         var (m, concreteType) = key;
 
-        // 1. Attribute on the interface method — checked first so interface-level
+        // 1. Attribute on the interface method: checked first so interface-level
         //    declarations take precedence (e.g. library contracts, test doubles).
         var a = m.GetCustomAttribute<TransactionalAttribute>(inherit: false);
         if (a is not null)
@@ -117,7 +84,7 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             return a;
         }
 
-        // 2. Attribute on the concrete implementation method — DispatchProxy.Invoke
+        // 2. Attribute on the concrete implementation method: DispatchProxy.Invoke
         //    always passes the interface MethodInfo, so we must resolve the concrete
         //    counterpart via the interface map.
         if (m.DeclaringType is null)
@@ -168,101 +135,5 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         return Expression
             .Lambda<Func<object, object?[], object?>>(body, instanceParam, argsParam)
             .Compile();
-    }
-
-    private static bool IsUnsupportedAsyncLikeReturnType(Type returnType)
-    {
-        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
-        {
-            return true;
-        }
-
-        if (returnType.GetInterfaces().Any(static i =>
-                i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>)))
-        {
-            return true;
-        }
-
-        return HasAwaiterPattern(returnType);
-    }
-
-    private static bool HasAwaiterPattern(Type returnType)
-    {
-        if (TryGetAwaiterMethod(returnType, out var getAwaiter))
-        {
-            var awaiterType = getAwaiter.ReturnType;
-            return IsAwaiterType(awaiterType);
-        }
-
-        return HasExtensionGetAwaiter(returnType);
-    }
-
-    private static bool TryGetAwaiterMethod(Type returnType, [NotNullWhen(true)] out MethodInfo? getAwaiter)
-    {
-        getAwaiter = returnType.GetMethod(
-            "GetAwaiter",
-            BindingFlags.Public | BindingFlags.Instance,
-            binder: null,
-            Type.EmptyTypes,
-            modifiers: null);
-
-        return getAwaiter is not null;
-    }
-
-    private static bool HasExtensionGetAwaiter(Type returnType)
-    {
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            Type[] types;
-
-            try
-            {
-                types = assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                types = ex.Types.Where(static type => type is not null).Cast<Type>().ToArray();
-            }
-
-            foreach (var type in types)
-            {
-                if (!type.IsAbstract || !type.IsSealed)
-                {
-                    continue;
-                }
-
-                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
-                {
-                    if (method.Name != "GetAwaiter")
-                    {
-                        continue;
-                    }
-
-                    var parameters = method.GetParameters();
-                    if (parameters.Length != 1)
-                    {
-                        continue;
-                    }
-
-                    if (!parameters[0].ParameterType.IsAssignableFrom(returnType))
-                    {
-                        continue;
-                    }
-
-                    if (IsAwaiterType(method.ReturnType))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsAwaiterType(Type awaiterType)
-    {
-        return awaiterType.GetMethod("GetResult", BindingFlags.Public | BindingFlags.Instance, binder: null, Type.EmptyTypes, modifiers: null) is not null
-            && typeof(System.Runtime.CompilerServices.INotifyCompletion).IsAssignableFrom(awaiterType);
     }
 }
