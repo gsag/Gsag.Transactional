@@ -22,14 +22,6 @@ internal static class TransactionInvocationStrategyResolver
 
     private static ITransactionInvocationStrategy ResolveCore(Type returnType)
     {
-        foreach (var strategy in _strategies)
-        {
-            if (strategy.CanHandle(returnType))
-            {
-                return strategy;
-            }
-        }
-
-        return _strategies[^1];
+        return _strategies.First(strategy => strategy.CanHandle(returnType));
     }
 }
