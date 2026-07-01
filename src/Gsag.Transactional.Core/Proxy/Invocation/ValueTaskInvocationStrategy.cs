@@ -11,6 +11,7 @@ internal sealed class ValueTaskInvocationStrategy : ITransactionInvocationStrate
     {
         // ValueTask is boxed as object because DispatchProxy.Invoke must return object?.
         // The caller's generated code unboxes and awaits correctly.
+#pragma warning disable CA2012 // ValueTask is returned boxed to DispatchProxy, not consumed here.
 #pragma warning disable S3415 // ValueTask must be boxed here due to DispatchProxy.Invoke signature constraint
         return AsyncHandler.ExecuteValueTask(
             context.Method,
@@ -19,5 +20,6 @@ internal sealed class ValueTaskInvocationStrategy : ITransactionInvocationStrate
             context.Observer,
             context.InvokeTarget);
 #pragma warning restore S3415
+#pragma warning restore CA2012
     }
 }
