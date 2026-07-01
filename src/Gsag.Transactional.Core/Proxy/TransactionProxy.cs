@@ -10,7 +10,9 @@ namespace Gsag.Transactional.Core.Proxy;
 /// <summary>
 /// A DispatchProxy that intercepts method calls and wraps those decorated with
 /// [Transactional] inside a TransactionScope. Supports sync, Task, Task&lt;T&gt;,
-/// ValueTask, and ValueTask&lt;T&gt; return types.
+/// ValueTask, and ValueTask&lt;T&gt; return types. Async-like return types that the
+/// proxy cannot safely manage, such as IAsyncEnumerable&lt;T&gt; and custom awaitables,
+/// are invoked directly after emitting a warning.
 /// </summary>
 internal class TransactionProxy<T> : DispatchProxy where T : class
 {
@@ -78,6 +80,20 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
         if (typeof(Task).IsAssignableFrom(returnType))
         {
             return AsyncHandler.ExecuteTask(targetMethod, args, attr, returnType, _observer, InvokeTarget);
+        }
+
+        if (IsUnsupportedAsyncLikeReturnType(returnType))
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[Transactional] skipped for {0}.{1} returning {2}. " +
+                "The method will run without TransactionScope because this return type is async-like " +
+                "but not supported by the transactional proxy. Use Task, Task<T>, ValueTask, or ValueTask<T> " +
+                "for transactional behavior.",
+                targetMethod.DeclaringType?.FullName ?? typeof(T).FullName,
+                targetMethod.Name,
+                returnType.FullName ?? returnType.Name);
+
+            return InvokeTarget(targetMethod, args);
         }
 
         return SyncHandler.Execute(targetMethod, args, attr, _observer, InvokeTarget);
@@ -153,4 +169,45 @@ internal class TransactionProxy<T> : DispatchProxy where T : class
             .Lambda<Func<object, object?[], object?>>(body, instanceParam, argsParam)
             .Compile();
     }
+
+    private static bool IsUnsupportedAsyncLikeReturnType(Type returnType)
+    {
+        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+        {
+            return true;
+        }
+
+        if (returnType.GetInterfaces().Any(static i =>
+                i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>)))
+        {
+            return true;
+        }
+
+        return HasAwaiterPattern(returnType);
+    }
+
+    private static bool HasAwaiterPattern(Type returnType)
+    {
+        var getAwaiter = returnType.GetMethod(
+            "GetAwaiter",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            Type.EmptyTypes,
+            modifiers: null);
+
+        if (getAwaiter is null)
+        {
+            return false;
+        }
+
+        var awaiterType = getAwaiter.ReturnType;
+
+        return awaiterType.GetMethod("GetResult", BindingFlags.Public | BindingFlags.Instance, binder: null, Type.EmptyTypes, modifiers: null) is not null
+            && typeof(System.Runtime.CompilerServices.INotifyCompletion).IsAssignableFrom(awaiterType);
+    }
 }
+
+
+
+
+

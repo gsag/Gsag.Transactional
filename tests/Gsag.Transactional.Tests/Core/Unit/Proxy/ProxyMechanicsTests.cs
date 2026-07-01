@@ -1,7 +1,10 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using System.Diagnostics;
+using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Core.Proxy;
 using Gsag.Transactional.Tests.Core.Unit;
@@ -89,6 +92,52 @@ public class ConcreteAttributeService : IConcreteAttributeService
     public string DoWork() => "concrete-attr";
 }
 
+
+public interface IUnsupportedAsyncLikeService
+{
+    [Transactional]
+    IAsyncEnumerable<int> StreamAsync();
+}
+
+public class UnsupportedAsyncLikeService : IUnsupportedAsyncLikeService
+{
+    private readonly ITransactionHooks _hooks;
+    public List<string> Events { get; } = [];
+
+    public UnsupportedAsyncLikeService(ITransactionHooks hooks) => _hooks = hooks;
+
+    public async IAsyncEnumerable<int> StreamAsync()
+    {
+        _hooks.AfterCommit(() => Events.Add("after-commit"));
+        await Task.CompletedTask;
+        yield return Transaction.Current is null ? 1 : 0;
+    }
+}
+
+public sealed class RecordingTraceListener : TraceListener
+{
+    public List<string> Messages { get; } = [];
+
+    public override void Write(string? message) { }
+
+    public override void WriteLine(string? message)
+    {
+        Messages.Add(message ?? string.Empty);
+    }
+
+    public override void TraceEvent(
+        TraceEventCache? eventCache,
+        string source,
+        TraceEventType eventType,
+        int id,
+        string? message)
+    {
+        if (eventType == TraceEventType.Warning)
+        {
+            Messages.Add(message ?? string.Empty);
+        }
+    }
+}
 public class ProxyMechanicsTests
 {
     private readonly IBasicService _proxy;
@@ -144,6 +193,45 @@ public class ProxyMechanicsTests
     public void Wrap_WithNullTarget_ThrowsArgumentNullException()
         => Assert.Throws<ArgumentNullException>(
             () => TransactionProxyFactory.Create<IBasicService>(null!));
+    [Fact]
+    public async Task AsyncEnumerableReturnType_SkipsTransactionAndEmitsWarning()
+    {
+        var listener = new RecordingTraceListener();
+
+        lock (Trace.Listeners)
+        {
+            Trace.Listeners.Add(listener);
+        }
+
+        try
+        {
+            var hooks = new TransactionHooks();
+            var svc = new UnsupportedAsyncLikeService(hooks);
+            var observer = new RecordingObserver();
+            var proxy = TransactionProxyFactory.Create<IUnsupportedAsyncLikeService>(svc, observer);
+
+            var results = new List<int>();
+            await foreach (var item in proxy.StreamAsync())
+            {
+                results.Add(item);
+            }
+
+            Assert.Equal([1], results);
+            Assert.Empty(observer.Calls);
+            Assert.Empty(svc.Events);
+            Assert.Contains(listener.Messages, message =>
+                message.Contains("skipped", StringComparison.OrdinalIgnoreCase) &&
+                message.Contains("StreamAsync", StringComparison.OrdinalIgnoreCase) &&
+                message.Contains("IAsyncEnumerable", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            lock (Trace.Listeners)
+            {
+                Trace.Listeners.Remove(listener);
+            }
+        }
+    }
 
     [Fact]
     public void Wrap_WithConcreteClassAsT_ThrowsInvalidOperationException()
@@ -315,3 +403,5 @@ public class ProxyMechanicsTests
         Assert.Null(result);
     }
 }
+
+

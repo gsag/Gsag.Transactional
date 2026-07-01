@@ -50,6 +50,7 @@ Caller → IFoo.MethodAsync()
 **Return-type dispatch:** After opening the scope, `Invoke()` branches by return type:
 - `ValueTask` / `ValueTask<T>` — delegated to `AsyncHandler.ExecuteValueTask` / `AsyncHandler.ExecuteValueTaskGeneric`
 - `Task` / `Task<T>` — delegated to `AsyncHandler.ExecuteTask`
+- Async-like return types not handled by the proxy — warning emitted, then target invoked directly without `TransactionScope`
 - Synchronous — delegated to `SyncHandler.Execute`
 
 ---
@@ -126,3 +127,5 @@ Rollback decisions are delegated to `RollbackPolicy` (internal). `RollbackPolicy
 1. If the exception type is in `NoRollbackFor` → **commit**
 2. If `RollbackFor` is non-empty and the type is not listed → **commit**
 3. Otherwise → **rollback**
+
+
