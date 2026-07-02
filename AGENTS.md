@@ -109,6 +109,16 @@ Covers:
 - AsyncLocal hook isolation across concurrent tasks
 - nested RequiresNew propagation correctness
 
+# Git Commit Rules
+
+When creating commits:
+- Follow Conventional Commits, e.g. `chore: add sample project scaffold`
+- Include a concise body describing what changed and why
+- End the commit message with a `Co-authored-by` trailer using the model/agent's own name, e.g.:
+```text
+Co-authored-by: Codex <codex@openai.com>
+```
+
 # Code Style
 
 Always use braces for:
