@@ -1,27 +1,49 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Gsag.Transactional.Core.Observability;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Gsag.Transactional.Observability.Observers;
 
 /// <summary>
 /// Records transactional lifecycle events using .NET diagnostics primitives consumed by OpenTelemetry.
 /// </summary>
-public sealed class OpenTelemetryTransactionObserver : ITransactionObserver
+public sealed class OpenTelemetryTransactionObserver : ITransactionObserver, IDisposable
 {
+    private readonly Meter _meter;
     private readonly ActivitySource _activitySource;
     private readonly Counter<long> _totalCounter;
     private readonly Counter<long> _committedCounter;
     private readonly Counter<long> _rolledBackCounter;
     private readonly Histogram<double> _durationHistogram;
     private readonly AsyncLocal<ActivityFrame?> _currentFrame = new();
+    private readonly bool _ownsDiagnostics;
+
+    /// <summary>
+    /// Initializes a new observer with the default transactional instrumentation name.
+    /// </summary>
+    [ActivatorUtilitiesConstructor]
+    public OpenTelemetryTransactionObserver()
+        : this(
+            new Meter(OpenTelemetryConventions.InstrumentationName),
+            new ActivitySource(OpenTelemetryConventions.InstrumentationName),
+            ownsDiagnostics: true)
+    {
+    }
 
     /// <summary>
     /// Initializes a new observer that records transactions through the provided diagnostics primitives.
     /// </summary>
     public OpenTelemetryTransactionObserver(Meter meter, ActivitySource activitySource)
+        : this(meter, activitySource, ownsDiagnostics: false)
     {
+    }
+
+    private OpenTelemetryTransactionObserver(Meter meter, ActivitySource activitySource, bool ownsDiagnostics)
+    {
+        _meter = meter;
         _activitySource = activitySource;
+        _ownsDiagnostics = ownsDiagnostics;
         _totalCounter = meter.CreateCounter<long>(OpenTelemetryConventions.Metrics.TransactionTotal);
         _committedCounter = meter.CreateCounter<long>(OpenTelemetryConventions.Metrics.TransactionCommitted);
         _rolledBackCounter = meter.CreateCounter<long>(OpenTelemetryConventions.Metrics.TransactionRolledBack);
@@ -88,6 +110,18 @@ public sealed class OpenTelemetryTransactionObserver : ITransactionObserver
         }
 
         _currentFrame.Value = frame.Parent;
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (!_ownsDiagnostics)
+        {
+            return;
+        }
+
+        _activitySource.Dispose();
+        _meter.Dispose();
     }
 
     private static KeyValuePair<string, object?>[] CreateTags(
