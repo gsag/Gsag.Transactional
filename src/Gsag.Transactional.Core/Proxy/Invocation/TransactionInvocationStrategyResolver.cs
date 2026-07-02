@@ -4,24 +4,25 @@ namespace Gsag.Transactional.Core.Proxy;
 
 internal static class TransactionInvocationStrategyResolver
 {
+    private static readonly ITransactionInvocationStrategy DefaultStrategy = new SyncInvocationStrategy();
+
     private static readonly ITransactionInvocationStrategy[] _strategies =
     [
         new ValueTaskInvocationStrategy(),
         new ValueTaskGenericInvocationStrategy(),
         new TaskInvocationStrategy(),
-        new UnsupportedAsyncLikeInvocationStrategy(),
-        new SyncInvocationStrategy(),
+        new UnsupportedAsyncLikeInvocationStrategy()
     ];
 
     private static readonly ConcurrentDictionary<Type, ITransactionInvocationStrategy> _cache = new();
 
     internal static ITransactionInvocationStrategy Resolve(Type returnType)
     {
-        return _cache.GetOrAdd(returnType, ResolveCore);
+        return _cache.GetOrAdd(returnType, GetStrategyByType);
     }
 
-    private static ITransactionInvocationStrategy ResolveCore(Type returnType)
+    private static ITransactionInvocationStrategy GetStrategyByType(Type returnType)
     {
-        return _strategies.First(strategy => strategy.CanHandle(returnType));
+        return _strategies.FirstOrDefault(strategy => strategy.CanHandle(returnType), DefaultStrategy);
     }
 }
