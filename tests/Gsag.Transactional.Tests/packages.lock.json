@@ -382,6 +382,12 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.2, )",
           "Swashbuckle.AspNetCore": "[10.2.3, )"
         }
+      },
+      "gsag.transactional.observability": {
+        "type": "Project",
+        "dependencies": {
+          "Gsag.Transactional.Core": "[1.0.0, )"
+        }
       }
     }
   }

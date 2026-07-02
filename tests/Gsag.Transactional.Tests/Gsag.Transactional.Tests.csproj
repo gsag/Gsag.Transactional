@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Gsag.Transactional.Core\Gsag.Transactional.Core.csproj" />
     <ProjectReference Include="..\..\samples\Gsag.Transactional.Demo.Api\Gsag.Transactional.Demo.Api.csproj" />
+    <ProjectReference Include="..\..\samples\Gsag.Transactional.Observability\Gsag.Transactional.Observability.csproj" />
   </ItemGroup>
 
   <ItemGroup>
