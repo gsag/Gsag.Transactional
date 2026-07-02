@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Gsag.Transactional.Core\Gsag.Transactional.Core.csproj" />
+    <ProjectReference Include="..\Gsag.Transactional.Observability\Gsag.Transactional.Observability.csproj" />
   </ItemGroup>
 
   <ItemGroup>

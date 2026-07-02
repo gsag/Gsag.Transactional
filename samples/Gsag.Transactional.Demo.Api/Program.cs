@@ -3,6 +3,7 @@ using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
+using Gsag.Transactional.Observability.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,13 +20,16 @@ builder.Services.AddScoped<HookOutputCollector>();
 builder.Services.AddScoped<InMemoryEventBus>();
 builder.Services.AddScoped<IEventBus>(sp => sp.GetRequiredService<InMemoryEventBus>());
 
+builder.Services.AddObservabilityPipeline();
+
 // Configure transactional services: the calling assembly is automatically scanned
 // for service classes with [Transactional] methods and I{Name} interface (OrderService,
 // InventoryService, PaymentService, AuditService, CheckoutService, InventoryReportService).
-// Two observers are registered and the proxy wraps them in CompositeTransactionObserver,
+// Three observers are registered and the proxy wraps them in CompositeTransactionObserver,
 // calling each in registration order.
 builder.Services.AddTransactional(b => b
     .AddLogging()                                 // LoggingTransactionObserver (MEL)
+    .AddObservability()
     .AddObserver<InMemoryMetricsObserver>());
 
 builder.Services.AddControllers();

@@ -11,4 +11,8 @@
     <ProjectReference Include="..\..\src\Gsag.Transactional.Core\Gsag.Transactional.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+  </ItemGroup>
+
 </Project>
