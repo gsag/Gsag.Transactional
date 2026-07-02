@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gsag.Transactional.Demo.Api", "samples\Gsag.Transactional.Demo.Api\Gsag.Transactional.Demo.Api.csproj", "{D7EB9013-11A4-4425-9271-576B5AF19B50}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gsag.Transactional.Tests", "tests\Gsag.Transactional.Tests\Gsag.Transactional.Tests.csproj", "{CD938020-46AC-4748-AC98-DEE85DC97186}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gsag.Transactional.Observability", "samples\Gsag.Transactional.Observability\Gsag.Transactional.Observability.csproj", "{E778C257-5055-4805-9499-8BEE22F5AAAE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -61,6 +63,18 @@ Global
 		{CD938020-46AC-4748-AC98-DEE85DC97186}.Release|x64.Build.0 = Release|Any CPU
 		{CD938020-46AC-4748-AC98-DEE85DC97186}.Release|x86.ActiveCfg = Release|Any CPU
 		{CD938020-46AC-4748-AC98-DEE85DC97186}.Release|x86.Build.0 = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|x64.Build.0 = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Debug|x86.Build.0 = Debug|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|x64.ActiveCfg = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|x64.Build.0 = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|x86.ActiveCfg = Release|Any CPU
+		{E778C257-5055-4805-9499-8BEE22F5AAAE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -69,5 +83,6 @@ Global
 		{541AF683-7844-44E0-9CFE-E9D0844AECE5} = {E6163EDB-1512-4822-86B0-F5CD384104D1}
 		{D7EB9013-11A4-4425-9271-576B5AF19B50} = {FBF884B2-363D-4D91-A063-CB32ECDFBF7E}
 		{CD938020-46AC-4748-AC98-DEE85DC97186} = {186EF3B2-288D-4E3C-B219-46F33DD34FE7}
+		{E778C257-5055-4805-9499-8BEE22F5AAAE} = {FBF884B2-363D-4D91-A063-CB32ECDFBF7E}
 	EndGlobalSection
 EndGlobal
