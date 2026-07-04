@@ -1,3 +1,5 @@
+using OpenTelemetry.Exporter;
+
 namespace Gsag.Transactional.Observability;
 
 /// <summary>
@@ -54,6 +56,11 @@ public sealed class ObservabilityOptions
 public sealed class TraceProviderOptions
 {
     /// <summary>
+    /// Trace export protocol used when tracing is enabled.
+    /// </summary>
+    public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.Grpc;
+
+    /// <summary>
     /// Trace export endpoint used when tracing is enabled.
     /// </summary>
     public string Endpoint { get; set; } = "http://localhost:4317";
@@ -64,6 +71,11 @@ public sealed class TraceProviderOptions
 /// </summary>
 public sealed class MetricsProviderOptions
 {
+    /// <summary>
+    /// Metrics export protocol used when metrics are enabled.
+    /// </summary>
+    public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.Grpc;
+
     /// <summary>
     /// Metrics export endpoint used when metrics are enabled.
     /// </summary>

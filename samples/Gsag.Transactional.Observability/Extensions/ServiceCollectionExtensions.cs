@@ -41,18 +41,44 @@ public static class ServiceCollectionExtensions
 
         if (options.EnableTracing)
         {
+            var tracesEndpoint = CreateEndpoint(options.Traces.Endpoint, "Traces.Endpoint");
+
             builder.WithTracing(tracing => tracing
                 .SetResourceBuilder(resourceBuilder)
-                .AddSource(OpenTelemetryConventions.InstrumentationName));
+                .AddSource(OpenTelemetryConventions.InstrumentationName)
+                .AddOtlpExporter(exporter =>
+                {
+                    exporter.Protocol = options.Traces.Protocol;
+                    exporter.Endpoint = tracesEndpoint;
+                }));
         }
 
         if (options.EnableMetrics)
         {
+            var metricsEndpoint = CreateEndpoint(options.Metrics.Endpoint, "Metrics.Endpoint");
+
             builder.WithMetrics(metrics => metrics
                 .SetResourceBuilder(resourceBuilder)
-                .AddMeter(OpenTelemetryConventions.InstrumentationName));
+                .AddMeter(OpenTelemetryConventions.InstrumentationName)
+                .AddOtlpExporter(exporter =>
+                {
+                    exporter.Protocol = options.Metrics.Protocol;
+                    exporter.Endpoint = metricsEndpoint;
+                }));
         }
 
         return services;
+    }
+
+    private static Uri CreateEndpoint(string endpoint, string optionName)
+    {
+        if (Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+        {
+            return uri;
+        }
+
+        throw new ArgumentException(
+            $"Observability option '{optionName}' must be an absolute URI.",
+            optionName);
     }
 }

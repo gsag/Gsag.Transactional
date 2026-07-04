@@ -56,4 +56,66 @@ public class ServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
         Assert.NotEmpty(provider.GetServices<IHostedService>());
     }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithCustomGrpcOtlpEndpoints_ConfiguresPipeline()
+    {
+        var services = new ServiceCollection();
+
+        services.AddObservabilityPipeline(options =>
+        {
+            options.EnableTracing = true;
+            options.EnableMetrics = true;
+            options.Traces.Endpoint = "http://localhost:4317";
+            options.Metrics.Endpoint = "http://localhost:4317";
+        });
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithInvalidDisabledSignalEndpoint_ConfiguresPipeline()
+    {
+        var services = new ServiceCollection();
+
+        services.AddObservabilityPipeline(options =>
+        {
+            options.EnableTracing = true;
+            options.Metrics.Endpoint = "not-a-uri";
+        });
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithInvalidTraceEndpoint_ThrowsArgumentException()
+    {
+        var services = new ServiceCollection();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            services.AddObservabilityPipeline(options =>
+            {
+                options.EnableTracing = true;
+                options.Traces.Endpoint = "not-a-uri";
+            }));
+
+        Assert.Equal("Traces.Endpoint", exception.ParamName);
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithInvalidMetricsEndpoint_ThrowsArgumentException()
+    {
+        var services = new ServiceCollection();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            services.AddObservabilityPipeline(options =>
+            {
+                options.EnableMetrics = true;
+                options.Metrics.Endpoint = "not-a-uri";
+            }));
+
+        Assert.Equal("Metrics.Endpoint", exception.ParamName);
+    }
 }
