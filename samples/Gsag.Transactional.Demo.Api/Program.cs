@@ -20,7 +20,11 @@ builder.Services.AddScoped<HookOutputCollector>();
 builder.Services.AddScoped<InMemoryEventBus>();
 builder.Services.AddScoped<IEventBus>(sp => sp.GetRequiredService<InMemoryEventBus>());
 
-builder.Services.AddObservabilityPipeline();
+builder.Services.AddObservabilityPipeline(options =>
+{
+    options.EnableTracing = true;
+    options.EnableMetrics = true;
+});
 
 // Configure transactional services: the calling assembly is automatically scanned
 // for service classes with [Transactional] methods and I{Name} interface (OrderService,
