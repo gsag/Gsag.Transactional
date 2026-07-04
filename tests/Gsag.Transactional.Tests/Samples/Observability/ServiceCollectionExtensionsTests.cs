@@ -32,7 +32,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddObservabilityPipeline_WithConfigurationSection_BindsOptionsAndRegistersPipeline()
+    public void AddObservabilityPipeline_WithConfiguration_BindsOptionsAndRegistersPipeline()
     {
         var services = new ServiceCollection();
         var configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -44,6 +44,24 @@ public class ServiceCollectionExtensionsTests
         });
 
         services.AddObservabilityPipeline(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithConfigurationSection_BindsOptionsAndRegistersPipeline()
+    {
+        var services = new ServiceCollection();
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Observability:EnableTracing"] = "true",
+            ["Observability:EnableMetrics"] = "true",
+            ["Observability:Traces:Endpoint"] = "http://localhost:4317",
+            ["Observability:Metrics:Endpoint"] = "http://localhost:4317"
+        });
+
+        services.AddObservabilityPipeline(configuration.GetSection("Observability"));
 
         using var provider = services.BuildServiceProvider();
         Assert.NotEmpty(provider.GetServices<IHostedService>());
