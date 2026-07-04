@@ -1,4 +1,5 @@
 using Gsag.Transactional.Observability.Extensions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
@@ -16,6 +17,36 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
         Assert.Empty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithConfigurationMissingObservabilitySection_DoesNotRegisterHostedOpenTelemetryPipeline()
+    {
+        var services = new ServiceCollection();
+        var configuration = CreateConfiguration([]);
+
+        services.AddObservabilityPipeline(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.Empty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithConfigurationSection_BindsOptionsAndRegistersPipeline()
+    {
+        var services = new ServiceCollection();
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Observability:EnableTracing"] = "true",
+            ["Observability:EnableMetrics"] = "true",
+            ["Observability:Traces:Endpoint"] = "http://localhost:4317",
+            ["Observability:Metrics:Endpoint"] = "http://localhost:4317"
+        });
+
+        services.AddObservabilityPipeline(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
     }
 
     [Fact]
@@ -118,4 +149,9 @@ public class ServiceCollectionExtensionsTests
 
         Assert.Equal("Metrics.Endpoint", exception.ParamName);
     }
+
+    private static IConfiguration CreateConfiguration(Dictionary<string, string?> values) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
 }

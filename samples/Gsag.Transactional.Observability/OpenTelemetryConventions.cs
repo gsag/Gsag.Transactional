@@ -8,6 +8,13 @@ internal static class OpenTelemetryConventions
 
     internal const string InstrumentationName = DomainPrefix;
 
+    internal static class Configuration
+    {
+        internal const string SectionName = "Observability";
+        internal const string TracesEndpoint = "Traces.Endpoint";
+        internal const string MetricsEndpoint = "Metrics.Endpoint";
+    }
+
     internal static class Activities
     {
         internal const string Transaction = TransactionPrefix;

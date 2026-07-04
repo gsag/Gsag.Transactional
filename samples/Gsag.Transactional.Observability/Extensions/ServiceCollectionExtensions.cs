@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -15,6 +16,31 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddObservabilityPipeline(this IServiceCollection services) =>
         services.AddObservabilityPipeline(configure: null);
+
+    /// <summary>
+    /// Adds the OpenTelemetry pipeline that listens to transactional observability instruments.
+    /// </summary>
+    public static IServiceCollection AddObservabilityPipeline(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        return services.AddObservabilityPipeline(
+            configuration.GetSection(OpenTelemetryConventions.Configuration.SectionName));
+    }
+
+    /// <summary>
+    /// Adds the OpenTelemetry pipeline that listens to transactional observability instruments.
+    /// </summary>
+    public static IServiceCollection AddObservabilityPipeline(
+        this IServiceCollection services,
+        IConfigurationSection configurationSection)
+    {
+        ArgumentNullException.ThrowIfNull(configurationSection);
+
+        return services.AddObservabilityPipeline(configurationSection.Bind);
+    }
 
     /// <summary>
     /// Adds the OpenTelemetry pipeline that listens to transactional observability instruments.
@@ -41,7 +67,9 @@ public static class ServiceCollectionExtensions
 
         if (options.EnableTracing)
         {
-            var tracesEndpoint = CreateEndpoint(options.Traces.Endpoint, "Traces.Endpoint");
+            var tracesEndpoint = CreateEndpoint(
+                options.Traces.Endpoint,
+                OpenTelemetryConventions.Configuration.TracesEndpoint);
 
             builder.WithTracing(tracing => tracing
                 .SetResourceBuilder(resourceBuilder)
@@ -55,7 +83,9 @@ public static class ServiceCollectionExtensions
 
         if (options.EnableMetrics)
         {
-            var metricsEndpoint = CreateEndpoint(options.Metrics.Endpoint, "Metrics.Endpoint");
+            var metricsEndpoint = CreateEndpoint(
+                options.Metrics.Endpoint,
+                OpenTelemetryConventions.Configuration.MetricsEndpoint);
 
             builder.WithMetrics(metrics => metrics
                 .SetResourceBuilder(resourceBuilder)
