@@ -5,12 +5,21 @@ namespace Gsag.Transactional.Demo.Api.Infrastructure;
 
 internal class EnvironmentBootstrapper
 {
+    private static readonly HttpClient HealthClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(2)
+    };
+
+    private static readonly Uri CollectorHealthUri = new("http://localhost:13133/");
+    private static readonly Uri JaegerUiUri = new("http://localhost:16686/");
+    private static readonly Uri PrometheusReadyUri = new("http://localhost:9090/-/ready");
+
     private readonly ILogger<EnvironmentBootstrapper> _logger;
     private readonly int _maxRetries;
     private readonly int _delayMs;
     private static readonly string ContainerFile = Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
 
-    public EnvironmentBootstrapper(ILogger<EnvironmentBootstrapper> logger, int maxRetries = 10, int delayMs = 1000)
+    public EnvironmentBootstrapper(ILogger<EnvironmentBootstrapper> logger, int maxRetries = 30, int delayMs = 1000)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _maxRetries = maxRetries;
@@ -24,6 +33,7 @@ internal class EnvironmentBootstrapper
             if (await IsDatabaseAccessibleAsync(connectionString))
             {
                 _logger.LogInformation("Database is ready");
+                await EnsureObservabilityStackIsReadyAsync();
                 return;
             }
 
@@ -39,6 +49,24 @@ internal class EnvironmentBootstrapper
         var totalSeconds = _maxRetries * _delayMs / 1000;
         _logger.LogError("Database failed to start after {TotalSeconds} seconds", totalSeconds);
         throw new InvalidOperationException($"Database failed to start after {totalSeconds} seconds. Ensure Docker is running and docker-compose.yml is accessible.");
+    }
+
+    private async Task EnsureObservabilityStackIsReadyAsync()
+    {
+        for (int i = 0; i < _maxRetries; i++)
+        {
+            if (await IsObservabilityStackReadyAsync())
+            {
+                _logger.LogInformation("Observability stack is ready");
+                return;
+            }
+
+            await Task.Delay(_delayMs);
+        }
+
+        var totalSeconds = _maxRetries * _delayMs / 1000;
+        _logger.LogError("Observability stack failed to become ready after {TotalSeconds} seconds", totalSeconds);
+        throw new InvalidOperationException($"Observability stack failed to become ready after {totalSeconds} seconds. Check the Collector, Jaeger and Prometheus containers.");
     }
 
     internal async Task StopContainerAsync()
@@ -60,6 +88,26 @@ internal class EnvironmentBootstrapper
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Database connection attempt failed");
+            return false;
+        }
+    }
+
+    private async Task<bool> IsObservabilityStackReadyAsync()
+    {
+        return await IsEndpointReadyAsync(CollectorHealthUri)
+            && await IsEndpointReadyAsync(JaegerUiUri)
+            && await IsEndpointReadyAsync(PrometheusReadyUri);
+    }
+
+    private static async Task<bool> IsEndpointReadyAsync(Uri endpoint)
+    {
+        try
+        {
+            using var response = await HealthClient.GetAsync(endpoint, HttpCompletionOption.ResponseHeadersRead);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
             return false;
         }
     }
