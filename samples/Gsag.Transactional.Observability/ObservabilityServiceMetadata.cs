@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 
 namespace Gsag.Transactional.Observability;
@@ -23,7 +24,81 @@ internal static class ObservabilityServiceMetadataResolver
     private static string? ResolveServiceVersion(ObservabilityOptions options, Assembly? entryAssembly) =>
         FirstNonEmpty(
             options.ServiceVersion,
-            entryAssembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+            ResolveGitTagVersion(),
+            ResolveAssemblyVersion(entryAssembly));
+
+    private static string? ResolveAssemblyVersion(Assembly? entryAssembly)
+    {
+        var informationalVersion = entryAssembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        return IsDefaultGeneratedVersion(informationalVersion) ? null : informationalVersion;
+    }
+
+    private static string? ResolveGitTagVersion()
+    {
+        var repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);
+        if (repositoryRoot is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            processInfo.ArgumentList.Add("-C");
+            processInfo.ArgumentList.Add(repositoryRoot);
+            processInfo.ArgumentList.Add("tag");
+            processInfo.ArgumentList.Add("--list");
+            processInfo.ArgumentList.Add("--sort=-version:refname");
+
+            using var process = Process.Start(processInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(2000);
+            if (process.ExitCode != 0)
+            {
+                return null;
+            }
+
+            return output
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? FindRepositoryRoot(string baseDirectory)
+    {
+        var current = new DirectoryInfo(baseDirectory);
+        while (current is not null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, ".git")) || File.Exists(Path.Combine(current.FullName, ".git")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    private static bool IsDefaultGeneratedVersion(string? version) =>
+        string.IsNullOrWhiteSpace(version) || version == "1.0.0";
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));

@@ -19,6 +19,10 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: gsag-transactional-jaeger
+    command:
+      - "--query.ui-config=/etc/jaeger/ui-config.json"
+    volumes:
+      - ./jaeger-ui-config.json:/etc/jaeger/ui-config.json:ro
     ports:
       - "16686:16686"
       - "14250:14250"

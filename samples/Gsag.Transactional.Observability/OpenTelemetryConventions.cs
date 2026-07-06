@@ -1,50 +1,61 @@
 namespace Gsag.Transactional.Observability;
 
-internal static class OpenTelemetryConventions
+public static class OpenTelemetryConventions
 {
     private const string DomainPrefix = "gsag.transactional";
     private const string TransactionPrefix = $"{DomainPrefix}.transaction";
     private const string TagPrefix = DomainPrefix;
 
-    internal const string InstrumentationName = DomainPrefix;
+    public const string InstrumentationName = DomainPrefix;
 
-    internal static class Configuration
+    public static class Configuration
     {
-        internal const string SectionName = "Observability";
-        internal const string TracesEndpoint = "Traces.Endpoint";
-        internal const string MetricsEndpoint = "Metrics.Endpoint";
+        public const string SectionName = "Observability";
+        public const string TracesEndpoint = "Traces.Endpoint";
+        public const string MetricsEndpoint = "Metrics.Endpoint";
     }
 
-    internal static class Activities
+    public static class Activities
     {
-        internal const string Transaction = TransactionPrefix;
+        public const string Transaction = TransactionPrefix;
     }
 
-    internal static class Metrics
+    public static class Metrics
     {
-        internal const string TransactionTotal = $"{TransactionPrefix}.total";
-        internal const string TransactionCommitted = $"{TransactionPrefix}.committed";
-        internal const string TransactionRolledBack = $"{TransactionPrefix}.rolled_back";
-        internal const string TransactionDurationMs = $"{TransactionPrefix}.duration_ms";
+        public const string TransactionTotal = $"{TransactionPrefix}.total";
+        public const string TransactionCommitted = $"{TransactionPrefix}.committed";
+        public const string TransactionRolledBack = $"{TransactionPrefix}.rolled_back";
+        public const string TransactionDurationMs = $"{TransactionPrefix}.duration_ms";
     }
 
-    internal static class Tags
+    public static class Tags
     {
-        internal const string Method = $"{TagPrefix}.method";
-        internal const string DeclaringType = $"{TagPrefix}.declaring_type";
-        internal const string Propagation = $"{TagPrefix}.propagation";
-        internal const string IsolationLevel = $"{TagPrefix}.isolation_level";
-        internal const string TimeoutSeconds = $"{TagPrefix}.timeout_seconds";
-        internal const string Outcome = $"{TagPrefix}.outcome";
-        internal const string Committed = $"{TagPrefix}.committed";
-        internal const string DurationMs = $"{TagPrefix}.duration_ms";
-        internal const string ExceptionType = "exception.type";
-        internal const string ExceptionMessage = "exception.message";
+        public const string Method = $"{TagPrefix}.method";
+        public const string DeclaringType = $"{TagPrefix}.declaring_type";
+        public const string Propagation = $"{TagPrefix}.propagation";
+        public const string IsolationLevel = $"{TagPrefix}.isolation_level";
+        public const string TimeoutSeconds = $"{TagPrefix}.timeout_seconds";
+        public const string Outcome = $"{TagPrefix}.outcome";
+        public const string Committed = $"{TagPrefix}.committed";
+        public const string DurationMs = $"{TagPrefix}.duration_ms";
+        public const string ExceptionType = "exception.type";
+        public const string ExceptionMessage = "exception.message";
     }
 
-    internal static class Outcomes
+    public static class Database
     {
-        internal const string Committed = "committed";
-        internal const string RolledBack = "rolled_back";
+        public const string SaveChangesActivity = $"{DomainPrefix}.database.save_changes";
+        public const string DbSystem = "db.system";
+        public const string Operation = "db.operation";
+        public const string AffectedEntries = $"{TagPrefix}.database.affected_entries";
+        public const string AffectedRows = $"{TagPrefix}.database.affected_rows";
+        public const string PostgresSystem = "postgresql";
+        public const string SaveChangesOperation = "save_changes";
+    }
+
+    public static class Outcomes
+    {
+        public const string Committed = "committed";
+        public const string RolledBack = "rolled_back";
     }
 }

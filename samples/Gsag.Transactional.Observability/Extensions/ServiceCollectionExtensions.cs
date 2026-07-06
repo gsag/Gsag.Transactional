@@ -72,6 +72,7 @@ public static class ServiceCollectionExtensions
                 OpenTelemetryConventions.Configuration.TracesEndpoint);
 
             builder.WithTracing(tracing => tracing
+                .SetSampler(new AlwaysOnSampler())
                 .SetResourceBuilder(resourceBuilder)
                 .AddSource(OpenTelemetryConventions.InstrumentationName)
                 .AddOtlpExporter(exporter =>
