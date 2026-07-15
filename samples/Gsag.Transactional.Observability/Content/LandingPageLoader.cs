@@ -1,10 +1,10 @@
 using System.Reflection;
 
-namespace Gsag.Transactional.Observability.Extensions;
+namespace Gsag.Transactional.Observability.Content;
 
-internal static class LandingPageHtml
+internal static class LandingPageLoader
 {
-    private const string ResourceName = "Gsag.Transactional.Observability.Extensions.landing-page.html";
+    private const string ResourceName = "Gsag.Transactional.Observability.Content.landing-page.html";
 
     internal static string Content =>
         Assembly.GetExecutingAssembly()

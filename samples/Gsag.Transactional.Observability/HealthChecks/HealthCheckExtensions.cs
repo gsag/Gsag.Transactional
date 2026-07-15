@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Gsag.Transactional.Observability.Extensions;
+namespace Gsag.Transactional.Observability.HealthChecks;
 
 /// <summary>
 /// Extension methods for configuring health checks for the observability stack.

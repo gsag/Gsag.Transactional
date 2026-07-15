@@ -16,13 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Extensions\landing-page.html" LogicalName="Gsag.Transactional.Observability.Extensions.landing-page.html" />
+    <EmbeddedResource Include="Content\landing-page.html" LogicalName="Gsag.Transactional.Observability.Content.landing-page.html" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
   </ItemGroup>

@@ -1,11 +1,12 @@
 using System.Text.Json;
+using Gsag.Transactional.Observability.Content;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Gsag.Transactional.Observability.Extensions;
+namespace Gsag.Transactional.Observability.Startup;
 
 internal sealed class ObservabilityStartupFilter : IStartupFilter
 {
@@ -17,7 +18,7 @@ internal sealed class ObservabilityStartupFilter : IStartupFilter
                 inner.Run(ctx =>
                 {
                     ctx.Response.ContentType = "text/html; charset=utf-8";
-                    return ctx.Response.WriteAsync(LandingPageHtml.Content);
+                    return ctx.Response.WriteAsync(LandingPageLoader.Content);
                 }));
 
             app.MapWhen(ctx => ctx.Request.Path == "/health/ready", inner =>

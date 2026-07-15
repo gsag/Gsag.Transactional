@@ -1,7 +1,10 @@
+using Gsag.Transactional.Observability.HealthChecks;
+using Gsag.Transactional.Observability.Startup;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -82,6 +85,7 @@ public static class ServiceCollectionExtensions
                 .SetSampler(new AlwaysOnSampler())
                 .SetResourceBuilder(resourceBuilder)
                 .AddSource(OpenTelemetryConventions.InstrumentationName)
+                .AddAspNetCoreInstrumentation()
                 .AddOtlpExporter(exporter =>
                 {
                     exporter.Protocol = options.Traces.Protocol;
@@ -114,11 +118,15 @@ public static class ServiceCollectionExtensions
             services.AddLogging(logging => logging.AddSerilog(dispose: true));
 
             builder.WithLogging(logging => logging
+                .SetResourceBuilder(resourceBuilder)
                 .AddOtlpExporter(exporter =>
                 {
                     exporter.Protocol = options.Logs.Protocol;
                     exporter.Endpoint = logsEndpoint;
                 }));
+
+            services.Configure<OpenTelemetryLoggerOptions>(loggingOptions =>
+                loggingOptions.IncludeFormattedMessage = true);
         }
 
         return services;
