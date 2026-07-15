@@ -11,6 +11,8 @@ internal sealed class ObservabilityStartupFilter : IStartupFilter
     {
         return app =>
         {
+            app.UseRouting();
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapObservabilityHealthChecks();
