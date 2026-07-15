@@ -45,7 +45,7 @@ internal static class ObservabilityServiceMetadataResolver
         {
             var processInfo = new ProcessStartInfo
             {
-                FileName = "git",
+                FileName = ResolveGitPath(),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -95,6 +95,30 @@ internal static class ObservabilityServiceMetadataResolver
         }
 
         return null;
+    }
+
+    private static string ResolveGitPath()
+    {
+        var command = Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which";
+
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = command,
+            ArgumentList = { "git" },
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        });
+
+        var output = process?.StandardOutput.ReadToEnd().Trim();
+        process?.WaitForExit(2000);
+
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            return output.Split('\n')[0].Trim();
+        }
+
+        return "git";
     }
 
     private static bool IsDefaultGeneratedVersion(string? version) =>

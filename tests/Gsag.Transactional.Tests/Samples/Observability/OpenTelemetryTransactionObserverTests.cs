@@ -39,7 +39,7 @@ public class OpenTelemetryTransactionObserverTests
         Assert.Equal(IsolationLevel.ReadCommitted.ToString(), activity.GetTagItem("gsag.transactional.isolation_level"));
         Assert.Equal(30, activity.GetTagItem("gsag.transactional.timeout_seconds"));
         Assert.Equal("committed", activity.GetTagItem("gsag.transactional.outcome"));
-        Assert.Equal(true, activity.GetTagItem("gsag.transactional.committed"));
+        Assert.True((bool)activity.GetTagItem("gsag.transactional.committed")!);
         Assert.Equal(ActivityStatusCode.Ok, activity.Status);
     }
 
@@ -60,7 +60,7 @@ public class OpenTelemetryTransactionObserverTests
         Assert.Equal("rolled_back", activity.GetTagItem("gsag.transactional.outcome"));
         Assert.Equal(typeof(InvalidOperationException).FullName, activity.GetTagItem("exception.type"));
         Assert.Equal("payment failed", activity.GetTagItem("exception.message"));
-        Assert.Equal(false, activity.GetTagItem("gsag.transactional.committed"));
+        Assert.False((bool)activity.GetTagItem("gsag.transactional.committed")!);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Equal("payment failed", activity.StatusDescription);
     }
@@ -107,8 +107,8 @@ public class OpenTelemetryTransactionObserverTests
         Assert.Equal(2, stoppedActivities.Count);
         var first = Assert.Single(stoppedActivities, a => a.GetTagItem("gsag.transactional.method")?.ToString() == "First");
         var second = Assert.Single(stoppedActivities, a => a.GetTagItem("gsag.transactional.method")?.ToString() == "Second");
-        Assert.Equal(true, first.GetTagItem("gsag.transactional.committed"));
-        Assert.Equal(false, second.GetTagItem("gsag.transactional.committed"));
+        Assert.True((bool)first.GetTagItem("gsag.transactional.committed")!);
+        Assert.False((bool)second.GetTagItem("gsag.transactional.committed")!);
     }
 
     [Fact]
@@ -131,8 +131,8 @@ public class OpenTelemetryTransactionObserverTests
         Assert.Equal(2, stoppedActivities.Count);
         var outerActivity = Assert.Single(stoppedActivities, a => a.GetTagItem("gsag.transactional.method")?.ToString() == "Outer");
         var innerActivity = Assert.Single(stoppedActivities, a => a.GetTagItem("gsag.transactional.method")?.ToString() == "Inner");
-        Assert.Equal(true, outerActivity.GetTagItem("gsag.transactional.committed"));
-        Assert.Equal(true, innerActivity.GetTagItem("gsag.transactional.committed"));
+        Assert.True((bool)outerActivity.GetTagItem("gsag.transactional.committed")!);
+        Assert.True((bool)innerActivity.GetTagItem("gsag.transactional.committed")!);
         Assert.Equal(TransactionScopeOption.Required.ToString(), outerActivity.GetTagItem("gsag.transactional.propagation"));
         Assert.Equal(TransactionScopeOption.RequiresNew.ToString(), innerActivity.GetTagItem("gsag.transactional.propagation"));
     }

@@ -90,7 +90,7 @@ internal class EnvironmentBootstrapper
         }
     }
 
-    private async Task<bool> IsObservabilityStackReadyAsync()
+    private static async Task<bool> IsObservabilityStackReadyAsync()
     {
         return await IsEndpointReadyAsync(GrafanaHealthUri);
     }
