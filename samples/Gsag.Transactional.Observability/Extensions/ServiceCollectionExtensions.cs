@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -27,6 +29,9 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddObservabilityHealthChecks(configuration);
+        services.AddSingleton<IStartupFilter, ObservabilityStartupFilter>();
 
         return services.AddObservabilityPipeline(
             configuration.GetSection(OpenTelemetryConventions.Configuration.SectionName));
