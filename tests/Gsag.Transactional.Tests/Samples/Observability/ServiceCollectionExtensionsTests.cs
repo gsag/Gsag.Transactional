@@ -1,7 +1,9 @@
 using Gsag.Transactional.Observability.Extensions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Gsag.Transactional.Tests.Samples.Observability;
@@ -20,21 +22,23 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddObservabilityPipeline_WithConfigurationMissingObservabilitySection_DoesNotRegisterHostedOpenTelemetryPipeline()
+    public void AddObservabilityPipeline_WithConfigurationMissingObservabilitySection_RegistersStartupFilter()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         var configuration = CreateConfiguration([]);
 
         services.AddObservabilityPipeline(configuration);
 
         using var provider = services.BuildServiceProvider();
-        Assert.Empty(provider.GetServices<IHostedService>());
+        Assert.NotNull(provider.GetService<IStartupFilter>());
     }
 
     [Fact]
     public void AddObservabilityPipeline_WithConfiguration_BindsOptionsAndRegistersPipeline()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
             ["Observability:EnableTracing"] = "true",
@@ -47,6 +51,7 @@ public class ServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
         Assert.NotEmpty(provider.GetServices<IHostedService>());
+        Assert.NotNull(provider.GetService<IStartupFilter>());
     }
 
     [Fact]
@@ -166,6 +171,49 @@ public class ServiceCollectionExtensionsTests
             }));
 
         Assert.Equal("Metrics.Endpoint", exception.ParamName);
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WhenLogsAreEnabled_RegistersHostedOpenTelemetryPipeline()
+    {
+        var services = new ServiceCollection();
+
+        services.AddObservabilityPipeline(options => options.EnableLogs = true);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithInvalidLogsEndpoint_ThrowsArgumentException()
+    {
+        var services = new ServiceCollection();
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            services.AddObservabilityPipeline(options =>
+            {
+                options.EnableLogs = true;
+                options.Logs.Endpoint = "not-a-uri";
+            }));
+
+        Assert.Equal("Logs.Endpoint", exception.ParamName);
+    }
+
+    [Fact]
+    public void AddObservabilityPipeline_WithLogsEnabledViaConfiguration_RegistersPipeline()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Observability:EnableLogs"] = "true",
+            ["Observability:Logs:Endpoint"] = "http://localhost:4317"
+        });
+
+        services.AddObservabilityPipeline(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.NotEmpty(provider.GetServices<IHostedService>());
     }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values) =>
