@@ -1,18 +1,8 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-
 namespace Gsag.Transactional.Observability.Extensions;
 
-internal static class LandingPageExtensions
+internal static class LandingPageHtml
 {
-    internal static IEndpointRouteBuilder MapObservabilityDashboard(this IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapGet("/", () => Results.Content(DashboardHtml, "text/html; charset=utf-8"));
-        return endpoints;
-    }
-
-    private const string DashboardHtml = """
+    internal const string Content = """
         <!DOCTYPE html>
         <html lang="en">
         <head>

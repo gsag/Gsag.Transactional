@@ -1,9 +1,6 @@
 using System.Data.Common;
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -40,48 +37,6 @@ internal static class HealthCheckExtensions
         services.AddSingleton(new PostgreSqlHealthCheck(connectionString ?? string.Empty));
 
         return services;
-    }
-
-    /// <summary>
-    /// Maps the observability health check endpoints.
-    /// </summary>
-    internal static IEndpointRouteBuilder MapObservabilityHealthChecks(this IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions
-        {
-            Predicate = check => check.Tags.Contains("ready"),
-            ResponseWriter = WriteHealthCheckResponse
-        });
-
-        endpoints.MapHealthChecks("/health/live", new HealthCheckOptions
-        {
-            Predicate = _ => false,
-            ResponseWriter = WriteHealthCheckResponse
-        });
-
-        return endpoints;
-    }
-
-    private static async Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
-    {
-        context.Response.ContentType = "application/json; charset=utf-8";
-
-        var result = new Dictionary<string, object>
-        {
-            ["status"] = report.Status.ToString(),
-            ["totalDuration"] = report.TotalDuration.TotalMilliseconds,
-            ["checks"] = report.Entries.Select(e => new Dictionary<string, object>
-            {
-                ["name"] = e.Key,
-                ["status"] = e.Value.Status.ToString(),
-                ["duration"] = e.Value.Duration.TotalMilliseconds,
-                ["description"] = e.Value.Description ?? string.Empty,
-                ["exception"] = e.Value.Exception?.Message ?? string.Empty
-            }).ToList()
-        };
-
-        await context.Response.WriteAsync(
-            JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
     }
 }
 
