@@ -26,8 +26,34 @@ internal sealed class ObservabilityStartupFilter : IStartupFilter
             app.MapWhen(ctx => ctx.Request.Path == "/health/live", inner =>
                 inner.Run(ctx => HandleHealthCheckAsync(ctx, [])));
 
+            app.MapWhen(ctx => ctx.Request.Path == "/health/ready/badge", inner =>
+                inner.Run(ctx => HandleHealthBadgeAsync(ctx, ["ready"])));
+
+            app.MapWhen(ctx => ctx.Request.Path == "/health/live/badge", inner =>
+                inner.Run(ctx => HandleHealthBadgeAsync(ctx, [])));
+
             next(app);
         };
+    }
+
+    private static async Task HandleHealthBadgeAsync(HttpContext context, string[] tags)
+    {
+        var healthCheckService = context.RequestServices.GetRequiredService<HealthCheckService>();
+
+        var report = await healthCheckService.CheckHealthAsync(
+            predicate: tags.Length == 0 ? null : check => check.Tags.Contains(tags[0]),
+            cancellationToken: context.RequestAborted);
+
+        var (cssClass, label) = report.Status switch
+        {
+            HealthStatus.Healthy => ("badge--healthy", "HEALTHY"),
+            HealthStatus.Degraded => ("badge--degraded", "DEGRADED"),
+            _ => ("badge--unhealthy", "UNHEALTHY")
+        };
+
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.WriteAsync(
+            $"""<span class="badge {cssClass}" hx-get="{context.Request.Path}" hx-trigger="every 5s" hx-swap="outerHTML">{label}</span>""");
     }
 
     private static async Task HandleHealthCheckAsync(HttpContext context, string[] tags)
