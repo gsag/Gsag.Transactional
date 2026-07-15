@@ -12,10 +12,6 @@ Or via the Package Manager Console:
 Install-Package Gsag.Transactional.Core
 ```
 
-Supported runtimes: **.NET 8** and **.NET 9**.
-
----
-
 ## DI Registration
 
 Call `AddTransactional` in `Program.cs`:

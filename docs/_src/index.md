@@ -22,7 +22,6 @@ dotnet add package Gsag.Transactional.Core
 
 ```csharp
 builder.Services.AddTransactional(b => b
-    .ScanAssembly(typeof(Program).Assembly)
     .AddLogging()  // optional — Debug + Warning via MEL
 );
 ```
