@@ -1,5 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -32,32 +31,10 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddObservabilityHealthChecks(configuration);
+        services.AddSingleton<IStartupFilter, ObservabilityStartupFilter>();
 
         return services.AddObservabilityPipeline(
             configuration.GetSection(OpenTelemetryConventions.Configuration.SectionName));
-    }
-
-    /// <summary>
-    /// Maps the observability dashboard and health check endpoints.
-    /// Call this after building the application and before running it.
-    /// </summary>
-    public static WebApplication MapObservabilityEndpoints(this WebApplication app)
-    {
-        app.MapHealthChecks("/health/ready", new()
-        {
-            Predicate = check => check.Tags.Contains("ready"),
-            ResponseWriter = HealthCheckResponseWriter.WriteAsync
-        });
-
-        app.MapHealthChecks("/health/live", new()
-        {
-            Predicate = _ => false,
-            ResponseWriter = HealthCheckResponseWriter.WriteAsync
-        });
-
-        app.MapGet("/", () => Results.Content(LandingPageHtml.Content, "text/html; charset=utf-8"));
-
-        return app;
     }
 
     /// <summary>

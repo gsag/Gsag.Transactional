@@ -60,7 +60,6 @@ app.UseSwaggerUI(c =>
 });
 
 app.MapControllers();
-app.MapObservabilityEndpoints();
 
 // Initialize database before running
 app.Lifetime.ApplicationStarted.Register(async () =>
