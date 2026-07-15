@@ -10,5 +10,7 @@
   href: rollback-rules.md
 - name: Limitations
   href: limitations.md
+- name: Observability
+  href: observability.md
 - name: Architecture
   href: architecture.md
