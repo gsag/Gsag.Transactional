@@ -196,4 +196,4 @@ dotnet run
 
 This starts PostgreSQL + Grafana LGTM, opens the landing page, and instruments all `[Transactional]` methods with OpenTelemetry tracing and metrics.
 
-See the [Demo API README](../../../samples/Gsag.Transactional.Demo.Api/README.md) for full endpoint documentation.
+See the Demo API README for full endpoint documentation.
