@@ -118,8 +118,11 @@ public static class OpenTelemetryConventions
     /// </summary>
     public static class Database
     {
+        /// <summary>Activity source name for database operations.</summary>
+        public const string ActivitySourceName = $"{DomainPrefix}.database";
+
         /// <summary>Activity name for SaveChanges operations.</summary>
-        public const string SaveChangesActivity = $"{DomainPrefix}.database.save_changes";
+        public const string SaveChangesActivity = $"{ActivitySourceName}.save_changes";
 
         /// <summary>Database system attribute (OpenTelemetry semantic convention).</summary>
         public const string DbSystem = "db.system";

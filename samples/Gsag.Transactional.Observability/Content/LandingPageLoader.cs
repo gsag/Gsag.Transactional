@@ -4,7 +4,7 @@ namespace Gsag.Transactional.Observability.Content;
 
 internal static class LandingPageLoader
 {
-    private const string ResourceName = "Gsag.Transactional.Observability.Content.landing-page.html";
+    private static readonly string ResourceName = $"{typeof(LandingPageLoader).Namespace}.landing-page.html";
 
     internal static string Content =>
         Assembly.GetExecutingAssembly()

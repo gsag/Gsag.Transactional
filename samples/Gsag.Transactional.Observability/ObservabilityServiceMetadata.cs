@@ -7,6 +7,7 @@ internal sealed record ObservabilityServiceMetadata(string ServiceName, string? 
 
 internal static class ObservabilityServiceMetadataResolver
 {
+    private static readonly Lazy<string> CachedGitPath = new(ResolveGitPath);
     internal static ObservabilityServiceMetadata Resolve(ObservabilityOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -45,7 +46,7 @@ internal static class ObservabilityServiceMetadataResolver
         {
             var processInfo = new ProcessStartInfo
             {
-                FileName = ResolveGitPath(),
+                FileName = CachedGitPath.Value,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

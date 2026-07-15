@@ -1,7 +1,7 @@
-using System.Data.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Npgsql;
 
 namespace Gsag.Transactional.Observability.HealthChecks;
 
@@ -74,10 +74,7 @@ internal sealed class PostgreSqlHealthCheck(string connectionString) : IHealthCh
 
         try
         {
-            var connectionType = Type.GetType("Npgsql.NpgsqlConnection, Npgsql")
-                ?? throw new InvalidOperationException("Npgsql driver not found.");
-
-            using var connection = (DbConnection)Activator.CreateInstance(connectionType, connectionString)!;
+            await using var connection = new NpgsqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
             return HealthCheckResult.Healthy("PostgreSQL is reachable.");
         }

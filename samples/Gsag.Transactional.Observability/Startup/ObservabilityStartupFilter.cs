@@ -8,29 +8,29 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Gsag.Transactional.Observability.Startup;
 
-internal sealed class ObservabilityStartupFilter : IStartupFilter
+internal sealed class ObservabilityStartupFilter(ObservabilityOptions options) : IStartupFilter
 {
     public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
     {
         return app =>
         {
-            app.MapWhen(ctx => ctx.Request.Path == "/", inner =>
+            app.MapWhen(ctx => ctx.Request.Path == options.LandingPagePath, inner =>
                 inner.Run(ctx =>
                 {
                     ctx.Response.ContentType = "text/html; charset=utf-8";
                     return ctx.Response.WriteAsync(LandingPageLoader.Content);
                 }));
 
-            app.MapWhen(ctx => ctx.Request.Path == "/health/ready", inner =>
+            app.MapWhen(ctx => ctx.Request.Path == options.HealthReadyPath, inner =>
                 inner.Run(ctx => HandleHealthCheckAsync(ctx, ["ready"])));
 
-            app.MapWhen(ctx => ctx.Request.Path == "/health/live", inner =>
+            app.MapWhen(ctx => ctx.Request.Path == options.HealthLivePath, inner =>
                 inner.Run(ctx => HandleHealthCheckAsync(ctx, [])));
 
-            app.MapWhen(ctx => ctx.Request.Path == "/health/ready/badge", inner =>
+            app.MapWhen(ctx => ctx.Request.Path == $"{options.HealthReadyPath}/badge", inner =>
                 inner.Run(ctx => HandleHealthBadgeAsync(ctx, ["ready"])));
 
-            app.MapWhen(ctx => ctx.Request.Path == "/health/live/badge", inner =>
+            app.MapWhen(ctx => ctx.Request.Path == $"{options.HealthLivePath}/badge", inner =>
                 inner.Run(ctx => HandleHealthBadgeAsync(ctx, [])));
 
             next(app);

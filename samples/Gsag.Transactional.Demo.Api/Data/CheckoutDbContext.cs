@@ -7,7 +7,7 @@ namespace Gsag.Transactional.Demo.Api.Data;
 
 public class CheckoutDbContext : DbContext
 {
-    private static readonly ActivitySource ActivitySource = new(OpenTelemetryConventions.InstrumentationName);
+    private static readonly ActivitySource ActivitySource = new(OpenTelemetryConventions.Database.ActivitySourceName);
 
     public CheckoutDbContext(DbContextOptions<CheckoutDbContext> options) : base(options)
     {

@@ -33,11 +33,14 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddObservabilityHealthChecks(configuration);
-        services.AddSingleton<IStartupFilter, ObservabilityStartupFilter>();
+        var section = configuration.GetSection(OpenTelemetryConventions.Configuration.SectionName);
+        var options = new ObservabilityOptions();
+        section.Bind(options);
 
-        return services.AddObservabilityPipeline(
-            configuration.GetSection(OpenTelemetryConventions.Configuration.SectionName));
+        services.AddObservabilityHealthChecks(configuration);
+        services.AddSingleton<IStartupFilter>(new ObservabilityStartupFilter(options));
+
+        return services.AddObservabilityPipeline(options);
     }
 
     /// <summary>
@@ -61,6 +64,17 @@ public static class ServiceCollectionExtensions
     {
         var options = new ObservabilityOptions();
         configure?.Invoke(options);
+        return services.AddObservabilityPipeline(options);
+    }
+
+    /// <summary>
+    /// Adds the OpenTelemetry pipeline that listens to transactional observability instruments.
+    /// </summary>
+    public static IServiceCollection AddObservabilityPipeline(
+        this IServiceCollection services,
+        ObservabilityOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
 
         if (!options.EnableTracing && !options.EnableMetrics && !options.EnableLogs)
         {
@@ -85,6 +99,7 @@ public static class ServiceCollectionExtensions
                 .SetSampler(new AlwaysOnSampler())
                 .SetResourceBuilder(resourceBuilder)
                 .AddSource(OpenTelemetryConventions.InstrumentationName)
+                .AddSource(OpenTelemetryConventions.Database.ActivitySourceName)
                 .AddAspNetCoreInstrumentation()
                 .AddOtlpExporter(exporter =>
                 {

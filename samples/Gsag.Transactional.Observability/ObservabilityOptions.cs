@@ -48,6 +48,21 @@ public sealed class ObservabilityOptions
     /// Logs provider configuration.
     /// </summary>
     public LogsProviderOptions Logs { get; set; } = new();
+
+    /// <summary>
+    /// Path for the landing page. Default is "/".
+    /// </summary>
+    public string LandingPagePath { get; set; } = "/";
+
+    /// <summary>
+    /// Path for the ready health check. Default is "/health/ready".
+    /// </summary>
+    public string HealthReadyPath { get; set; } = "/health/ready";
+
+    /// <summary>
+    /// Path for the live health check. Default is "/health/live".
+    /// </summary>
+    public string HealthLivePath { get; set; } = "/health/live";
 }
 
 /// <summary>
