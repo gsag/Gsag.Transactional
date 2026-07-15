@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Demo.Api.Data;
@@ -54,11 +53,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1");
-    c.RoutePrefix = "swagger";
-});
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
 
 app.MapControllers();
 app.MapObservabilityEndpoints();
@@ -77,16 +72,6 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
         await db.Database.EnsureCreatedAsync();
         logger.LogInformation("Database schema ensured");
-
-        if (app.Environment.IsDevelopment())
-        {
-            var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
-                   ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
-            if (url is not null)
-            {
-                Process.Start(new ProcessStartInfo(url!) { UseShellExecute = true });
-            }
-        }
     }
     catch (Exception ex)
     {
