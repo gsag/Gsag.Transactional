@@ -10,9 +10,7 @@ internal class EnvironmentBootstrapper
         Timeout = TimeSpan.FromSeconds(2)
     };
 
-    private static readonly Uri CollectorHealthUri = new("http://localhost:13133/");
-    private static readonly Uri JaegerUiUri = new("http://localhost:16686/");
-    private static readonly Uri PrometheusReadyUri = new("http://localhost:9090/-/ready");
+    private static readonly Uri GrafanaHealthUri = new("http://localhost:3000/api/health");
 
     private readonly ILogger<EnvironmentBootstrapper> _logger;
     private readonly int _maxRetries;
@@ -66,7 +64,7 @@ internal class EnvironmentBootstrapper
 
         var totalSeconds = _maxRetries * _delayMs / 1000;
         _logger.LogError("Observability stack failed to become ready after {TotalSeconds} seconds", totalSeconds);
-        throw new InvalidOperationException($"Observability stack failed to become ready after {totalSeconds} seconds. Check the Collector, Jaeger and Prometheus containers.");
+        throw new InvalidOperationException($"Observability stack failed to become ready after {totalSeconds} seconds. Check the Grafana LGTM container.");
     }
 
     internal async Task StopContainerAsync()
@@ -94,9 +92,7 @@ internal class EnvironmentBootstrapper
 
     private async Task<bool> IsObservabilityStackReadyAsync()
     {
-        return await IsEndpointReadyAsync(CollectorHealthUri)
-            && await IsEndpointReadyAsync(JaegerUiUri)
-            && await IsEndpointReadyAsync(PrometheusReadyUri);
+        return await IsEndpointReadyAsync(GrafanaHealthUri);
     }
 
     private static async Task<bool> IsEndpointReadyAsync(Uri endpoint)
