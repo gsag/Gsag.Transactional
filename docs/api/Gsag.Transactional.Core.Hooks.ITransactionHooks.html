@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/v0.5.2/apiSpec/new?filename=Gsag_Transactional_Core_Hooks_ITransactionHooks.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Hooks.ITransactionHooks%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/new/feature/demo-opentelemetry/apiSpec/new?filename=Gsag_Transactional_Core_Hooks_ITransactionHooks.md&amp;value=---%0Auid%3A%20Gsag.Transactional.Core.Hooks.ITransactionHooks%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -89,7 +89,7 @@
 
 
   <h1 id="Gsag_Transactional_Core_Hooks_ITransactionHooks" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks" class="text-break">
-Interface ITransactionHooks  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L23"><i class="bi bi-code-slash"></i></a>
+Interface ITransactionHooks  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L23"><i class="bi bi-code-slash"></i></a>
   </h1>
 
   <div class="facts text-secondary">
@@ -142,7 +142,7 @@ to use async hooks.</p>
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCommit_System_Action_" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Action)">
   AfterCommit(Action)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L75"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules a synchronous callback after the current transaction commits.
@@ -176,7 +176,7 @@ hook matters, combine both into a single <a class="xref" href="Gsag.Transactiona
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCommit_System_Func_System_Threading_Tasks_Task__" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCommit(System.Func{System.Threading.Tasks.Task})">
   AfterCommit(Func&lt;Task&gt;)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L83"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L83"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules an async callback after the current transaction commits.
@@ -211,7 +211,7 @@ Async hooks always execute after all sync hooks, regardless of registration orde
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCompletion_System_Action_" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Action)">
   AfterCompletion(Action)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L108"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L108"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules a synchronous callback that fires after the transaction resolves,
@@ -247,7 +247,7 @@ do not mask an already-propagating exception.</p>
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterCompletion_System_Func_System_Threading_Tasks_Task__" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterCompletion(System.Func{System.Threading.Tasks.Task})">
   AfterCompletion(Func&lt;Task&gt;)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L116"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L116"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules an async callback that fires after the transaction resolves,
@@ -282,7 +282,7 @@ Not supported inside synchronous [Transactional] methods — the proxy throws
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterRollback_System_Action_" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Action)">
   AfterRollback(Action)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L91"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L91"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules a synchronous callback after the current transaction rolls back.
@@ -317,7 +317,7 @@ mask the original rollback exception.</p>
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_AfterRollback_System_Func_System_Threading_Tasks_Task__" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.AfterRollback(System.Func{System.Threading.Tasks.Task})">
   AfterRollback(Func&lt;Task&gt;)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L99"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L99"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules an async callback after the current transaction rolls back.
@@ -352,7 +352,7 @@ Hook failures are suppressed so they do not mask the original rollback exception
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeCommit_System_Action_" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Action)">
   BeforeCommit(Action)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L30"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L30"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules a synchronous callback to run before the current transaction commits,
@@ -386,7 +386,7 @@ Does not fire on the rollback path.</p>
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeCommit_System_Func_System_Threading_Tasks_Task__" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeCommit(System.Func{System.Threading.Tasks.Task})">
   BeforeCommit(Func&lt;Task&gt;)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L42"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L42"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules an async callback to run before the current transaction commits,
@@ -425,7 +425,7 @@ Not supported inside synchronous [Transactional] methods — the proxy throws
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeRollback_System_Action_" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Action)">
   BeforeRollback(Action)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L54"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L54"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules a synchronous callback to run before the current transaction rolls back,
@@ -464,7 +464,7 @@ throws <code>TransactionAbortedException</code>, which is handled on the BeforeC
 
   <h3 id="Gsag_Transactional_Core_Hooks_ITransactionHooks_BeforeRollback_System_Func_System_Threading_Tasks_Task__" data-uid="Gsag.Transactional.Core.Hooks.ITransactionHooks.BeforeRollback(System.Func{System.Threading.Tasks.Task})">
   BeforeRollback(Func&lt;Task&gt;)
-  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L68"><i class="bi bi-code-slash"></i></a>
+  <a class="header-action link-secondary" title="View source" href="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/src/Gsag.Transactional.Core/Hooks/ITransactionHooks.cs/#L68"><i class="bi bi-code-slash"></i></a>
   </h3>
 
   <div class="markdown level1 summary"><p>Schedules an async callback to run before the current transaction rolls back,
