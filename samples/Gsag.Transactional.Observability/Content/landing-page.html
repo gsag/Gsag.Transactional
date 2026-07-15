@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Observability Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2/dist/htmx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js"></script>
+    <style>
+        :root {
+            --color-bg: #0f172a;
+            --color-surface: #1e293b;
+            --color-border: #334155;
+            --color-text: #e2e8f0;
+            --color-text-muted: #94a3b8;
+            --color-primary: #3b82f6;
+            --color-primary-glow: rgba(59, 130, 246, 0.15);
+            --badge-api: #1d4ed8;
+            --badge-stack: #7c3aed;
+            --badge-healthy: #059669;
+            --badge-unhealthy: #dc2626;
+            --badge-degraded: #d97706;
+            --space-xs: 0.15rem;
+            --space-sm: 0.5rem;
+            --space-md: 1.25rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2.5rem;
+            --space-2xl: 3rem;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-size-xs: 0.7rem;
+            --font-size-sm: 0.75rem;
+            --font-size-md: 0.875rem;
+            --font-size-lg: 1.1rem;
+            --font-size-xl: 2rem;
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --transition-fast: 0.15s;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--space-xl) var(--space-lg);
+        }
+
+        .dashboard__title {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+        }
+
+        .dashboard__subtitle {
+            color: var(--color-text-muted);
+            margin-bottom: var(--space-xl);
+            font-size: var(--font-size-lg);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-md);
+            max-width: 550px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            text-decoration: none;
+            color: inherit;
+            transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: var(--color-primary);
+            box-shadow: 0 4px 20px var(--color-primary-glow);
+        }
+
+        .card__icon {
+            width: 24px;
+            height: 24px;
+            stroke: var(--color-text);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .card__info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+        }
+
+        .card__title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge--api { background: var(--badge-api); }
+        .badge--stack { background: var(--badge-stack); }
+        .badge--healthy { background: var(--badge-healthy); }
+        .badge--unhealthy { background: var(--badge-unhealthy); }
+        .badge--degraded { background: var(--badge-degraded); }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="dashboard__title">Observability Dashboard</h1>
+    <p class="dashboard__subtitle">Gsag.Transactional &mdash; Demo API + OpenTelemetry</p>
+    <div class="grid">
+        <a class="card" href="/swagger">
+            <i data-lucide="braces" class="card__icon"></i>
+            <div class="card__info">
+                <span class="card__title">Swagger UI</span>
+                <span class="badge badge--api">API</span>
+            </div>
+        </a>
+        <a class="card" href="http://localhost:3000" target="_blank">
+            <i data-lucide="chart-line" class="card__icon"></i>
+            <div class="card__info">
+                <span class="card__title">Grafana</span>
+                <span class="badge badge--stack">Traces &middot; Metrics &middot; Logs</span>
+            </div>
+        </a>
+        <a class="card" href="/health/ready">
+            <i data-lucide="message-circle-check" class="card__icon"></i>
+            <div class="card__info">
+                <span class="card__title">Health &mdash; Ready</span>
+                <span class="badge"
+                      hx-get="/health/ready/badge"
+                      hx-trigger="every 5s"
+                      hx-swap="outerHTML">
+                    CHECKING...
+                </span>
+            </div>
+        </a>
+        <a class="card" href="/health/live">
+            <i data-lucide="heart-pulse" class="card__icon"></i>
+            <div class="card__info">
+                <span class="card__title">Health &mdash; Live</span>
+                <span class="badge"
+                      hx-get="/health/live/badge"
+                      hx-trigger="every 5s"
+                      hx-swap="outerHTML">
+                    CHECKING...
+                </span>
+            </div>
+        </a>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

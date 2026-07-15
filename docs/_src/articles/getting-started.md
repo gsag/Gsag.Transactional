@@ -48,9 +48,7 @@ public class OrderService : IOrderService
 
 ```csharp
 // Program.cs
-builder.Services.AddTransactional(b => b
-    .AddLogging()
-);
+builder.Services.AddTransactional(b => b.AddLogging());
 ```
 
 The **calling assembly is automatically scanned** to find `OrderService` and its interface `IOrderService`, then registers `IOrderService` as a `DispatchProxy`-wrapped transactional service. When you inject `IOrderService`, you receive the proxy.

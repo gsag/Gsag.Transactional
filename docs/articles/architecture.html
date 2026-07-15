@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/docs/_src/articles/architecture.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/docs/_src/articles/architecture.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -128,6 +128,7 @@
 <ul>
 <li><code>ValueTask</code> / <code>ValueTask&lt;T&gt;</code> — delegated to <code>AsyncHandler.ExecuteValueTask</code> / <code>AsyncHandler.ExecuteValueTaskGeneric</code></li>
 <li><code>Task</code> / <code>Task&lt;T&gt;</code> — delegated to <code>AsyncHandler.ExecuteTask</code></li>
+<li>Async-like return types not handled by the proxy — warning emitted, then target invoked directly without <code>TransactionScope</code></li>
 <li>Synchronous — delegated to <code>SyncHandler.Execute</code></li>
 </ul>
 <hr>

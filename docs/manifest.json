@@ -1,5 +1,5 @@
 {
-  "source_base_path": "D:/Workspace/github/Gsag.Transactional/docs/_src",
+  "source_base_path": "D:/Workspace/Gsag.Transactional/docs/_src",
   "xrefmap": "xrefmap.yml",
   "files": [
     {
@@ -209,6 +209,16 @@
       "output": {
         ".html": {
           "relative_path": "articles/limitations.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "articles/observability.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/observability.html"
         }
       },
       "version": ""

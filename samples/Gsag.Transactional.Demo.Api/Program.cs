@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using System.Reflection;
 using Gsag.Transactional.Core.Extensions;
 using Gsag.Transactional.Demo.Api.Data;
 using Gsag.Transactional.Demo.Api.Infrastructure;
+using Gsag.Transactional.Observability.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,13 +19,16 @@ builder.Services.AddScoped<HookOutputCollector>();
 builder.Services.AddScoped<InMemoryEventBus>();
 builder.Services.AddScoped<IEventBus>(sp => sp.GetRequiredService<InMemoryEventBus>());
 
+builder.Services.AddObservabilityPipeline(builder.Configuration);
+
 // Configure transactional services: the calling assembly is automatically scanned
 // for service classes with [Transactional] methods and I{Name} interface (OrderService,
 // InventoryService, PaymentService, AuditService, CheckoutService, InventoryReportService).
-// Two observers are registered and the proxy wraps them in CompositeTransactionObserver,
+// Three observers are registered and the proxy wraps them in CompositeTransactionObserver,
 // calling each in registration order.
 builder.Services.AddTransactional(b => b
     .AddLogging()                                 // LoggingTransactionObserver (MEL)
+    .AddObservability()
     .AddObserver<InMemoryMetricsObserver>());
 
 builder.Services.AddControllers();
@@ -50,7 +53,11 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1"));
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transactional Demo v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.MapControllers();
 
@@ -68,16 +75,6 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         var db = scope.ServiceProvider.GetRequiredService<CheckoutDbContext>();
         await db.Database.EnsureCreatedAsync();
         logger.LogInformation("Database schema ensured");
-
-        if (app.Environment.IsDevelopment())
-        {
-            var url = app.Urls.FirstOrDefault(u => u.StartsWith("https://"))
-                   ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
-            if (url is not null)
-            {
-                Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
-            }
-        }
     }
     catch (Exception ex)
     {

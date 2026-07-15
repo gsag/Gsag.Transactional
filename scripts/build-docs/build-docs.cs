@@ -79,7 +79,7 @@ bool VerifyDocfx()
 {
     try
     {
-        var exitCode = RunCommand("docfx", "--version", silent: true);
+        var exitCode = RunCommand("dotnet", "tool run docfx -- --version", silent: true);
         return exitCode == 0;
     }
     catch
@@ -119,10 +119,10 @@ bool CleanDocs(string docsDir)
 bool RunDocfx(string command)
 {
     var args = command == "metadata"
-        ? $"metadata \"{docfxConfigPath}\""
-        : $"\"{docfxConfigPath}\"";
+        ? $"tool run docfx -- metadata \"{docfxConfigPath}\""
+        : $"tool run docfx -- \"{docfxConfigPath}\"";
 
-    var exitCode = RunCommand("docfx", args);
+    var exitCode = RunCommand("dotnet", args);
     return exitCode == 0;
 }
 

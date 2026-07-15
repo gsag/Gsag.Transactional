@@ -16,7 +16,7 @@
       <meta name="docfx:rel" content="../">
       
       
-      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/v0.5.2/docs/_src/articles/limitations.md/#L1">
+      <meta name="docfx:docurl" content="https://github.com/gsag/Gsag.Transactional/blob/feature/demo-opentelemetry/docs/_src/articles/limitations.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -128,7 +128,7 @@ public class CheckoutService(IOrderService orders) { }
 <li><code>ValueTask&lt;T&gt;</code></li>
 <li>Synchronous (non-async) return types — runs synchronously, no async hook support</li>
 </ul>
-<p>Methods returning other types (e.g., <code>IAsyncEnumerable&lt;T&gt;</code>, custom awaitables) are not intercepted and are forwarded directly to the target.</p>
+<p>Methods returning other types (e.g., <code>IAsyncEnumerable&lt;T&gt;</code>, custom awaitables) emit a warning at runtime and are forwarded directly to the target without opening a transaction.</p>
 <hr>
 <h2 id="5-async-hooks-cannot-be-used-on-synchronous-call-paths">5. Async hooks cannot be used on synchronous call paths</h2>
 <p>Registering a <code>Func&lt;Task&gt;</code> hook inside a method with a synchronous return type throws <code>NotSupportedException</code> at execution time, before any hook runs:</p>
@@ -138,8 +138,8 @@ Change the method return type to Task, Task&lt;T&gt;, ValueTask, or ValueTask&lt
 <p><strong>Workaround:</strong> Change the method signature to return <code>Task</code> (or <code>ValueTask</code>), or use the synchronous <code>Action</code> overloads.</p>
 <hr>
 <h2 id="6-ef-core-sqlite-does-not-support-ambient-transactions">6. EF Core SQLite does not support ambient transactions</h2>
-<p>EF Core 9's SQLite provider sets <code>SupportsAmbientTransactions = false</code>. This means <code>DbConnection</code> does not enlist in the <code>TransactionScope</code>, so database-level rollback cannot be tested with SQLite in integration tests.</p>
-<p><strong>Workaround:</strong> Throw before <code>SaveChangesAsync()</code> to test rollback semantics at the proxy level. For full database rollback tests, use a provider that supports ambient transactions (SQL Server, PostgreSQL via Npgsql).</p>
+<p>EF Core's SQLite provider sets <code>SupportsAmbientTransactions = false</code>. This means <code>DbConnection</code> does not enlist in the <code>TransactionScope</code>, so database-level rollback cannot be reliably tested with SQLite in integration tests. This limitation is why the demo API and integration tests use PostgreSQL instead.</p>
+<p><strong>Workaround:</strong> For full database rollback tests and reliable transactional behavior, use a provider that supports ambient transactions (SQL Server, PostgreSQL via Npgsql). The demo API uses PostgreSQL locally via <code>docker compose up</code>.</p>
 <hr>
 <h2 id="7-beforerollback-cannot-vote-to-commit">7. BeforeRollback cannot vote to commit</h2>
 <p><code>BeforeRollback</code> hooks run on the rollback path — the decision to roll back has already been made. Throwing inside a <code>BeforeRollback</code> hook does not change the outcome; the exception is suppressed and the rollback proceeds.</p>
