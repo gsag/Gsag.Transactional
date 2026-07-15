@@ -79,7 +79,7 @@ app.Lifetime.ApplicationStarted.Register(async () =>
                    ?? app.Urls.FirstOrDefault(u => u.StartsWith("http://"));
             if (url is not null)
             {
-                Process.Start(new ProcessStartInfo($"{url}/swagger") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(url!) { UseShellExecute = true });
             }
         }
     }
