@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
 
 namespace Gsag.Transactional.Observability.Extensions;
 
@@ -52,7 +54,7 @@ public static class ServiceCollectionExtensions
         var options = new ObservabilityOptions();
         configure?.Invoke(options);
 
-        if (!options.EnableTracing && !options.EnableMetrics)
+        if (!options.EnableTracing && !options.EnableMetrics && !options.EnableLogs)
         {
             return services;
         }
@@ -95,6 +97,22 @@ public static class ServiceCollectionExtensions
                 {
                     exporter.Protocol = options.Metrics.Protocol;
                     exporter.Endpoint = metricsEndpoint;
+                }));
+        }
+
+        if (options.EnableLogs)
+        {
+            var logsEndpoint = CreateEndpoint(
+                options.Logs.Endpoint,
+                OpenTelemetryConventions.Configuration.LogsEndpoint);
+
+            services.AddLogging(logging => logging.AddSerilog(dispose: true));
+
+            builder.WithLogging(logging => logging
+                .AddOtlpExporter(exporter =>
+                {
+                    exporter.Protocol = options.Logs.Protocol;
+                    exporter.Endpoint = logsEndpoint;
                 }));
         }
 
