@@ -88,7 +88,12 @@ public sealed class MetricsProviderOptions
 public sealed class LogsProviderOptions
 {
     /// <summary>
+    /// Logs export protocol used when logs are enabled.
+    /// </summary>
+    public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.Grpc;
+
+    /// <summary>
     /// Logs export endpoint used when logs are enabled.
     /// </summary>
-    public string Endpoint { get; set; } = "http://localhost:3100";
+    public string Endpoint { get; set; } = "http://localhost:4317";
 }
