@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.4] — 2026-07-15
+
+### Fixed
+- **Observability article missing from docs**: Added `observability.md` to the DocFX table of contents so the article appears in the documentation sidebar and GitHub Pages site.
+
+---
+
+## [0.5.3] — 2026-07-15
+
+### Added
+- **OpenTelemetry observability sample** (`Gsag.Transactional.Observability`): Full observability pipeline demonstrating how to integrate OpenTelemetry with the transactional observer. Includes:
+  - `OpenTelemetryTransactionObserver` — records transaction counters, duration histograms, and activities via OTLP.
+  - `ObservabilityOptions` — configuration model for tracing, metrics, and logs (Grpc/HttpProtobuf protocols).
+  - `AddObservabilityPipeline(IConfiguration)` — single-call registration for OpenTelemetry pipeline, Serilog log export, health checks, and landing page.
+  - `AddObservability()` — builder extension to register the observer via `AddTransactional`.
+  - Health checks for PostgreSQL and Grafana (`/health/ready`, `/health/live`).
+  - Landing page dashboard at `/` with HTMX-powered live health badges and Lucide icons.
+  - `ObservabilityStartupFilter` — `IStartupFilter` auto-mapping endpoints on startup.
+  - Configuration-driven setup via `appsettings.json` (`Observability` section).
+  - Grafana LGTM stack (`grafana/otel-lgtm`) replacing Jaeger + Prometheus + OTel Collector.
+  - PostgreSQL 18 upgrade in docker-compose.
+- **Invocation strategy pattern** for return-type routing in `TransactionProxy`: new `Proxy/Invocation/` types (`ITransactionInvocationStrategy`, `TransactionInvocationStrategyResolver`, `SyncInvocationStrategy`, `TaskInvocationStrategy`, `ValueTaskInvocationStrategy`, `ValueTaskGenericInvocationStrategy`, `UnsupportedAsyncLikeInvocationStrategy`) replace inline routing logic.
+- **Unsupported async-like return type detection**: `TransactionProxy` now detects `IAsyncEnumerable<T>` and custom awaitable types, bypasses transaction wrapping, and emits a `Trace.TraceWarning`. Guidance added to architecture and limitations docs.
+- **Demo API documentation**: Simplified README with project structure, endpoint reference, and extension guide.
+- **Load-test enhancements** (`scripts/load-test/`): OpenTelemetry OTLP exporter integration, Serilog structured logging, concurrency and throughput validation improvements.
+
+### Changed
+- **`TransactionProxy` refactored** to use strategy pattern for return-type routing, improving testability and separation of concerns.
+- **SonarCloud CI fixes**: Resolved S4036 (absolute git path), S2325 (static methods), S2701 (assertions), NU1510 (unnecessary packages).
+- **Test assertions**: Replaced `Assert.Equal(true/false)` with `Assert.True()/Assert.False()`.
+
+### Fixed
+- **Async-like return types** (`IAsyncEnumerable<T>`, custom awaitables) no longer cause proxy failures; they are detected and bypassed with a trace warning.
+- **Extension-style `GetAwaiter` methods**: `TransactionProxy` now recognizes awaitable types provided via extension methods.
+- **ValueTask boxed CA2012 warning**: Suppressed in `ValueTaskInvocationStrategy` (boxed value returned through `DispatchProxy.Invoke`).
+
+### Dependencies
+- `Testcontainers.PostgreSql` bumped from 4.12.0 to 4.13.0.
+- `dotnet-stryker` bumped from 4.14.2 to 4.16.0.
+- `Npgsql.EntityFrameworkCore.PostgreSQL` bumped from 10.0.2 to 10.0.3.
+- `Microsoft.NET.Test.Sdk` bumped from 18.6.0 to 18.7.0.
+- `Microsoft.EntityFrameworkCore.Design` bumped from 10.0.2 to 10.0.9.
+- `Swashbuckle.AspNetCore` bumped from 10.1.7 to 10.2.3.
+- `Testcontainers.PostgreSql` bumped from 3.9.0 to 4.12.0.
+- `actions/cache` bumped from v5 to v6.
+- `actions/checkout` bumped from v6 to v7.
+
+---
+
 ## [0.5.2] — 2026-06-12
 
 ### Added
