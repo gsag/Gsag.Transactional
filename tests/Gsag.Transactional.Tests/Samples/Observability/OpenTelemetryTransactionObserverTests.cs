@@ -22,9 +22,9 @@ public class OpenTelemetryTransactionObserverTests
     [Fact]
     public void OnBegin_WhenActivityListenerIsRegistered_StartsActivityWithTransactionTags()
     {
-        using var listener = CreateActivityListener(out var stoppedActivities);
         using var meter = new Meter("test-meter");
         using var source = new ActivitySource("test-source");
+        using var listener = CreateActivityListener(source.Name!, out var stoppedActivities);
         var observer = new OpenTelemetryTransactionObserver(meter, source);
 
         observer.OnBegin(_info);
@@ -46,9 +46,9 @@ public class OpenTelemetryTransactionObserverTests
     [Fact]
     public void OnRollback_WhenActivityListenerIsRegistered_MarksActivityAsError()
     {
-        using var listener = CreateActivityListener(out var stoppedActivities);
         using var meter = new Meter("test-meter");
         using var source = new ActivitySource("test-source");
+        using var listener = CreateActivityListener(source.Name!, out var stoppedActivities);
         var observer = new OpenTelemetryTransactionObserver(meter, source);
         var exception = new InvalidOperationException("payment failed");
 
@@ -95,9 +95,9 @@ public class OpenTelemetryTransactionObserverTests
     [Fact]
     public async Task Observer_WhenUsedConcurrently_DoesNotShareActivitiesAcrossAsyncFlows()
     {
-        using var listener = CreateActivityListener(out var stoppedActivities);
         using var meter = new Meter("test-meter");
         using var source = new ActivitySource("test-source");
+        using var listener = CreateActivityListener(source.Name!, out var stoppedActivities);
         var observer = new OpenTelemetryTransactionObserver(meter, source);
 
         await Task.WhenAll(
@@ -114,9 +114,9 @@ public class OpenTelemetryTransactionObserverTests
     [Fact]
     public void Observer_WhenTransactionsAreNestedInSameAsyncFlow_CompletesBothActivities()
     {
-        using var listener = CreateActivityListener(out var stoppedActivities);
         using var meter = new Meter("test-meter");
         using var source = new ActivitySource("test-source");
+        using var listener = CreateActivityListener(source.Name!, out var stoppedActivities);
         var observer = new OpenTelemetryTransactionObserver(meter, source);
         var outer = _info with { MethodName = "Outer", Propagation = TransactionScopeOption.Required };
         var inner = _info with { MethodName = "Inner", Propagation = TransactionScopeOption.RequiresNew };
@@ -158,14 +158,14 @@ public class OpenTelemetryTransactionObserverTests
         observer.OnComplete(info, committed, TimeSpan.FromMilliseconds(10));
     }
 
-    private static ActivityListener CreateActivityListener(out ConcurrentBag<Activity> stoppedActivities)
+    private static ActivityListener CreateActivityListener(string sourceName, out ConcurrentBag<Activity> stoppedActivities)
     {
         var activities = new ConcurrentBag<Activity>();
         stoppedActivities = activities;
 
         var listener = new ActivityListener
         {
-            ShouldListenTo = _ => true,
+            ShouldListenTo = activitySource => activitySource.Name == sourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity => activities.Add(activity),
         };
