@@ -45,6 +45,23 @@ public class ManualServiceImpl : IManualService
     public string Do() => "manual";
 }
 
+
+public interface ISecondaryTransactionalService
+{
+    string Run();
+}
+
+public interface ISecondaryTransactionalContract
+{
+    [Transactional]
+    string Run();
+}
+
+public class SecondaryTransactionalService : ISecondaryTransactionalService, ISecondaryTransactionalContract
+{
+    public string Run() => "secondary";
+}
+
 public class ExtensionsTests
 {
     private static ServiceCollection NewServices() => new();
@@ -163,6 +180,29 @@ public class ExtensionsTests
         Assert.Equal(2, count);
     }
 
+    [Fact]
+    public void AddTransactionalServices_WithMultipleObservers_UsesCompositeObserverForResolvedProxy()
+    {
+        var first = new RecordingObserver();
+        var second = new RecordingObserver();
+
+        var provider = NewServices()
+            .AddSingleton<ITransactionObserver>(first)
+            .AddSingleton<ITransactionObserver>(second)
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
+            .BuildServiceProvider();
+
+        using var scope = provider.CreateScope();
+        var svc = scope.ServiceProvider.GetRequiredService<IExtTestService>();
+
+        svc.Do();
+
+        Assert.Contains("BEGIN:Do", first.Calls);
+        Assert.Contains("COMMIT:Do", first.Calls);
+        Assert.Contains("BEGIN:Do", second.Calls);
+        Assert.Contains("COMMIT:Do", second.Calls);
+    }
+
     // -------------------------------------------------------------------------
     // Attribute-on-interface discovery
     // -------------------------------------------------------------------------
@@ -190,6 +230,20 @@ public class ExtensionsTests
         proxy.Run();
 
         Assert.Contains("COMMIT:Run", observer.Calls);
+    }
+
+
+    [Fact]
+    public void AddTransactionalServices_AttributeOnSecondaryInterface_StillRegistersProxy()
+    {
+        var provider = NewServices()
+            .AddTransactional(b => b.ScanAssembly(Assembly.GetExecutingAssembly()))
+            .BuildServiceProvider();
+
+        var svc = provider.GetRequiredService<ISecondaryTransactionalService>();
+
+        Assert.IsType<ISecondaryTransactionalService>(svc, exactMatch: false);
+        Assert.Equal("secondary", svc.Run());
     }
 
     // -------------------------------------------------------------------------
