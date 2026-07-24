@@ -50,7 +50,9 @@ public class TransactionDelegateCacheTests
         var hooks = new HookCollection { Role = HookCollectionRole.Owning };
         var ctx = new TransactionContext(method, scope, attr, observer, hooks);
 
+#pragma warning disable CA2012 // ValueTask is directly awaited inline; cast from object return type is unavoidable
         var result = await (ValueTask<string>)TransactionDelegateCache.CallGenericValueTaskWrapper(typeof(string), ValueTask.FromResult("vt-ok"), ctx);
+#pragma warning restore CA2012
 
         Assert.Equal("vt-ok", result);
         Assert.Contains("COMMIT:ReturnValueTaskAsync", observer.Calls);
