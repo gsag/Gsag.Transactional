@@ -173,7 +173,7 @@ internal class EnvironmentBootstrapper
     }
 
     [SuppressMessage("Security", "S4036", Justification = "containerFile is output-relative and immutable; docker-compose.yml is copied to output dir by build")]
-    private ProcessStartInfo CreateContainerProcessInfo(string arguments)
+    private static ProcessStartInfo CreateContainerProcessInfo(string arguments)
     {
         var psi = new ProcessStartInfo
         {
