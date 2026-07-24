@@ -1,3 +1,4 @@
+using System.Reflection;
 using Gsag.Transactional.Core.Hooks;
 using Xunit;
 
@@ -180,5 +181,40 @@ public class HookCollectionTests
         Assert.False(collection.HasHooksFor(HookEvent.AfterCommit));
         Assert.False(collection.HasHooksFor(HookEvent.BeforeRollback));
         Assert.False(collection.HasHooksFor(HookEvent.AfterRollback));
+    }
+
+    [Fact]
+    public void HasHooksFor_WhenSyncDictionaryContainsEmptyList_ReturnsFalse()
+    {
+        var collection = new HookCollection();
+        SetPrivateField(collection, "_sync", new Dictionary<HookEvent, List<Action>>
+        {
+            [HookEvent.AfterCommit] = []
+        });
+
+        Assert.False(collection.HasHooksFor(HookEvent.AfterCommit));
+    }
+
+    [Fact]
+    public void HasHooksFor_WhenAsyncDictionaryContainsEmptyList_ReturnsFalse()
+    {
+        var collection = new HookCollection();
+        SetPrivateField(collection, "_async", new Dictionary<HookEvent, List<Func<Task>>>
+        {
+            [HookEvent.AfterRollback] = []
+        });
+
+        Assert.False(collection.HasHooksFor(HookEvent.AfterRollback));
+    }
+
+    private static void SetPrivateField<T>(HookCollection collection, string fieldName, T value)
+    {
+        var field = typeof(HookCollection).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field is null)
+        {
+            throw new InvalidOperationException($"Field '{fieldName}' was not found on HookCollection.");
+        }
+
+        field.SetValue(collection, value);
     }
 }

@@ -1,5 +1,7 @@
+using System.Reflection.Emit;
 using System.Transactions;
 using Gsag.Transactional.Core.Attributes;
+using Gsag.Transactional.Core.Hooks;
 using Gsag.Transactional.Core.Observability;
 using Gsag.Transactional.Core.Proxy;
 using Xunit;
@@ -54,13 +56,23 @@ public class TransactionContextInfoTests
     }
 
     [Fact]
-    public void Info_DeclaringType_IsNotNull()
+    public void Info_DeclaringType_MatchesInterfaceType()
     {
         var (proxy, observer) = Build();
 
         proxy.WithConfig();
 
-        Assert.NotNull(observer.Captured!.DeclaringType);
+        Assert.Equal(typeof(IContextInfoService), observer.Captured!.DeclaringType);
+    }
+
+    [Fact]
+    public void Info_DeclaringType_FallsBackToObject_WhenMethodDeclaringTypeIsNull()
+    {
+        var dm = new DynamicMethod("Orphan", typeof(void), Type.EmptyTypes);
+        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+        var ctx = new TransactionContext(dm, scope, new TransactionalAttribute(), new CapturingObserver(), new HookCollection());
+
+        Assert.Equal(typeof(object), ctx.Info.DeclaringType);
     }
 
     [Fact]
