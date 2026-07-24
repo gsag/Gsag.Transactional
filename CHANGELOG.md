@@ -1,11 +1,11 @@
-# Changelog
+ï»¿# Changelog
 
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.5] — 2026-07-24
+## [0.5.5] - 2026-07-24
 
 ### Added
 - **Release hardening from mutation analysis**: expanded core test coverage around transaction hook execution, rollback suppression, proxy factory caching, and unsupported async-like detection.
@@ -26,24 +26,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.4] — 2026-07-15
+## [0.5.4] - 2026-07-15
 
 ### Fixed
 - **Observability article missing from docs**: Added `observability.md` to the DocFX table of contents so the article appears in the documentation sidebar and GitHub Pages site.
 
 ---
 
-## [0.5.3] — 2026-07-15
+## [0.5.3] - 2026-07-15
 
 ### Added
 - **OpenTelemetry observability sample** (`Gsag.Transactional.Observability`): Full observability pipeline demonstrating how to integrate OpenTelemetry with the transactional observer. Includes:
-  - `OpenTelemetryTransactionObserver` — records transaction counters, duration histograms, and activities via OTLP.
-  - `ObservabilityOptions` — configuration model for tracing, metrics, and logs (Grpc/HttpProtobuf protocols).
-  - `AddObservabilityPipeline(IConfiguration)` — single-call registration for OpenTelemetry pipeline, Serilog log export, health checks, and landing page.
-  - `AddObservability()` — builder extension to register the observer via `AddTransactional`.
+  - `OpenTelemetryTransactionObserver` - records transaction counters, duration histograms, and activities via OTLP.
+  - `ObservabilityOptions` - configuration model for tracing, metrics, and logs (Grpc/HttpProtobuf protocols).
+  - `AddObservabilityPipeline(IConfiguration)` - single-call registration for OpenTelemetry pipeline, Serilog log export, health checks, and landing page.
+  - `AddObservability()` - builder extension to register the observer via `AddTransactional`.
   - Health checks for PostgreSQL and Grafana (`/health/ready`, `/health/live`).
   - Landing page dashboard at `/` with HTMX-powered live health badges and Lucide icons.
-  - `ObservabilityStartupFilter` — `IStartupFilter` auto-mapping endpoints on startup.
+  - `ObservabilityStartupFilter` - `IStartupFilter` auto-mapping endpoints on startup.
   - Configuration-driven setup via `appsettings.json` (`Observability` section).
   - Grafana LGTM stack (`grafana/otel-lgtm`) replacing Jaeger + Prometheus + OTel Collector.
   - PostgreSQL 18 upgrade in docker-compose.
@@ -75,7 +75,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.2] — 2026-06-12
+## [0.5.2] - 2026-06-12
 
 ### Added
 - **Auto-discovery of calling assembly**: `AddTransactional()` now automatically scans the assembly from which it is called, eliminating the need for explicit `.ScanAssembly()` in most applications. Services with `[Transactional]` methods and matching `I{ClassName}` interfaces are discovered without configuration. Simplifies typical usage: `builder.Services.AddTransactional();` instead of `builder.Services.AddTransactional(b => b.ScanAssembly(typeof(MyService).Assembly));`.
@@ -108,7 +108,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.1] — 2026-06-10
+## [0.5.1] - 2026-06-10
 
 ### Added
 - **Fluent builder pattern for transactional configuration**: New `ITransactionalBuilder` interface and `AddTransactional()` entry point consolidate four extension methods into a chainable API. Improves discoverability and groups configuration concerns. See [Installation](docs/_src/articles/installation.md) for examples.
@@ -137,7 +137,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.0] — 2026-05-22
+## [0.5.0] - 2026-05-22
 
 ### Added
 - `.NET 10 support`: Core library now targets `.NET 8.0;net9.0;net10.0`; tests and demo upgraded to `.NET 10`; publish workflow validates package across all three versions.
@@ -146,7 +146,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - **CI/Workflow Modernization**: Replaced Codecov with SonarCloud (org: `gsag`, project: `Gsag.Transactional`); coverage format changed from Cobertura to OpenCover.
-- CI workflows unified into two parallel jobs (`Build·Test·Analysis` and `Quality Gate`) on ubuntu-latest, eliminating cross-job artifact passing and reducing redundancy.
+- CI workflows unified into two parallel jobs (`Build-Test-Analysis` and `Quality Gate`) on ubuntu-latest, eliminating cross-job artifact passing and reducing redundancy.
 - Nightly workflow refactored into three parallel jobs (`build-test-analysis`, `quality-gate`, `mutation`) with consolidated report output; all jobs now check out from `main` with full history for SonarCloud analysis.
 - `TransactionProxy.HandleAsync()` return type: `object` ? `Task` (improves type safety and compiler optimizations on hot path).
 - `TransactionProxy.HandleValueTask()` return type: `object` ? `ValueTask` (same rationale: type safety and async performance).
@@ -169,7 +169,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.5.0-alpha] — 2026-05-15
+## [0.5.0-alpha] - 2026-05-15
 
 ### Added
 - `AddTransactionalService<T, I>()` explicit overload: registers a concrete type `T` paired with interface `I` without relying on the `I{ClassName}` naming convention.
@@ -206,11 +206,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.4.1-alpha] — 2026-05-12
+## [0.4.1-alpha] - 2026-05-12
 
 ### Added
 - DocFX documentation site targeting GitHub Pages: 7 articles (installation, getting started, propagation modes, transaction hooks, rollback rules, limitations, architecture), API reference generated from XML comments, dark mode, search.
-- `docs/_src/build.ps1` — local preview script (clean ? metadata ? serve at `http://localhost:8080`).
+- `docs/_src/build.ps1` - local preview script (clean ? metadata ? serve at `http://localhost:8080`).
 - NuGet publish workflow (`.github/workflows/publish.yml`): packs and pushes `Gsag.Transactional.Core` to NuGet.org on `v*` tag push.
 - Codecov integration: coverage uploaded from CI and badge added to README.
 - Dependabot configuration for NuGet and GitHub Actions dependency updates.
@@ -229,13 +229,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.3.0-alpha] — 2026-05-08
+## [0.3.0-alpha] - 2026-05-08
 
 ### Added
-- `ITransactionLifecycleObserver.OnComplete(MethodInfo, bool committed, TimeSpan)`: fires after every transaction resolves — commit or rollback — regardless of outcome. Useful for recording execution-time metrics without duplicating logic across `OnCommit` and `OnRollback`.
+- `ITransactionLifecycleObserver.OnComplete(MethodInfo, bool committed, TimeSpan)`: fires after every transaction resolves - commit or rollback - regardless of outcome. Useful for recording execution-time metrics without duplicating logic across `OnCommit` and `OnRollback`.
 - `CompositeTransactionObserver`: Composite pattern over `ITransactionLifecycleObserver`. When multiple observers are registered, the proxy wraps them and calls each in registration order. Enables logging, metrics, and tracing observers to coexist without modifying any existing class.
 - `AddTransactionalObserver<T>()` DI extension: registers `T` as both its concrete type (injectable directly) and as `ITransactionLifecycleObserver` (forwarded). Idempotent per type. The proxy factory builds the composite automatically when two or more observers are registered.
-- `AddTransactionalLogging()` refactored to delegate to `AddTransactionalObserver<LoggingTransactionObserver>()` — combinable with additional observers.
+- `AddTransactionalLogging()` refactored to delegate to `AddTransactionalObserver<LoggingTransactionObserver>()` - combinable with additional observers.
 - `InMemoryMetricsObserver` demo observer: accumulates `TotalTransactions`, `Committed`, `RolledBack`, and `TotalElapsedMs` via `Interlocked`; exposed via `GET /checkout/metrics`. Registered alongside `LoggingTransactionObserver` in the demo to exercise the Composite.
 - `BeforeCommit` hook (sync + async): fires inside the `TransactionScope` before `scope.Complete()`.
   - On the success path, a throwing hook causes a rollback and `AfterRollback` fires instead of `AfterCommit`.
@@ -250,7 +250,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Repository folders reorganized: `core/Transactional.Core`, `demo/Transactional.Demo.Api`, `tests/Transactional.Tests` (previously all under `src/`).
 - `HookCollection`, `HookCollectionRole`, and `TransactionOutcome` extracted from `TransactionHooks.cs` into individual files.
 - `TransactionContext` extracted from `TransactionScopeExecutor.cs` into its own file; `TransactionScopeExecutor` promoted from nested class to top-level `internal static class`.
-- `DisposeScope` helper removed from `TransactionScopeExecutor` — all callers now use `TryDispose` + `NotifyCommitOutcome` directly so `OnComplete` fires on every path.
+- `DisposeScope` helper removed from `TransactionScopeExecutor` - all callers now use `TryDispose` + `NotifyCommitOutcome` directly so `OnComplete` fires on every path.
 
 ### Fixed
 - `OnComplete` not fired when a method threw synchronously before returning its `Task` / `ValueTask` (the `HandleAsync`, `HandleValueTask`, and `HandleValueTaskGeneric` catch blocks in `TransactionProxy` were calling `DisposeScope`, which skipped `NotifyCommitOutcome`).
@@ -258,7 +258,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.2.1-alpha] — 2026-05-05
+## [0.2.1-alpha] - 2026-05-05
 
 ### Added
 - GitHub Actions CI workflow: build, test, and coverage reporting.
@@ -269,7 +269,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - VoltAgent review refactoring (C1-C2, M1-M5, m1-m6, S2-S4):
   - `TransactionContext` fields made private; `TransactionScopeExecutor` nested inside `TransactionContext`.
   - `OnCommit` observer notification deferred to after `scope.Dispose()` via `NotifyCommitOutcome`.
-  - Expression-tree compiled delegate caches for `Task<T>`/`ValueTask<T>` wrappers and `TransactionProxyFactory.Create(Type, …)`.
+  - Expression-tree compiled delegate caches for `Task<T>`/`ValueTask<T>` wrappers and `TransactionProxyFactory.Create(Type, ...)`.
   - `HookCollection` sync/async dictionaries lazy-allocated on first use.
   - Namespace guard added to `AddTransactionalServices` interface discovery.
   - `[AttributeUsage(Inherited = false)]` added to `TransactionalAttribute`.
@@ -282,16 +282,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.2.0] — 2026-05-05
+## [0.2.0] - 2026-05-05
 
 ### Added
-- `ITransactionHooks` — lifecycle callback interface with `AfterCommit`, `AfterRollback`, and `AfterCompletion` hooks (sync and async overloads each).
+- `ITransactionHooks` - lifecycle callback interface with `AfterCommit`, `AfterRollback`, and `AfterCompletion` hooks (sync and async overloads each).
 - Hook execution semantics: sync hooks always run before async hooks; on rollback and `NoRollbackFor` paths, hook failures are suppressed so they cannot mask the original exception.
 - `AsyncLocal<HookCollection?>` infrastructure with `BeginScope` / `ClearScope` and `HookCollectionRole` (`Owning`, `Joining`, `SuppressThrowaway`) for per-execution-context isolation and correct nesting behaviour.
-- `TryDispose` in `TransactionScopeExecutor` — captures `Dispose` exceptions so hooks can run before the exception propagates.
+- `TryDispose` in `TransactionScopeExecutor` - captures `Dispose` exceptions so hooks can run before the exception propagates.
 - E-commerce checkout demo (`Transactional.Demo.Api`) with eight scenario endpoints covering commit, rollback, `RequiresNew`, `Suppress`, `NoRollbackFor`, and hook ordering.
 - `Transactional.Core` packaged for NuGet: targets `net8.0;net9.0`, Source Link, symbol package.
-- `TransactionProxy<T>` and `TransactionProxyFactory` are internal — proxy creation is exposed only via the DI extensions.
+- `TransactionProxy<T>` and `TransactionProxyFactory` are internal - proxy creation is exposed only via the DI extensions.
 
 ### Fixed
 - Hooks silently dropped when `scope.Dispose()` throws `TransactionAbortedException` (e.g. `Transaction.Current.Rollback()` inside method).
@@ -299,14 +299,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [0.1.0] — 2026-04-30
+## [0.1.0] - 2026-04-30
 
 ### Added
 - `[Transactional]` attribute with `Propagation` (`Required`, `RequiresNew`, `Suppress`), `RollbackFor`, and `NoRollbackFor`.
 - `TransactionProxy<T>` (`DispatchProxy`) with per-type attribute and compiled delegate caches; two-step attribute lookup (interface ? concrete class via `GetInterfaceMap`).
-- `TransactionScopeExecutor` — handles commit, rollback, and dispose for `Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and sync return types; `TransactionScopeAsyncFlowOption.Enabled` ensures ambient flow across `await` continuations.
-- `ITransactionLifecycleObserver` — observer callbacks on commit, rollback, and exception. `LoggingTransactionObserver` and `NullTransactionObserver` built-in implementations.
-- `AddTransactionalServices(Assembly)` DI extension — convention-based proxy registration (`OrderService` ? `IOrderService`).
+- `TransactionScopeExecutor` - handles commit, rollback, and dispose for `Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and sync return types; `TransactionScopeAsyncFlowOption.Enabled` ensures ambient flow across `await` continuations.
+- `ITransactionLifecycleObserver` - observer callbacks on commit, rollback, and exception. `LoggingTransactionObserver` and `NullTransactionObserver` built-in implementations.
+- `AddTransactionalServices(Assembly)` DI extension - convention-based proxy registration (`OrderService` ? `IOrderService`).
 - Cross-service `RequiresNew` composition pattern via `OrderFulfillmentService`.
 - Initial demo API (`Transactional.Demo.Api`) with EF Core + SQLite.
 - Unit and integration test suites.
+
+
+
