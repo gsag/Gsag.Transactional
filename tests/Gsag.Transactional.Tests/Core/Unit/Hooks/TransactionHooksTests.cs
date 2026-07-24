@@ -12,6 +12,8 @@ namespace Gsag.Transactional.Tests.Core.Unit.Hooks;
 /// </summary>
 public class TransactionHooksTests
 {
+    private static readonly string[] ExpectedHookOrder = ["hook-1", "hook-2"];
+
     [Fact]
     public void AfterRollback_OutsideAnyScope_SyncAndAsync_AreNoOps()
     {
@@ -63,6 +65,6 @@ public class TransactionHooksTests
 
         TransactionHooks.RunBeforeRollbackSyncHooks(hooks);
 
-        Assert.Equal(new[] { "hook-1", "hook-2" }, calls);
+        Assert.Equal(ExpectedHookOrder, calls);
     }
 }

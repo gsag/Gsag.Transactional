@@ -50,8 +50,7 @@ public class TransactionDelegateCacheTests
         var hooks = new HookCollection { Role = HookCollectionRole.Owning };
         var ctx = new TransactionContext(method, scope, attr, observer, hooks);
 
-        var boxed = TransactionDelegateCache.CallGenericValueTaskWrapper(typeof(string), ValueTask.FromResult("vt-ok"), ctx);
-        var result = await ((ValueTask<string>)boxed);
+        var result = await (ValueTask<string>)TransactionDelegateCache.CallGenericValueTaskWrapper(typeof(string), ValueTask.FromResult("vt-ok"), ctx);
 
         Assert.Equal("vt-ok", result);
         Assert.Contains("COMMIT:ReturnValueTaskAsync", observer.Calls);
