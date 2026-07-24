@@ -18,7 +18,7 @@ internal sealed class ObservabilityStartupFilter(ObservabilityOptions options) :
                 inner.Run(ctx =>
                 {
                     ctx.Response.ContentType = "text/html; charset=utf-8";
-                    return ctx.Response.WriteAsync(LandingPageLoader.Content);
+                    return ctx.Response.WriteAsync(LandingPageLoader.Content, ctx.RequestAborted);
                 }));
 
             app.MapWhen(ctx => ctx.Request.Path == options.HealthReadyPath, inner =>
@@ -54,9 +54,10 @@ internal sealed class ObservabilityStartupFilter(ObservabilityOptions options) :
 
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.WriteAsync(
-            $"""<span class="badge {cssClass}" hx-get="{context.Request.Path}" hx-trigger="every 5s" hx-swap="outerHTML">{label}</span>""");
-    }
+            $"""<span class="badge {cssClass}" hx-get="{context.Request.Path}" hx-trigger="every 5s" hx-swap="outerHTML">{label}</span>""",
+            context.RequestAborted);
 
+    }
     private static async Task HandleHealthCheckAsync(HttpContext context, string[] tags)
     {
         var healthCheckService = context.RequestServices.GetRequiredService<HealthCheckService>();
@@ -82,6 +83,7 @@ internal sealed class ObservabilityStartupFilter(ObservabilityOptions options) :
         };
 
         await context.Response.WriteAsync(
-            JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
-    }
+            JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }),
+            context.RequestAborted);
+}
 }
