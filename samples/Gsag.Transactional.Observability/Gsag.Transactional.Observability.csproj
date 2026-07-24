@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Content\landing-page.html" LogicalName="Gsag.Transactional.Observability.Content.landing-page.html" />
+    <EmbeddedResource Include="Content\health-badge.html" LogicalName="Gsag.Transactional.Observability.Content.health-badge.html" />
   </ItemGroup>
 
   <ItemGroup>
