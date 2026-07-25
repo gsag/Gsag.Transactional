@@ -15,6 +15,20 @@ public interface ITimedService
     Task SlowAsync();
 }
 
+public interface IZeroTimeoutService
+{
+    [Transactional(TimeoutSeconds = 0)]
+    Task DelayAsync();
+}
+
+public class ZeroTimeoutService : IZeroTimeoutService
+{
+    public async Task DelayAsync()
+    {
+        await Task.Delay(200);
+    }
+}
+
 public class TimedService : ITimedService
 {
     public Task FastAsync() => Task.CompletedTask;
@@ -58,5 +72,17 @@ public class TimeoutTests
     public async Task Timeout_WhenMethodExceedsLimit_ThrowsTransactionAbortedException()
     {
         await Assert.ThrowsAsync<TransactionAbortedException>(() => _proxy.SlowAsync());
+    }
+
+    [Fact]
+    public async Task Timeout_WhenConfiguredAsZero_FallsBackToDefaultTimeout_AndCommits()
+    {
+        var observer = new RecordingObserver();
+        var proxy = TransactionProxyFactory.Create<IZeroTimeoutService>(new ZeroTimeoutService(), observer);
+
+        await proxy.DelayAsync();
+
+        Assert.Contains("COMMIT:DelayAsync", observer.Calls);
+        Assert.DoesNotContain("ROLLBACK:DelayAsync", observer.Calls);
     }
 }

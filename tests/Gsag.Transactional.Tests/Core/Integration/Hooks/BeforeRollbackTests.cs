@@ -13,6 +13,7 @@ public interface IBeforeRollbackService
     Task RunWithFailingBeforeRollbackHookAsync();
     ValueTask RunValueTaskAndRollbackAsync();
     void RunSyncAndRollback();
+    void RunSyncWithFailingBeforeRollbackHook();
     void RunSyncWithAsyncBeforeRollbackHook();
 }
 
@@ -63,6 +64,14 @@ public class BeforeRollbackService : IBeforeRollbackService
     public void RunSyncAndRollback()
     {
         _hooks.BeforeRollback(() => Fired.Add("before-rollback"));
+        _hooks.AfterRollback(() => Fired.Add("after-rollback"));
+        throw new InvalidOperationException("forced rollback");
+    }
+
+    [Transactional]
+    public void RunSyncWithFailingBeforeRollbackHook()
+    {
+        _hooks.BeforeRollback((Action)(() => throw new Exception("hook failure")));
         _hooks.AfterRollback(() => Fired.Add("after-rollback"));
         throw new InvalidOperationException("forced rollback");
     }

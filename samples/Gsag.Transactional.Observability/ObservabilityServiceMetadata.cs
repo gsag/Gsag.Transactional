@@ -8,6 +8,8 @@ internal sealed record ObservabilityServiceMetadata(string ServiceName, string? 
 internal static class ObservabilityServiceMetadataResolver
 {
     private static readonly Lazy<string> CachedGitPath = new(ResolveGitPath);
+    internal static readonly char[] separator = new[] { '\r', '\n' };
+
     internal static ObservabilityServiceMetadata Resolve(ObservabilityOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -73,7 +75,7 @@ internal static class ObservabilityServiceMetadataResolver
             }
 
             return output
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .FirstOrDefault();
         }
         catch

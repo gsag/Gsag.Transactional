@@ -225,6 +225,15 @@ public class ProxyMechanicsTests
         => Assert.Equal("ok", _proxy.SyncReturn());
 
     [Fact]
+    public void SyncInvocationStrategy_CanHandleAnyReturnType()
+    {
+        var strategy = new SyncInvocationStrategy();
+
+        Assert.True(strategy.CanHandle(typeof(string)));
+        Assert.True(strategy.CanHandle(typeof(void)));
+    }
+
+    [Fact]
     public async Task AsyncMethod_WithTransactionalAttribute_ExecutesAndReturns()
         => Assert.Equal("ok", await _proxy.AsyncReturn());
 

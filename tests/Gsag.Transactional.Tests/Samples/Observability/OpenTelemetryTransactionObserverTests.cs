@@ -76,6 +76,20 @@ public class OpenTelemetryTransactionObserverTests
     }
 
     [Fact]
+    public void Dispose_WhenCreatedWithExternalDiagnostics_DoesNotThrow()
+    {
+        using var meter = new Meter("test-meter");
+        using var source = new ActivitySource("test-source");
+        using var observer = new OpenTelemetryTransactionObserver(meter, source);
+    }
+
+    [Fact]
+    public void Dispose_WhenCreatedWithDefaultConstructor_DoesNotThrow()
+    {
+        using var observer = new OpenTelemetryTransactionObserver();
+    }
+
+    [Fact]
     public void Observer_RecordsExpectedMetricMeasurements()
     {
         using var meter = new Meter("test-meter");

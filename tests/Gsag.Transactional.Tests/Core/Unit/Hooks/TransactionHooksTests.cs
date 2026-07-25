@@ -12,6 +12,8 @@ namespace Gsag.Transactional.Tests.Core.Unit.Hooks;
 /// </summary>
 public class TransactionHooksTests
 {
+    private static readonly string[] ExpectedHookOrder = ["hook-1", "hook-2"];
+
     [Fact]
     public void AfterRollback_OutsideAnyScope_SyncAndAsync_AreNoOps()
     {
@@ -46,5 +48,23 @@ public class TransactionHooksTests
 
         hooks.BeforeRollback((Action)(() => throw new Exception("should not fire")));
         hooks.BeforeRollback(async () => { await Task.CompletedTask; throw new Exception("should not fire"); });
+    }
+
+    [Fact]
+    public void RunBeforeRollbackSyncHooks_WhenHookThrows_SwallowsHookFailureAndRunsRemainingHooks()
+    {
+        var hooks = new HookCollection();
+        var calls = new List<string>();
+
+        hooks.AddSync(HookEvent.BeforeRollback, () =>
+        {
+            calls.Add("hook-1");
+            throw new Exception("hook failure");
+        });
+        hooks.AddSync(HookEvent.BeforeRollback, () => calls.Add("hook-2"));
+
+        TransactionHooks.RunBeforeRollbackSyncHooks(hooks);
+
+        Assert.Equal(ExpectedHookOrder, calls);
     }
 }

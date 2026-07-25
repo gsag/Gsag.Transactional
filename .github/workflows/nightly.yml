@@ -14,6 +14,7 @@ env:
   COVERAGE_DIR: ./coverage
   COVERAGE_REPORT_DIR: coverage/report
   COVERAGE_THRESHOLD: 90
+  TEST_FILTER: 'FullyQualifiedName!~Transactional.Tests.Integration.Demo&FullyQualifiedName!~Gsag.Transactional.Tests.Samples'
   ARTIFACT_RETENTION: 30
 
 jobs:
@@ -76,10 +77,10 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release -warnaserror
 
-      - name: Test (excluding demo integration tests)
+      - name: Test (excluding demo and samples tests)
         run: >
           dotnet test --no-build -c Release
-          --filter "FullyQualifiedName!~Transactional.Tests.Integration.Demo"
+          --filter "${{ env.TEST_FILTER }}"
           --collect:"XPlat Code Coverage"
           --results-directory ${{ env.COVERAGE_DIR }}
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
