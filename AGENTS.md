@@ -151,3 +151,49 @@ Avoid:
 - unnecessary abstractions
 - overly generic designs
 - sync-over-async patterns
+
+# Graphify Workflow
+
+The repository architecture graph must represent the main library code only.
+
+Scope configuration:
+- `.graphifyignore` excludes `docs/`, `tests/`, and `samples/`.
+- `graphify-out/` is ignored by Git and contains generated graph artifacts.
+- Use `src` as the graph root; do not use the full repository root for routine updates.
+
+Commands:
+
+```powershell
+# Build or rebuild the structural graph for the library
+graphify extract src --code-only --force --no-viz --out .
+
+# Build or update the graph after source changes
+.\scripts\graphify\setup-graphify.ps1
+
+# Regenerate the interactive visualization
+graphify export html
+
+# Measure estimated token reduction
+graphify benchmark graphify-out\graph.json
+```
+
+Use `--directed` for a separate graph when tracing call flow or dependency direction. The default undirected graph is preferred for community clustering and broad architectural exploration.
+
+Do not treat benchmark values as API billing measurements. They estimate the context required by graph traversal versus loading the corpus directly.
+
+
+## New Machine Setup
+
+Run from the repository root:
+
+```powershell
+.\scripts\graphify\setup-graphify.ps1
+
+# Force a clean structural rebuild when needed
+.\scripts\graphify\setup-graphify.ps1 -Rebuild
+
+# Command Prompt wrapper
+scripts\graphify\setup-graphify.bat
+```
+
+The setup script verifies `uv` and `graphify`, maintains `.graphifyignore`, builds the graph from `src`, generates the HTML visualization, and runs the token benchmark.
