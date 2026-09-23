@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.6] - 2026-09-22
+
+### Dependencies
+- `Microsoft.SourceLink.GitHub` bumped from 10.0.301 to 10.0.400.
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` bumped from 1.17.0 to 1.18.0.
+- `OpenTelemetry.Extensions.Hosting` bumped from 1.17.0 to 1.18.0.
+- `OpenTelemetry.Instrumentation.AspNetCore` bumped from 1.17.0 to 1.18.0.
+- `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Logging.Abstractions` bumped from 10.0.10 to 10.0.11.
+- `Microsoft.EntityFrameworkCore.Design` bumped from 10.0.9 to 10.0.11.
+- `Microsoft.NET.Test.Sdk` bumped from 18.8.1 to 18.9.0.
+- `dotnet-sonarscanner` bumped from 11.2.1 to 11.3.0.
+- `dotnet-reportgenerator-globaltool` bumped from 5.5.10 to 5.5.11.
+- `actions/setup-java` bumped from v5 to v6.
+
+### Security
+- **Source Link vulnerability resolved**: `Microsoft.SourceLink.GitHub` 10.0.400 removes the moderate vulnerability in its transitive `Microsoft.Build.Tasks.Git` 10.0.301 ([GHSA-23fw-v26w-5fgq](https://github.com/advisories/GHSA-23fw-v26w-5fgq)), which surfaced as NuGet audit warnings and failing CI checks on pull requests.
+
+---
+
 ## [0.5.5] - 2026-07-24
 
 ### Added
