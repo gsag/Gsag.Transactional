@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0  # Source Link embeds commit hash — needs full history
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: microsoft
           java-version: ${{ env.JAVA_VERSION }}
